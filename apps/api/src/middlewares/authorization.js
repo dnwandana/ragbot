@@ -2,6 +2,7 @@ import HttpError from "../utils/http-error.js"
 import { HTTP_STATUS_CODE } from "../utils/constant.js"
 import { verifyAccessToken, verifyRefreshToken } from "../utils/jwt.js"
 import logger from "../utils/logger.js"
+import * as refreshTokenModel from "../models/refresh-tokens.js"
 
 /**
  * Express middleware to require a valid access token for protected routes.
@@ -82,9 +83,8 @@ export const requireAccessToken = (req, res, next) => {
  * @param {Function} next - Express next middleware function
  * @returns {Object} JSON response with error status and message
  */
-export const requireRefreshToken = (req, res, next) => {
+export const requireRefreshToken = async (req, res, next) => {
   try {
-    // get token from header
     const refreshToken = req.cookies?.refresh_token
     if (!refreshToken) {
       logger.warn("Refresh token authentication failed: No token provided", {
@@ -95,19 +95,28 @@ export const requireRefreshToken = (req, res, next) => {
       throw new HttpError(HTTP_STATUS_CODE.UNAUTHORIZED, "No token provided")
     }
 
-    // verify token
     const decoded = verifyRefreshToken(refreshToken)
 
     if (decoded.type !== "refresh") {
       throw new HttpError(HTTP_STATUS_CODE.UNAUTHORIZED, "Invalid token type")
     }
 
-    // set user in request
-    req.user = { id: decoded.id }
+    const tokenHash = refreshTokenModel.hashToken(refreshToken)
+    const storedToken = await refreshTokenModel.findActiveByHash(tokenHash)
+    if (!storedToken) {
+      throw new HttpError(HTTP_STATUS_CODE.UNAUTHORIZED, "Invalid refresh token")
+    }
 
-    // Log successful token refresh
+    if (new Date(storedToken.expires_at) < new Date()) {
+      throw new HttpError(HTTP_STATUS_CODE.UNAUTHORIZED, "Refresh token has expired")
+    }
+
+    req.user = { id: decoded.id }
+    req.refreshTokenId = storedToken.id
+
     logger.debug("Refresh token verified successfully", {
       userId: decoded.id,
+      tokenId: storedToken.id,
       method: req.method,
       url: req.url,
     })

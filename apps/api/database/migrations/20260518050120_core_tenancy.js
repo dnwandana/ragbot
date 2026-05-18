@@ -21,6 +21,8 @@ export async function up(knex) {
       password_hash TEXT NOT NULL,
       full_name TEXT NOT NULL,
       email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+      failed_login_attempts INTEGER NOT NULL DEFAULT 0,
+      locked_until TIMESTAMPTZ,
       last_login_at TIMESTAMPTZ,
       settings JSONB NOT NULL DEFAULT '{}',
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),

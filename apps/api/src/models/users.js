@@ -1,53 +1,75 @@
 import db from "../config/database.js"
 
-const TABLE_NAME = "users"
-const SAFE_COLUMNS = ["id", "username", "email", "created_at", "updated_at"]
+const TABLE = "users"
+const COLUMNS = [
+  "id",
+  "email",
+  "full_name",
+  "email_verified",
+  "last_login_at",
+  "settings",
+  "created_at",
+  "updated_at",
+]
 
 /**
- * Insert a new user into the database.
+ * Creates a new user record.
  *
- * @param {Object} user - User data to insert
- * @param {string} user.username - Unique username
- * @param {string} user.email - User email address
- * @param {string} user.password - Hashed password
- * @returns {Promise<Object[]>} Array containing the newly created user (safe columns only)
+ * @param {Object} user - User data to insert.
+ * @returns {Promise<Object[]>} Array containing the created user row (selected columns).
  */
-export const create = (user) => {
-  return db.insert(user).into(TABLE_NAME).returning(SAFE_COLUMNS)
-}
+export const create = (user) => db.insert(user).into(TABLE).returning(COLUMNS)
 
 /**
- * Find a single user by conditions, returning only safe (non-sensitive) columns.
+ * Finds a single user matching the given conditions (excluding soft-deleted).
  *
- * @param {Object} conditions - Key-value pairs to match against (e.g., { id }, { username })
- * @returns {Promise<Object|undefined>} The matched user or undefined
+ * @param {Object} conditions - Knex where conditions (e.g., { email }).
+ * @returns {Promise<Object|undefined>} The matching user row, or undefined.
  */
-export const findOne = (conditions) => {
-  return db.select(SAFE_COLUMNS).from(TABLE_NAME).where(conditions).first()
-}
+export const findOne = (conditions) =>
+  db.select(COLUMNS).from(TABLE).where(conditions).whereNull("deleted_at").first()
 
 /**
- * Find a single user by conditions, including the password hash.
- * Used only for authentication — never expose the result directly in API responses.
+ * Finds a single user including the password_hash column (for authentication).
  *
- * @param {Object} conditions - Key-value pairs to match against
- * @returns {Promise<Object|undefined>} The matched user with all columns, or undefined
+ * @param {Object} conditions - Knex where conditions (e.g., { email }).
+ * @returns {Promise<Object|undefined>} The matching user row with password_hash, or undefined.
  */
-export const findOneWithPassword = (conditions) => {
-  return db.select("*").from(TABLE_NAME).where(conditions).first()
-}
+export const findOneWithPassword = (conditions) =>
+  db
+    .select([...COLUMNS, "password_hash", "failed_login_attempts", "locked_until"])
+    .from(TABLE)
+    .where(conditions)
+    .whereNull("deleted_at")
+    .first()
 
 /**
- * Atomically increment failed_login_attempts for a user.
+ * Updates user rows matching the given conditions.
+ *
+ * @param {Object} conditions - Knex where conditions (e.g., { id }).
+ * @param {Object} data - Fields to update.
+ * @returns {Promise<Object[]>} Array of updated user rows (selected columns).
+ */
+export const update = (conditions, data) =>
+  db.update(data).table(TABLE).where(conditions).returning(COLUMNS)
+
+/**
+ * Soft-deletes a user by setting deleted_at to the current timestamp.
+ *
+ * @param {string} id - The user UUID.
+ * @returns {Promise<number>} Number of affected rows.
+ */
+export const softDelete = (id) => db.update({ deleted_at: new Date() }).table(TABLE).where({ id })
+
+/**
+ * Atomically increments failed_login_attempts for a user.
  * Returns the updated row with the new count.
- * Uses raw SQL increment to prevent read-then-write race conditions.
  *
- * @param {string} userId - UUID of the user
- * @returns {Promise<Object[]>} Array with the updated row containing failed_login_attempts
+ * @param {string} userId - UUID of the user.
+ * @returns {Promise<Object[]>} Array with the updated row containing failed_login_attempts.
  */
-export const incrementFailedAttempts = (userId) => {
-  return db("users")
+export const incrementFailedAttempts = (userId) =>
+  db("users")
     .where({ id: userId })
     .update({ failed_login_attempts: db.raw("failed_login_attempts + 1") })
     .returning("failed_login_attempts")
-}

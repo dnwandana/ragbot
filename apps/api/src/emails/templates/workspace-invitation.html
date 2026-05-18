@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>You're invited to join {{workspace_name}}</title>
+  </head>
+  <body
+    style="
+      margin: 0;
+      padding: 0;
+      background: #f8fafc;
+      font-family:
+        -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;,
+        sans-serif;
+    "
+  >
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+      <tr>
+        <td align="center" style="padding: 40px 16px">
+          <table
+            role="presentation"
+            width="600"
+            cellspacing="0"
+            cellpadding="0"
+            style="
+              background: #ffffff;
+              border: 1px solid #cbd5e1;
+              border-radius: 10px;
+              overflow: hidden;
+            "
+          >
+            <tr>
+              <td style="background: #1e3a5f; padding: 28px 40px">
+                <span
+                  style="
+                    color: #ffffff;
+                    font-size: 18px;
+                    font-weight: 700;
+                    letter-spacing: -0.3px;
+                    font-family: &quot;Poppins&quot;, sans-serif;
+                  "
+                  >RAG Chatbot</span
+                >
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 40px">
+                <h1
+                  style="
+                    margin: 0 0 6px;
+                    font-size: 20px;
+                    font-weight: 700;
+                    color: #0f172a;
+                    font-family: &quot;Poppins&quot;, sans-serif;
+                  "
+                >
+                  You're invited
+                </h1>
+                <p style="margin: 0 0 28px; font-size: 15px; line-height: 1.6; color: #64748b">
+                  <strong style="color: #0f172a">{{inviter_name}}</strong> has invited you to join
+                  the workspace <strong style="color: #0f172a">{{workspace_name}}</strong> on RAG
+                  Chatbot.
+                </p>
+                <table role="presentation" cellspacing="0" cellpadding="0">
+                  <tr>
+                    <td style="background: #059669; border-radius: 6px">
+                      <a
+                        href="{{accept_url}}"
+                        style="
+                          display: inline-block;
+                          padding: 12px 32px;
+                          color: #ffffff;
+                          font-size: 14px;
+                          font-weight: 600;
+                          text-decoration: none;
+                          font-family: &quot;Poppins&quot;, sans-serif;
+                        "
+                        >Accept Invitation</a
+                      >
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin: 28px 0 0; font-size: 13px; line-height: 1.6; color: #94a3b8">
+                  If the button doesn't work, copy this link into your browser:<br />
+                  <a href="{{accept_url}}" style="color: #2563eb; word-break: break-all"
+                    >{{accept_url}}</a
+                  >
+                </p>
+                <p style="margin: 20px 0 0; font-size: 13px; color: #94a3b8">
+                  This invitation expires in 7 days. If you weren't expecting this invitation, you
+                  can safely ignore this email.
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 20px 40px; background: #f8fafc; border-top: 1px solid #cbd5e1">
+                <p style="margin: 0; font-size: 12px; color: #94a3b8; text-align: center">
+                  &copy; {{year}} RAG Chatbot. All rights reserved.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

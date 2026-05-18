@@ -28,9 +28,6 @@ const envSchema = joi
 
     // Email
     BREVO_API_KEY: joi.string().required(),
-    BREVO_TEMPLATE_VERIFY_EMAIL: joi.number().required(),
-    BREVO_TEMPLATE_RESET_PASSWORD: joi.number().required(),
-    BREVO_TEMPLATE_WORKSPACE_INVITATION: joi.number().required(),
     EMAIL_FROM_NAME: joi.string().default("RAG Chatbot"),
     EMAIL_FROM_ADDRESS: joi.string().email().required(),
     APP_URL: joi.string().uri().required(),
