@@ -64,9 +64,6 @@ JWT_ISSUER=https://api.example.com
 JWT_AUDIENCE=https://api.example.com
 OPENROUTER_API_KEY=<key>
 BREVO_API_KEY=<key>
-BREVO_TEMPLATE_VERIFY_EMAIL=<template-id>
-BREVO_TEMPLATE_RESET_PASSWORD=<template-id>
-BREVO_TEMPLATE_WORKSPACE_INVITATION=<template-id>
 EMAIL_FROM_ADDRESS=noreply@example.com
 APP_URL=http://localhost:8080
 S3_BUCKET=<bucket>
@@ -156,13 +153,17 @@ Append `:api` or `:app` to target a single workspace (e.g. `pnpm test:api`).
 
 ### Authentication (public)
 
-| Method | Path                | Description                                           |
-| ------ | ------------------- | ----------------------------------------------------- |
-| POST   | `/api/auth/signup`  | Register — returns `{ id, username, email }`          |
-| POST   | `/api/auth/signin`  | Login — sets httpOnly auth cookies, returns user info |
-| GET    | `/api/auth/me`      | Current user (requires access token)                  |
-| POST   | `/api/auth/refresh` | Rotate tokens via httpOnly cookie                     |
-| POST   | `/api/auth/logout`  | Revoke refresh token, clear cookies                   |
+| Method | Path                          | Description                                                    |
+| ------ | ----------------------------- | -------------------------------------------------------------- |
+| POST   | `/api/auth/signup`            | Register — sends verification email, returns `{ id, email, full_name }` |
+| POST   | `/api/auth/verify-email`      | Verify email via token from email link                         |
+| POST   | `/api/auth/resend-verification` | Resend verification email (always returns 200)              |
+| POST   | `/api/auth/signin`            | Login — requires verified email, sets httpOnly auth cookies   |
+| POST   | `/api/auth/forgot-password`   | Request password reset email (always returns 200)             |
+| POST   | `/api/auth/reset-password`    | Reset password via token from email, revokes all sessions     |
+| GET    | `/api/auth/me`                | Current user (requires access token)                           |
+| POST   | `/api/auth/refresh`           | Rotate tokens via httpOnly cookie                              |
+| POST   | `/api/auth/logout`            | Revoke refresh token, clear cookies                            |
 
 ### Permissions (authenticated)
 
@@ -197,15 +198,15 @@ Tokens are set by the server on signin/refresh and never exposed to JavaScript. 
 
 ## Feature roadmap
 
-| Feature | Description                              | Status        |
-| ------- | ---------------------------------------- | ------------- |
-| F1      | Database schema + infrastructure         | **Complete**  |
-| F2      | Email-based authentication (Brevo)       | Planned       |
-| F3      | Workspaces + RBAC + members              | Planned       |
-| F4      | Datasets + file upload + RAG pipeline    | Planned       |
-| F5      | Agent management                         | Planned       |
-| F6      | Conversations (CRUD + dataset linking)   | Planned       |
-| F7      | Chat (ReAct loop + SSE streaming)        | Planned       |
+| Feature | Description                              | Status          |
+| ------- | ---------------------------------------- | --------------- |
+| F1      | Database schema + infrastructure         | **Complete**    |
+| F2      | Email-based authentication (Brevo)       | **Complete**    |
+| F3      | Workspaces + RBAC + members              | Planned         |
+| F4      | Datasets + file upload + RAG pipeline    | Planned         |
+| F5      | Agent management                         | Planned         |
+| F6      | Conversations (CRUD + dataset linking)   | Planned         |
+| F7      | Chat (ReAct loop + SSE streaming)        | Planned         |
 
 Detailed plans live in `plans/` and design specs in `docs/superpowers/specs/`.
 
@@ -223,7 +224,7 @@ cp apps/api/.env.example apps/api/.env.test
 # Update PORT (e.g. 3001), LOG_LEVEL=error, LOG_TO_FILE=false
 ```
 
-The test suite uses real PostgreSQL (no mocks). Vitest runs migrations once before the session, and `cleanAllTables()` truncates between tests. Currently passing: health (5), http-error (3), pagination (9), request-id (4), sanitize (6) — 27 tests total. Auth and permissions integration tests need rewriting for the new schema.
+The test suite uses real PostgreSQL (no mocks). Vitest runs migrations once before the session, and `cleanAllTables()` truncates between tests. Auth tests mock the Brevo email service to avoid real API calls. Currently passing: health (5), http-error (3), pagination (9), request-id (4), sanitize (6) — 27 tests total. Auth integration tests rewritten for email-based flow. Permissions tests still need rewriting.
 
 ## Deployment
 
@@ -368,11 +369,17 @@ rag-chatbot/
 │   │   │   │   ├── authentication.js
 │   │   │   │   ├── permissions.js
 │   │   │   │   └── roles.js
+│   │   │   ├── emails/
+│   │   │   │   ├── render.js             # Template loader with {{var}} substitution
+│   │   │   │   └── templates/            # verify-email, reset-password, workspace-invitation HTML
 │   │   │   ├── models/
+│   │   │   │   ├── email-tokens.js
 │   │   │   │   ├── permissions.js
 │   │   │   │   ├── refresh-tokens.js
 │   │   │   │   ├── roles.js
 │   │   │   │   └── users.js
+│   │   │   ├── services/
+│   │   │   │   └── email.js             # Brevo transactional email via inline HTML
 │   │   │   ├── routes/
 │   │   │   │   ├── authentication.js
 │   │   │   │   ├── health.js
@@ -426,7 +433,7 @@ rag-chatbot/
 │           │   ├── usePermissions.js
 │           │   └── useRoles.js
 │           ├── views/              # Routed page components
-│           │   ├── auth/           # LoginView, SignupView
+│           │   ├── auth/           # LoginView, SignupView, VerifyEmailView, ForgotPasswordView, ResetPasswordView
 │           │   └── invitations/    # MyInvitationsView
 │           ├── components/         # Reusable UI components
 │           │   ├── AppLayout.vue

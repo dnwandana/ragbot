@@ -22,9 +22,9 @@ You can still run package-local commands from `apps/api` with `pnpm`.
 ### Authentication & Security
 
 - **JWT Authentication**: Dual-token system with access tokens (15min) and refresh tokens (7 days), pinned to HS256, delivered as httpOnly cookies
+- **Email-Based Auth**: Signup with email + full_name, email verification required before signin, forgot/reset password flow
 - **Password Hashing**: Argon2 for secure password storage
-- **Password Complexity**: Requires uppercase, lowercase, digit, and special character
-- **Account Lockout**: 5 failed login attempts locks the account for 15 minutes
+- **Email Tokens**: SHA-256 hashed tokens with configurable expiration (verify: 24h, reset: 1h, invitation: 7d)
 - **Security Headers**: Helmet with strict Content Security Policy, referrer protection, and HSTS (1-year max-age with preload)
 - **CORS**: Configurable allowed origins with credentials support for cookie-based auth
 - **Rate Limiting**: Configurable per-route and global rate limits
@@ -50,7 +50,7 @@ You can still run package-local commands from `apps/api` with `pnpm`.
 ### Planned Integrations
 
 - **OpenRouter**: LLM inference for chat and embeddings
-- **Brevo**: Transactional email (verification, password reset, invitations)
+- **Brevo**: Transactional email via inline HTML templates (verification, password reset, invitations)
 - **Cloudflare R2**: S3-compatible file storage
 - **LlamaIndex**: Document parsing via webhook
 - **Firecrawl**: URL content scraping
@@ -58,23 +58,23 @@ You can still run package-local commands from `apps/api` with `pnpm`.
 
 ## Tech Stack
 
-| Component          | Version                                | Description                  |
-| ------------------ | -------------------------------------- | ---------------------------- |
-| **Runtime**        | Node.js >=24.0.0                       | JavaScript runtime           |
-| **Framework**      | Express.js ^5.2.1                      | Web application framework    |
-| **Database**       | PostgreSQL + pgvector                  | Relational + vector search   |
-| **ORM**            | Knex.js ^3.1.0                         | Query builder & migrations   |
-| **Authentication** | JWT ^9.0.3, Argon2 ^0.43.1             | Token-based auth & hashing   |
-| **Validation**     | Joi ^17.13.3                           | Schema validation            |
-| **Security**       | Helmet ^8.1.0, CORS ^2.8.5, HPP ^0.2.3 | Security middleware         |
-| **Rate Limiting**  | express-rate-limit ^8.2.1              | Request throttling           |
-| **File Upload**    | Multer ^2.1.1                          | Multipart form handling      |
-| **AWS SDK**        | @aws-sdk/client-s3 ^3.1048.0           | S3-compatible storage access |
-| **Email**          | @getbrevo/brevo ^5.0.4                 | Transactional email          |
-| **Text Processing** | @langchain/textsplitters ^1.0.1       | Document chunking            |
-| **Logging**        | Winston ^3.19.0, Morgan ^1.10.1        | Structured logging           |
-| **Testing**        | Vitest ^4.0.18, Supertest ^7.2.2       | Test runner & HTTP testing   |
-| **Code Quality**   | Oxlint ^1.41.0, Prettier ^3.8.1        | Linting and formatting       |
+| Component           | Version                                | Description                  |
+| ------------------- | -------------------------------------- | ---------------------------- |
+| **Runtime**         | Node.js >=24.0.0                       | JavaScript runtime           |
+| **Framework**       | Express.js ^5.2.1                      | Web application framework    |
+| **Database**        | PostgreSQL + pgvector                  | Relational + vector search   |
+| **ORM**             | Knex.js ^3.1.0                         | Query builder & migrations   |
+| **Authentication**  | JWT ^9.0.3, Argon2 ^0.43.1             | Token-based auth & hashing   |
+| **Validation**      | Joi ^17.13.3                           | Schema validation            |
+| **Security**        | Helmet ^8.1.0, CORS ^2.8.5, HPP ^0.2.3 | Security middleware          |
+| **Rate Limiting**   | express-rate-limit ^8.2.1              | Request throttling           |
+| **File Upload**     | Multer ^2.1.1                          | Multipart form handling      |
+| **AWS SDK**         | @aws-sdk/client-s3 ^3.1048.0           | S3-compatible storage access |
+| **Email**           | @getbrevo/brevo ^5.0.4                 | Transactional email          |
+| **Text Processing** | @langchain/textsplitters ^1.0.1        | Document chunking            |
+| **Logging**         | Winston ^3.19.0, Morgan ^1.10.1        | Structured logging           |
+| **Testing**         | Vitest ^4.0.18, Supertest ^7.2.2       | Test runner & HTTP testing   |
+| **Code Quality**    | Oxlint ^1.41.0, Prettier ^3.8.1        | Linting and formatting       |
 
 ## Prerequisites
 
@@ -106,7 +106,7 @@ The API will be available at `http://localhost:3000/api`
 
 Create a `.env` file from `.env.example`. See `.env.example` for the full list with defaults.
 
-**Required variables**: `DATABASE_URL`, `ACCESS_TOKEN_SECRET`, `REFRESH_TOKEN_SECRET`, `JWT_ISSUER`, `JWT_AUDIENCE`, `OPENROUTER_API_KEY`, `BREVO_API_KEY`, `BREVO_TEMPLATE_*` (3), `EMAIL_FROM_ADDRESS`, `APP_URL`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_ENDPOINT`, `LLAMAINDEX_API_KEY`, `LLAMAINDEX_WEBHOOK_SECRET`, `FIRECRAWL_API_KEY`
+**Required variables**: `DATABASE_URL`, `ACCESS_TOKEN_SECRET`, `REFRESH_TOKEN_SECRET`, `JWT_ISSUER`, `JWT_AUDIENCE`, `OPENROUTER_API_KEY`, `BREVO_API_KEY`, `EMAIL_FROM_ADDRESS`, `APP_URL`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_ENDPOINT`, `LLAMAINDEX_API_KEY`, `LLAMAINDEX_WEBHOOK_SECRET`, `FIRECRAWL_API_KEY`
 
 Generate secrets with:
 
@@ -168,13 +168,17 @@ npm run seed:make <name>       # Create a new seed file
 
 ### Authentication
 
-| Method | Endpoint            | Description                                | Auth Required |
-| ------ | ------------------- | ------------------------------------------ | ------------- |
-| POST   | `/api/auth/signup`  | Create new user account                    | No            |
-| POST   | `/api/auth/signin`  | Sign in; server sets httpOnly auth cookies | No            |
-| GET    | `/api/auth/me`      | Verify cookie validity, return user        | Access Token  |
-| POST   | `/api/auth/refresh` | Rotate tokens via httpOnly cookie          | Refresh Token |
-| POST   | `/api/auth/logout`  | Revoke refresh token, clear cookies        | Refresh Token |
+| Method | Endpoint                        | Description                                              | Auth Required |
+| ------ | ------------------------------- | -------------------------------------------------------- | ------------- |
+| POST   | `/api/auth/signup`              | Create account, sends verification email                 | No            |
+| POST   | `/api/auth/verify-email`        | Verify email via token from email link                   | No            |
+| POST   | `/api/auth/resend-verification` | Resend verification email (always returns 200)           | No            |
+| POST   | `/api/auth/signin`              | Sign in (requires verified email); sets httpOnly cookies | No            |
+| POST   | `/api/auth/forgot-password`     | Request password reset email (always returns 200)        | No            |
+| POST   | `/api/auth/reset-password`      | Reset password via token, revokes all sessions           | No            |
+| GET    | `/api/auth/me`                  | Verify cookie validity, return user                      | Access Token  |
+| POST   | `/api/auth/refresh`             | Rotate tokens via httpOnly cookie                        | Refresh Token |
+| POST   | `/api/auth/logout`              | Revoke refresh token, clear cookies                      | Refresh Token |
 
 ### Permissions
 
@@ -195,16 +199,16 @@ Authentication uses **httpOnly cookies** set by the server. Tokens are never exp
 
 4 built-in system roles per workspace. 30 permissions across 8 resources.
 
-| Resource      | Actions                                          |
-| ------------- | ------------------------------------------------ |
-| workspace     | create, read, update, delete                     |
-| role          | create, read, update, delete                     |
-| member        | read, invite, remove, manage_role                |
-| audit         | read                                             |
-| dataset       | create, read, update, delete                     |
-| file          | read, upload, update, delete, reprocess          |
-| agent         | create, read, update, delete                     |
-| conversation  | create, read, update, delete, chat               |
+| Resource     | Actions                                 |
+| ------------ | --------------------------------------- |
+| workspace    | create, read, update, delete            |
+| role         | create, read, update, delete            |
+| member       | read, invite, remove, manage_role       |
+| audit        | read                                    |
+| dataset      | create, read, update, delete            |
+| file         | read, upload, update, delete, reprocess |
+| agent        | create, read, update, delete            |
+| conversation | create, read, update, delete, chat      |
 
 ## Project Structure
 
@@ -214,9 +218,12 @@ apps/api/
 │   ├── config/
 │   │   └── database.js          # Knex instance
 │   ├── controllers/
-│   │   ├── authentication.js    # Signup, signin, refresh, logout, me
+│   │   ├── authentication.js    # Signup, verify-email, signin, forgot/reset password, refresh, logout, me
 │   │   ├── permissions.js       # Permission reference endpoint
 │   │   └── roles.js             # CRUD roles (needs workspace re-scoping)
+│   ├── emails/
+│   │   ├── render.js            # Template loader with {{var}} substitution
+│   │   └── templates/           # verify-email.html, reset-password.html, workspace-invitation.html
 │   ├── middlewares/
 │   │   ├── authorization.js     # requireAccessToken, requireRefreshToken
 │   │   ├── error.js             # errorHandler, notFoundHandler
@@ -225,10 +232,13 @@ apps/api/
 │   │   ├── request-id.js        # X-Request-Id tracking
 │   │   └── require-permission.js # Permission gate
 │   ├── models/
+│   │   ├── email-tokens.js      # SHA-256 token hashing, CRUD for email_tokens
 │   │   ├── permissions.js
 │   │   ├── refresh-tokens.js
 │   │   ├── roles.js
 │   │   └── users.js
+│   ├── services/
+│   │   └── email.js             # Brevo transactional email via inline HTML templates
 │   ├── routes/
 │   │   ├── authentication.js
 │   │   ├── health.js

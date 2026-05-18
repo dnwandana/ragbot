@@ -98,7 +98,7 @@ src/
 │   ├── usePermissions.js
 │   └── useRoles.js
 ├── views/         # Page components - *View.vue naming
-│   ├── auth/           # LoginView, SignupView
+│   ├── auth/           # LoginView, SignupView, VerifyEmailView, ForgotPasswordView, ResetPasswordView
 │   └── invitations/    # MyInvitationsView
 ├── components/    # Reusable components
 │   ├── AppLayout.vue

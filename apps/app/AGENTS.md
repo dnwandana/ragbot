@@ -43,15 +43,16 @@ Vue 3 SPA built with Vite, using a Pinia store + composables pattern for state m
 | ------------------ | -------------- | ----------------------------------------- | --------------- | ------- |
 | `/login`           | Login          | `views/auth/LoginView.vue`                | `requiresGuest` | Working |
 | `/signup`          | Signup         | `views/auth/SignupView.vue`               | `requiresGuest` | Working |
-| `/`                | —              | redirect to `/orgs`                       | —               | Stale   |
-| `/orgs`            | OrgsList       | `views/orgs/OrgsListView.vue`             | `requiresAuth`  | Deleted |
-| `/orgs/:orgId`     | ProjectsList   | `views/projects/ProjectsListView.vue`     | `requiresAuth`  | Deleted |
+| `/verify-email`    | VerifyEmail    | `views/auth/VerifyEmailView.vue`          | none            | Working |
+| `/forgot-password` | ForgotPassword | `views/auth/ForgotPasswordView.vue`       | `requiresGuest` | Working |
+| `/reset-password`  | ResetPassword  | `views/auth/ResetPasswordView.vue`        | `requiresGuest` | Working |
+| `/`                | —              | redirect to `/workspaces`                 | —               | Stale   |
 | `/invitations`     | MyInvitations  | `views/invitations/MyInvitationsView.vue` | `requiresAuth`  | Working |
-| `/:pathMatch(.*)*` | —              | redirect to `/orgs`                       | —               | Stale   |
+| `/:pathMatch(.*)*` | —              | redirect to `/workspaces`                 | —               | Stale   |
 
-**Stale routes**: Router still references deleted org/project/todo views. These need to be replaced with workspace/dataset/agent/conversation routes when the corresponding API features are built.
+**Stale routes**: `/` and catch-all redirect to `/workspaces` which doesn't exist yet. These will work once F3 (workspace CRUD) is implemented.
 
-**Navigation guard**: Unauthenticated users on `requiresAuth` routes redirect to `/login?redirect=`. Authenticated users on `requiresGuest` routes redirect to `/orgs` (stale — should redirect to workspace list eventually). Auth store is initialized from localStorage on first navigation.
+**Navigation guard**: Unauthenticated users on `requiresAuth` routes redirect to `/login?redirect=`. Authenticated users on `requiresGuest` routes redirect to `/workspaces`. Auth store is initialized from localStorage on first navigation.
 
 ## HTTP Client (`src/utils/http.js`)
 
@@ -71,7 +72,7 @@ Custom fetch-based client (NOT Axios). Key behaviors:
 
 ## Authentication Flow
 
-1. **Signin**: `LoginView.vue` → `useAuth().handleSignin()` → `useAuthStore().signin()` → `api/auth.js signin()` → `POST /auth/signin` → server sets httpOnly cookies → stores user data in localStorage → redirects to `/orgs`
+1. **Signin**: `LoginView.vue` → `useAuth().handleSignin()` → `useAuthStore().signin()` → `api/auth.js signin()` → `POST /auth/signin` → server sets httpOnly cookies → stores user data in localStorage → redirects to `/workspaces`
 2. **Token attachment**: Every API call includes `credentials: 'include'` so cookies are sent automatically
 3. **Token refresh**: Automatic on 401 responses. Server rotates both tokens via httpOnly cookies.
 4. **Logout**: `AppLayout.vue` → `authStore.logout()` → `POST /auth/logout` → clears localStorage → redirects to `/login`
@@ -111,12 +112,12 @@ Custom fetch-based client (NOT Axios). Key behaviors:
 
 ## API Service Catalog
 
-| Module      | File                 | Exports                                                       |
-| ----------- | -------------------- | ------------------------------------------------------------- |
-| auth        | `api/auth.js`        | `signup`, `signin`, `getMe`, `refreshToken`, `logout`         |
-| roles       | `api/roles.js`       | `getRoles`, `getRole`, `createRole`, `updateRole`, `deleteRole` |
-| permissions | `api/permissions.js` | `getPermissions`                                              |
-| invitations | `api/invitations.js` | `inviteToOrg`, `inviteToProject`, list/accept/decline/revoke  |
+| Module      | File                 | Exports                                                                                              |
+| ----------- | -------------------- | ---------------------------------------------------------------------------------------------------- |
+| auth        | `api/auth.js`        | `signup`, `verifyEmail`, `resendVerification`, `signin`, `forgotPassword`, `resetPassword`, `getMe`, `logout` |
+| roles       | `api/roles.js`       | `getRoles`, `getRole`, `createRole`, `updateRole`, `deleteRole`                                      |
+| permissions | `api/permissions.js` | `getPermissions`                                                                                     |
+| invitations | `api/invitations.js` | `inviteToOrg`, `inviteToProject`, list/accept/decline/revoke                                         |
 
 ## Utility Files
 
@@ -135,6 +136,8 @@ Custom fetch-based client (NOT Axios). Key behaviors:
 - **Linting**: Dual-linter setup with oxlint (fast) then eslint (comprehensive) via npm-run-all2
 - **Formatting**: Prettier with semicolons disabled, double quotes, 100 char width
 - **Import alias**: `@` maps to `src/` directory
+- **JSDoc**: Full JSDoc blocks on every exported function with `@param {type} name - description` and `@returns {type}` tags. Use `@throws` where applicable. One-line JSDoc (`/** description */`) for constants. No section divider comments (`// ── Section ───`).
+- **Destructured parameters**: Functions accepting 3 or more semantic parameters must use a destructured object parameter. Internal helpers with 1-2 params stay positional.
 - **No tests** currently exist for the frontend app
 
 ## File Naming

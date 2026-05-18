@@ -35,7 +35,7 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 ### API (`apps/api`)
 
 **Wired and working:**
-- Authentication (signup, signin, refresh, logout, me) — still uses username-based signup, email-based auth (F2) not yet implemented
+- Authentication — email-based signup with verification, signin (email + password), refresh, logout, me, forgot/reset password, resend verification. Brevo sends inline HTML emails via `sendTransacEmail`
 - Permissions (read-only reference endpoint)
 - Health check (database connectivity, request ID)
 - Roles CRUD (controller exists, routes need re-registration for workspace context)
@@ -48,13 +48,12 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 - Agent management (F5)
 - Conversation CRUD + dataset linking (F6)
 - Chat with ReAct loop + SSE streaming (F7)
-- Email verification, password reset via Brevo (F2)
 - Audit logging middleware (schema exists, no middleware yet)
 
 ### Frontend (`apps/app`)
 
 **Wired and working:**
-- Auth views (Login, Signup)
+- Auth views (Login, Signup, VerifyEmail, ForgotPassword, ResetPassword)
 - Invitations view (MyInvitationsView)
 - AppLayout, AppSidebar, RoleFormModal, InviteFormModal, MembersTable, InvitationsTable
 - Auth, roles, invitations, members, permissions stores and composables
@@ -67,7 +66,8 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 ### Tests
 
 **Passing (27 tests):** health (5), http-error (3), pagination (9), request-id (4), sanitize (6)
-**Broken (need rewrite for new schema):** auth.test.js (20 tests, uses old username-based schema), permissions.test.js (7 tests, imports removed helpers)
+**Rewritten for email-based auth:** auth.test.js (10 tests with Brevo mock, email-based signup/signin, verify-email, forgot-password, logout)
+**Broken (need rewrite):** permissions.test.js (7 tests, imports removed helpers)
 
 ### Database schema
 
