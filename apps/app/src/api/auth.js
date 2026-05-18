@@ -1,72 +1,73 @@
-/**
- * Authentication API service
- * Handles signup, signin, and token refresh
- */
-
-import { request, baseURL } from "@/utils/http"
+import { request } from "../utils/http.js"
 
 /**
- * Register a new user account
- * @param {string} username - Username (min 5 characters)
- * @param {string} password - Password (min 8 characters)
- * @param {string} confirmation_password - Password confirmation (must match password)
- * @returns {Promise} API response with user data
+ * Registers a new user account.
+ *
+ * @param {Object} params
+ * @param {string} params.email - User's email address.
+ * @param {string} params.password - Chosen password.
+ * @param {string} params.confirmation_password - Password confirmation.
+ * @param {string} params.full_name - User's full name.
+ * @returns {Promise<Object>} API response.
  */
-export function signup(username, password, confirmation_password) {
-  return request.post("/auth/signup", { username, password, confirmation_password })
-}
+export const signup = ({ email, password, confirmation_password, full_name }) =>
+  request.post("/auth/signup", { email, password, confirmation_password, full_name })
 
 /**
- * Sign in with credentials
- * @param {string} username - Username
- * @param {string} password - Password
- * @returns {Promise} API response with user data and tokens
+ * Verifies a user's email with a token from the verification link.
+ *
+ * @param {string} token - The verification token.
+ * @returns {Promise<Object>} API response.
  */
-export function signin(username, password) {
-  return request.post("/auth/signin", { username, password })
-}
+export const verifyEmail = (token) => request.post("/auth/verify-email", { token })
 
 /**
- * Refresh access token using httpOnly cookie.
- * Uses raw fetch (not request()) to avoid infinite recursion
- * if the refresh endpoint itself returns 401.
- * @returns {Promise} API response with new access token
+ * Requests a new verification email to be sent.
+ *
+ * @param {string} email - The email address to resend verification to.
+ * @returns {Promise<Object>} API response.
  */
-export function refreshToken() {
-  return fetch(`${baseURL}/auth/refresh`, {
-    method: "POST",
-    credentials: "include",
-  }).then(async (res) => {
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}))
-      throw new Error(errorData.message || "Token refresh failed")
-    }
-    const data = await res.json()
-    return { data, status: res.status }
-  })
-}
+export const resendVerification = (email) => request.post("/auth/resend-verification", { email })
 
 /**
- * Logout — revokes the refresh token server-side
- * @returns {Promise} API response
+ * Authenticates a user with email and password.
+ *
+ * @param {string} email - User's email address.
+ * @param {string} password - User's password.
+ * @returns {Promise<Object>} API response with user data.
  */
-export function logout() {
-  return fetch(`${baseURL}/auth/logout`, {
-    method: "POST",
-    credentials: "include",
-  }).then(async (res) => {
-    if (!res.ok) {
-      return { data: null, status: res.status }
-    }
-    const data = await res.json()
-    return { data, status: res.status }
-  })
-}
+export const signin = (email, password) => request.post("/auth/signin", { email, password })
 
 /**
- * Get current authenticated user (verifies cookie validity)
- * @returns {Promise} API response with user data { id, username }
+ * Requests a password reset email.
+ *
+ * @param {string} email - The email address to send the reset link to.
+ * @returns {Promise<Object>} API response.
  */
-export function getMe() {
-  return request.get("/auth/me")
-}
+export const forgotPassword = (email) => request.post("/auth/forgot-password", { email })
+
+/**
+ * Resets a user's password using a valid reset token.
+ *
+ * @param {Object} params
+ * @param {string} params.token - The reset token from the email link.
+ * @param {string} params.password - New password.
+ * @param {string} params.confirmation_password - New password confirmation.
+ * @returns {Promise<Object>} API response.
+ */
+export const resetPassword = ({ token, password, confirmation_password }) =>
+  request.post("/auth/reset-password", { token, password, confirmation_password })
+
+/**
+ * Fetches the authenticated user's profile.
+ *
+ * @returns {Promise<Object>} API response with user data.
+ */
+export const getMe = () => request.get("/auth/me")
+
+/**
+ * Logs out the current user by revoking the refresh token.
+ *
+ * @returns {Promise<Object>} API response.
+ */
+export const logout = () => request.post("/auth/logout")

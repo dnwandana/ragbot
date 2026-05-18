@@ -1,110 +1,74 @@
-/**
- * Auth composable - form handling and validation for authentication
- */
-
-import { ref, reactive } from "vue"
+import { reactive, ref } from "vue"
 import { useRouter } from "vue-router"
-import { useAuthStore } from "@/stores/auth"
+import { useAuthStore } from "../stores/auth.js"
 
+/**
+ * Composable for authentication form handling and validation rules.
+ *
+ * @returns {Object} Auth form state, validation rules, and action handlers.
+ */
 export function useAuth() {
-  const router = useRouter()
   const authStore = useAuthStore()
+  const router = useRouter()
 
-  // Form state
-  const formState = reactive({
-    username: "",
-    password: "",
-    confirmation_password: "",
-  })
-
-  // Error state
+  const formState = reactive({ email: "", password: "", confirmation_password: "", full_name: "" })
   const error = ref("")
 
-  // Validation rules for Ant Design forms
-  const usernameRules = [
-    { required: true, message: "Please enter your username" },
-    { min: 5, message: "Username must be at least 5 characters" },
+  const emailRules = [
+    { required: true, message: "Email is required" },
+    { type: "email", message: "Enter a valid email" },
   ]
-
   const passwordRules = [
-    { required: true, message: "Please enter your password" },
+    { required: true, message: "Password is required" },
     { min: 8, message: "Password must be at least 8 characters" },
   ]
-
-  const confirmation_passwordRules = [
-    { required: true, message: "Please confirm your password" },
-    {
-      validator: async (_rule, value) => {
-        if (value && value !== formState.password) {
-          throw new Error("Passwords do not match")
-        }
-      },
-    },
+  const confirmRules = [{ required: true, message: "Please confirm your password" }]
+  const fullNameRules = [
+    { required: true, message: "Full name is required" },
+    { max: 100, message: "Full name cannot exceed 100 characters" },
   ]
 
-  /**
-   * Handle sign in form submission
-   */
+  /** Signs in the user and redirects to the intended page. */
   async function handleSignin() {
     error.value = ""
     try {
-      await authStore.signin(formState.username, formState.password)
-      router.push("/orgs")
-    } catch (err) {
-      error.value = err.message
+      await authStore.signin(formState.email, formState.password)
+      const redirect = router.currentRoute.value.query.redirect || "/workspaces"
+      router.push(redirect)
+    } catch (e) {
+      error.value = e?.response?.data?.message || "Sign in failed"
     }
   }
 
-  /**
-   * Handle sign up form submission
-   */
+  /** Registers a new user and redirects to login with a success indicator. */
   async function handleSignup() {
     error.value = ""
     try {
-      await authStore.signup(
-        formState.username,
-        formState.password,
-        formState.confirmation_password,
-      )
-      router.push("/login")
-    } catch (err) {
-      error.value = err.message
+      await authStore.signup(formState)
+      router.push({ name: "Login", query: { registered: "1" } })
+    } catch (e) {
+      error.value = e?.response?.data?.message || "Sign up failed"
     }
   }
 
-  /**
-   * Handle logout
-   */
-  function handleLogout() {
-    authStore.logout()
+  /** Logs out the user and redirects to the login page. */
+  async function handleLogout() {
+    await authStore.logout()
     router.push("/login")
   }
 
-  /**
-   * Reset form state
-   */
-  function resetForm() {
-    formState.username = ""
-    formState.password = ""
-    formState.confirmation_password = ""
-    error.value = ""
-  }
-
   return {
-    // State
     formState,
     error,
     loading: authStore.loading,
     isAuthenticated: authStore.isAuthenticated,
     currentUser: authStore.currentUser,
-    // Validation rules
-    usernameRules,
+    emailRules,
     passwordRules,
-    confirmation_passwordRules,
-    // Actions
+    confirmRules,
+    fullNameRules,
     handleSignin,
     handleSignup,
     handleLogout,
-    resetForm,
   }
 }

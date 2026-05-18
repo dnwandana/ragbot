@@ -1,115 +1,75 @@
-/**
- * Auth store - manages authentication state
- */
-
-import { defineStore } from "pinia"
 import { ref, computed } from "vue"
-import { message } from "ant-design-vue"
-import {
-  signup as apiSignup,
-  signin as apiSignin,
-  logout as apiLogout,
-  getMe as apiGetMe,
-} from "@/api/auth"
-import { setUserData, clearUserData } from "@/utils/storage"
+import { defineStore } from "pinia"
+import * as authApi from "../api/auth.js"
+import { getUserData, setUserData, clearUserData } from "../utils/storage.js"
 
 export const useAuthStore = defineStore("auth", () => {
-  // State
-  const user = ref(null)
+  const user = ref(getUserData())
   const loading = ref(false)
 
-  // Getters
   const isAuthenticated = computed(() => !!user.value)
   const currentUser = computed(() => user.value)
 
-  // Actions
-
   /**
-   * Initialize auth state from localStorage
-   * Called on app startup
+   * Verifies the stored user session against the server.
+   * Clears local data if the session is invalid.
    */
   async function initAuth() {
+    if (!user.value) return
     try {
-      const response = await apiGetMe()
-      const userData = response.data.data
-      setUserData(userData)
-      user.value = userData
+      const res = await authApi.getMe()
+      user.value = res.data.data
+      setUserData(user.value)
     } catch {
-      clearUserData()
       user.value = null
+      clearUserData()
     }
   }
 
   /**
-   * Register a new user
-   * @param {string} username
-   * @param {string} password
-   * @param {string} confirmation_password
+   * Registers a new user account.
+   *
+   * @param {Object} params
+   * @param {string} params.email - User's email address.
+   * @param {string} params.password - Chosen password.
+   * @param {string} params.confirmation_password - Password confirmation.
+   * @param {string} params.full_name - User's full name.
    */
-  async function signup(username, password, confirmation_password) {
+  async function signup({ email, password, confirmation_password, full_name }) {
     loading.value = true
     try {
-      const response = await apiSignup(username, password, confirmation_password)
-      message.success("Account created successfully! Please sign in.")
-      return response.data
-    } catch (error) {
-      const errorMsg = error.response?.data?.message || "Signup failed. Please try again."
-      throw new Error(errorMsg)
+      await authApi.signup({ email, password, confirmation_password, full_name })
     } finally {
       loading.value = false
     }
   }
 
   /**
-   * Sign in user with credentials
-   * @param {string} username
-   * @param {string} password
+   * Authenticates a user and stores their profile locally.
+   *
+   * @param {string} email - User's email address.
+   * @param {string} password - User's password.
    */
-  async function signin(username, password) {
+  async function signin(email, password) {
     loading.value = true
     try {
-      const response = await apiSignin(username, password)
-      const { id, username: name } = response.data.data
-
-      const userData = { id, username: name }
-      setUserData(userData)
-      user.value = userData
-
-      message.success("Signed in successfully!")
-      return response.data
-    } catch (error) {
-      const errorMsg = error.response?.data?.message || "Sign in failed. Please try again."
-      throw new Error(errorMsg)
+      const res = await authApi.signin(email, password)
+      user.value = res.data.data
+      setUserData(user.value)
     } finally {
       loading.value = false
     }
   }
 
-  /**
-   * Logout user and clear all auth data
-   */
+  /** Logs out the current user and clears local auth data. */
   async function logout() {
     try {
-      await apiLogout()
-    } catch {
-      // Best-effort — always clear local state even if API call fails
+      await authApi.logout()
+    } finally {
+      user.value = null
+      clearUserData()
     }
-    clearUserData()
-    user.value = null
-    message.success("Logged out successfully")
   }
 
-  return {
-    // State
-    user,
-    loading,
-    // Getters
-    isAuthenticated,
-    currentUser,
-    // Actions
-    initAuth,
-    signup,
-    signin,
-    logout,
-  }
+  return { user, loading, isAuthenticated, currentUser, initAuth, signup, signin, logout }
 })

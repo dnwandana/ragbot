@@ -1,100 +1,45 @@
-<script setup>
-import { useRouter } from "vue-router"
-import { Card, Form, Input, Button, Typography, Alert, Space } from "ant-design-vue"
-import { UserOutlined, LockOutlined } from "@ant-design/icons-vue"
-import { useAuth } from "@/composables/useAuth"
+<template>
+  <div class="auth-container">
+    <a-card title="Create Account" style="width: 400px; margin: 80px auto">
+      <a-alert v-if="error" type="error" :message="error" style="margin-bottom: 16px" />
+      <a-form @finish="handleSignup" layout="vertical">
+        <a-form-item label="Full Name" name="full_name" :rules="fullNameRules">
+          <a-input v-model:value="formState.full_name" placeholder="Jane Doe" />
+        </a-form-item>
+        <a-form-item label="Email" name="email" :rules="emailRules">
+          <a-input v-model:value="formState.email" type="email" placeholder="you@company.com" />
+        </a-form-item>
+        <a-form-item label="Password" name="password" :rules="passwordRules">
+          <a-input-password v-model:value="formState.password" placeholder="Min 8 characters" />
+        </a-form-item>
+        <a-form-item label="Confirm Password" name="confirmation_password" :rules="confirmRules">
+          <a-input-password
+            v-model:value="formState.confirmation_password"
+            placeholder="Re-enter password"
+          />
+        </a-form-item>
+        <a-button type="primary" html-type="submit" :loading="loading" block
+          >Create Account</a-button
+        >
+      </a-form>
+      <div style="text-align: center; margin-top: 16px">
+        Already have an account? <router-link to="/login">Sign in</router-link>
+      </div>
+    </a-card>
+  </div>
+</template>
 
-const router = useRouter()
+<script setup>
+import { useAuth } from "../../composables/useAuth.js"
+
 const {
   formState,
   error,
   loading,
-  usernameRules,
+  emailRules,
   passwordRules,
-  confirmation_passwordRules,
+  confirmRules,
+  fullNameRules,
   handleSignup,
 } = useAuth()
-
-// Handle form submit
-async function onFinish() {
-  await handleSignup()
-}
-
-// Navigate to login
-function goToLogin() {
-  router.push("/login")
-}
 </script>
-
-<template>
-  <div class="signup-container">
-    <Card style="width: 400px">
-      <template #title>
-        <Typography.Title :level="3" style="text-align: center; margin: 0">
-          Create Account
-        </Typography.Title>
-      </template>
-
-      <Alert v-if="error" :message="error" type="error" show-icon style="margin-bottom: 16px" />
-
-      <Form :model="formState" layout="vertical" @finish="onFinish">
-        <Form.Item name="username" :rules="usernameRules">
-          <Input
-            v-model:value="formState.username"
-            placeholder="Username (min 5 characters)"
-            size="large"
-          >
-            <template #prefix>
-              <UserOutlined />
-            </template>
-          </Input>
-        </Form.Item>
-
-        <Form.Item name="password" :rules="passwordRules">
-          <Input.Password
-            v-model:value="formState.password"
-            placeholder="Password (min 8 characters)"
-            size="large"
-          >
-            <template #prefix>
-              <LockOutlined />
-            </template>
-          </Input.Password>
-        </Form.Item>
-
-        <Form.Item name="confirmation_password" :rules="confirmation_passwordRules">
-          <Input.Password
-            v-model:value="formState.confirmation_password"
-            placeholder="Confirm Password"
-            size="large"
-          >
-            <template #prefix>
-              <LockOutlined />
-            </template>
-          </Input.Password>
-        </Form.Item>
-
-        <Form.Item>
-          <Button type="primary" html-type="submit" size="large" block :loading="loading">
-            Sign Up
-          </Button>
-        </Form.Item>
-      </Form>
-
-      <Space style="width: 100%; justify-content: center">
-        <Typography.Text>Already have an account?</Typography.Text>
-        <Typography.Link @click="goToLogin">Sign in</Typography.Link>
-      </Space>
-    </Card>
-  </div>
-</template>
-
-<style scoped>
-.signup-container {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f0f2f5;
-}
-</style>
