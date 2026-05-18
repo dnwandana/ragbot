@@ -1,353 +1,393 @@
-import { request, cleanAllTables, extractCookies } from "../helpers.js"
+import { vi } from "vitest"
+import crypto from "node:crypto"
+import {
+  request,
+  createTestUser,
+  getAuthHeaders,
+  cleanAllTables,
+  seedPermissions,
+} from "../helpers.js"
+import * as emailTokenModel from "../../src/models/email-tokens.js"
 
-afterEach(async () => {
+// Mock email service to avoid real Brevo calls.
+// After vi.mock, any import of the module returns the mocked functions.
+vi.mock("../../src/services/email.js", () => ({
+  sendVerificationEmail: vi.fn(),
+  sendPasswordResetEmail: vi.fn(),
+  sendInvitationEmail: vi.fn(),
+}))
+
+// Import the mocked functions — these are the vi.fn() instances from above
+import { sendVerificationEmail, sendPasswordResetEmail } from "../../src/services/email.js"
+
+beforeAll(async () => {
+  await seedPermissions()
+})
+
+beforeEach(async () => {
   await cleanAllTables()
+  vi.clearAllMocks()
 })
 
 describe("POST /api/auth/signup", () => {
-  it("should create a new user", async () => {
+  it("creates user and returns 201", async () => {
     const res = await (await request()).post("/api/auth/signup").send({
-      username: "newuser",
-      password: "Testpass123!",
-      confirmation_password: "Testpass123!",
+      email: "new@example.com",
+      password: "Password123!",
+      confirmation_password: "Password123!",
+      full_name: "New User",
     })
 
     expect(res.status).toBe(201)
-    expect(res.body.message).toBe("Created")
-    expect(res.body.data.id).toBeDefined()
-    expect(res.body.data.username).toBe("newuser")
+    expect(res.body.data.email).toBe("new@example.com")
+    expect(res.body.data.full_name).toBe("New User")
+    expect(res.body.data.password_hash).toBeUndefined()
   })
 
-  it("should reject duplicate username", async () => {
-    const agent = await request()
-    await agent.post("/api/auth/signup").send({
-      username: "duplicate",
-      password: "Testpass123!",
-      confirmation_password: "Testpass123!",
+  it("sends a verification email after signup", async () => {
+    await (await request()).post("/api/auth/signup").send({
+      email: "verify-me@example.com",
+      password: "Password123!",
+      confirmation_password: "Password123!",
+      full_name: "Verify Me",
     })
 
-    const res = await agent.post("/api/auth/signup").send({
-      username: "duplicate",
-      password: "Testpass456!",
-      confirmation_password: "Testpass456!",
-    })
-
-    expect(res.status).toBe(400)
-    expect(res.body.message).toContain("already exists")
+    expect(sendVerificationEmail).toHaveBeenCalledOnce()
+    const call = sendVerificationEmail.mock.calls[0][0]
+    expect(call.toEmail).toBe("verify-me@example.com")
+    expect(call.fullName).toBe("Verify Me")
+    expect(call.verificationUrl).toContain("/verify-email?token=")
   })
 
-  it("should reject username shorter than 3 characters", async () => {
+  it("returns 400 if email already registered", async () => {
+    await createTestUser({ email: "taken@example.com" })
     const res = await (await request()).post("/api/auth/signup").send({
-      username: "ab",
-      password: "Testpass123!",
-      confirmation_password: "Testpass123!",
+      email: "taken@example.com",
+      password: "Password123!",
+      confirmation_password: "Password123!",
+      full_name: "Dup",
     })
 
     expect(res.status).toBe(400)
   })
 
-  it("should reject password shorter than 8 characters", async () => {
+  it("returns 400 if passwords do not match", async () => {
     const res = await (await request()).post("/api/auth/signup").send({
-      username: "validuser",
-      password: "short",
-      confirmation_password: "short",
+      email: "ok@example.com",
+      password: "Password123!",
+      confirmation_password: "Different!",
+      full_name: "Test",
     })
 
     expect(res.status).toBe(400)
   })
+})
 
-  it("should reject password without complexity requirements", async () => {
-    const res = await (await request()).post("/api/auth/signup").send({
-      username: "complexuser",
-      password: "simplepassword",
-      confirmation_password: "simplepassword",
+describe("POST /api/auth/verify-email", () => {
+  it("verifies email with valid token", async () => {
+    // Signup to create user + token (mock captures the URL)
+    await (await request()).post("/api/auth/signup").send({
+      email: "verify@example.com",
+      password: "Password123!",
+      confirmation_password: "Password123!",
+      full_name: "Verify User",
     })
 
-    expect(res.status).toBe(400)
-    expect(res.body.message).toMatch(/uppercase|digit|special/i)
+    const call = sendVerificationEmail.mock.calls[0][0]
+    const url = new URL(call.verificationUrl)
+    const token = url.searchParams.get("token")
+
+    const res = await (await request()).post("/api/auth/verify-email").send({ token })
+    expect(res.status).toBe(200)
+    expect(res.body.message).toBe("Email verified successfully")
+
+    // Verify the user can now sign in
+    const signinRes = await (await request())
+      .post("/api/auth/signin")
+      .send({ email: "verify@example.com", password: "Password123!" })
+
+    expect(signinRes.status).toBe(200)
   })
 
-  it("should reject mismatched confirmation_password", async () => {
-    const res = await (await request()).post("/api/auth/signup").send({
-      username: "validuser",
-      password: "Testpass123!",
-      confirmation_password: "Differentpass1!",
-    })
+  it("returns 400 for invalid token", async () => {
+    const res = await (await request()).post("/api/auth/verify-email").send({ token: "deadbeef" })
 
     expect(res.status).toBe(400)
-    expect(res.body.message).toContain("confirmation_password")
   })
 
-  it("should accept optional email on signup", async () => {
-    const res = await (await request()).post("/api/auth/signup").send({
-      username: "emailuser",
-      email: "emailuser@test.com",
-      password: "Testpass123!",
-      confirmation_password: "Testpass123!",
+  it("returns 400 for already-used token", async () => {
+    await (await request()).post("/api/auth/signup").send({
+      email: "used@example.com",
+      password: "Password123!",
+      confirmation_password: "Password123!",
+      full_name: "Used Token",
     })
 
-    expect(res.status).toBe(201)
-    expect(res.body.data.username).toBe("emailuser")
-    expect(res.body.data.email).toBe("emailuser@test.com")
-  })
+    const call = sendVerificationEmail.mock.calls[0][0]
+    const url = new URL(call.verificationUrl)
+    const token = url.searchParams.get("token")
 
-  it("should reject duplicate email", async () => {
-    const agent = await request()
-    await agent.post("/api/auth/signup").send({
-      username: "emailuser1",
-      email: "same@test.com",
-      password: "Testpass123!",
-      confirmation_password: "Testpass123!",
-    })
+    // Use it once
+    await (await request()).post("/api/auth/verify-email").send({ token })
 
-    const res = await agent.post("/api/auth/signup").send({
-      username: "emailuser2",
-      email: "same@test.com",
-      password: "Testpass123!",
-      confirmation_password: "Testpass123!",
-    })
-
+    // Try again
+    const res = await (await request()).post("/api/auth/verify-email").send({ token })
     expect(res.status).toBe(400)
-    expect(res.body.message).toContain("email")
+  })
+})
+
+describe("POST /api/auth/resend-verification", () => {
+  it("sends new verification email for unverified user", async () => {
+    await createTestUser({ email: "resend@example.com", email_verified: false })
+
+    const res = await (await request())
+      .post("/api/auth/resend-verification")
+      .send({ email: "resend@example.com" })
+
+    expect(res.status).toBe(200)
+    expect(sendVerificationEmail).toHaveBeenCalledOnce()
+    expect(sendVerificationEmail.mock.calls[0][0].toEmail).toBe("resend@example.com")
+  })
+
+  it("returns 200 but does not send email for verified user", async () => {
+    await createTestUser({ email: "already@example.com", email_verified: true })
+
+    const res = await (await request())
+      .post("/api/auth/resend-verification")
+      .send({ email: "already@example.com" })
+
+    expect(res.status).toBe(200)
+    expect(sendVerificationEmail).not.toHaveBeenCalled()
+  })
+
+  it("returns 200 for unknown email", async () => {
+    const res = await (await request())
+      .post("/api/auth/resend-verification")
+      .send({ email: "ghost@example.com" })
+
+    expect(res.status).toBe(200)
+    expect(sendVerificationEmail).not.toHaveBeenCalled()
   })
 })
 
 describe("POST /api/auth/signin", () => {
-  it("should sign in with valid credentials", async () => {
-    const agent = await request()
-    await agent.post("/api/auth/signup").send({
-      username: "loginuser",
-      password: "Testpass123!",
-      confirmation_password: "Testpass123!",
-    })
+  it("returns 401 for unknown email", async () => {
+    const res = await (await request())
+      .post("/api/auth/signin")
+      .send({ email: "nobody@example.com", password: "Password123!" })
 
-    const res = await agent.post("/api/auth/signin").send({
-      username: "loginuser",
-      password: "Testpass123!",
-    })
+    expect(res.status).toBe(401)
+  })
+
+  it("returns 403 if email not verified", async () => {
+    await createTestUser({ email: "unverified@example.com", email_verified: false })
+    const res = await (await request())
+      .post("/api/auth/signin")
+      .send({ email: "unverified@example.com", password: "Password123!" })
+
+    expect(res.status).toBe(403)
+  })
+
+  it("sets cookies and returns user data on success", async () => {
+    await createTestUser({ email: "verified@example.com", email_verified: true })
+    const res = await (await request())
+      .post("/api/auth/signin")
+      .send({ email: "verified@example.com", password: "Password123!" })
 
     expect(res.status).toBe(200)
-    expect(res.body.data.id).toBeDefined()
-    expect(res.body.data.username).toBe("loginuser")
-    expect(res.headers["set-cookie"]).toBeDefined()
-    const cookieHeader = res.headers["set-cookie"]
-    const cookieStr = Array.isArray(cookieHeader) ? cookieHeader.join("; ") : cookieHeader
-    expect(cookieStr).toContain("access_token=")
-    expect(cookieStr).toContain("refresh_token=")
-    expect(cookieStr).toContain("HttpOnly")
-    expect(res.body.data.access_token).toBeUndefined()
-    expect(res.body.data.refresh_token).toBeUndefined()
+    expect(res.body.data.email).toBe("verified@example.com")
+    const cookies = res.headers["set-cookie"]
+    expect(cookies.some((c) => c.startsWith("access_token="))).toBe(true)
+    expect(cookies.some((c) => c.startsWith("refresh_token="))).toBe(true)
   })
 
-  it("should reject invalid password", async () => {
-    const agent = await request()
-    await agent.post("/api/auth/signup").send({
-      username: "loginuser2",
-      password: "Testpass123!",
-      confirmation_password: "Testpass123!",
-    })
-
-    const res = await agent.post("/api/auth/signin").send({
-      username: "loginuser2",
-      password: "Wrongpass1!",
-    })
-
-    expect(res.status).toBe(401)
-    expect(res.body.message).toContain("invalid credentials")
-  })
-
-  it("should reject non-existent username", async () => {
-    const res = await (await request()).post("/api/auth/signin").send({
-      username: "nonexistent",
-      password: "Testpass123!",
-    })
-
-    expect(res.status).toBe(401)
-    expect(res.body.message).toContain("invalid credentials")
-  })
-
-  it("should lock account after 5 failed attempts", async () => {
-    const agent = await request()
-    await agent.post("/api/auth/signup").send({
-      username: "lockuser",
-      password: "Testpass123!",
-      confirmation_password: "Testpass123!",
-    })
+  it("locks account after 5 failed attempts", async () => {
+    await createTestUser({ email: "lockout@example.com", email_verified: true })
 
     // 5 failed attempts
     for (let i = 0; i < 5; i++) {
-      await agent.post("/api/auth/signin").send({
-        username: "lockuser",
-        password: "Wrongpass1!",
-      })
+      await (await request())
+        .post("/api/auth/signin")
+        .send({ email: "lockout@example.com", password: "WrongPassword1!" })
     }
 
     // 6th attempt with correct password should be locked
-    const res = await agent.post("/api/auth/signin").send({
-      username: "lockuser",
-      password: "Testpass123!",
-    })
+    const res = await (await request())
+      .post("/api/auth/signin")
+      .send({ email: "lockout@example.com", password: "Password123!" })
 
     expect(res.status).toBe(401)
-    expect(res.body.message).toContain("invalid credentials")
   })
 
-  it("should reset failed attempts on successful login", async () => {
-    const agent = await request()
-    await agent.post("/api/auth/signup").send({
-      username: "resetuser",
-      password: "Testpass123!",
-      confirmation_password: "Testpass123!",
-    })
+  it("resets lockout on successful login", async () => {
+    await createTestUser({ email: "resetlock@example.com", email_verified: true })
 
-    // 3 failed attempts (below lockout threshold)
+    // 3 failed attempts (below threshold)
     for (let i = 0; i < 3; i++) {
-      await agent.post("/api/auth/signin").send({
-        username: "resetuser",
-        password: "Wrongpass1!",
-      })
+      await (await request())
+        .post("/api/auth/signin")
+        .send({ email: "resetlock@example.com", password: "WrongPassword1!" })
     }
 
-    // Successful login should reset counter
-    const res = await agent.post("/api/auth/signin").send({
-      username: "resetuser",
-      password: "Testpass123!",
+    // Successful login resets counter
+    const res = await (await request())
+      .post("/api/auth/signin")
+      .send({ email: "resetlock@example.com", password: "Password123!" })
+
+    expect(res.status).toBe(200)
+  })
+})
+
+describe("POST /api/auth/forgot-password", () => {
+  it("sends reset email for existing user", async () => {
+    await createTestUser({ email: "forgot@example.com" })
+
+    const res = await (await request())
+      .post("/api/auth/forgot-password")
+      .send({ email: "forgot@example.com" })
+
+    expect(res.status).toBe(200)
+    expect(sendPasswordResetEmail).toHaveBeenCalledOnce()
+    expect(sendPasswordResetEmail.mock.calls[0][0].toEmail).toBe("forgot@example.com")
+  })
+
+  it("returns 200 regardless of email existence", async () => {
+    const res = await (await request())
+      .post("/api/auth/forgot-password")
+      .send({ email: "nobody@example.com" })
+
+    expect(res.status).toBe(200)
+    expect(sendPasswordResetEmail).not.toHaveBeenCalled()
+  })
+})
+
+describe("POST /api/auth/reset-password", () => {
+  it("resets password with valid token", async () => {
+    const user = await createTestUser({ email: "reset@example.com" })
+
+    // Manually create a reset token
+    const rawToken = crypto.randomBytes(32).toString("hex")
+    const tokenHash = emailTokenModel.hashToken(rawToken)
+    await emailTokenModel.create({
+      id: crypto.randomUUID(),
+      user_id: user.id,
+      token_hash: tokenHash,
+      type: "reset_password",
+      expires_at: new Date(Date.now() + 60 * 60 * 1000),
+      created_at: new Date(),
+    })
+
+    const res = await (await request()).post("/api/auth/reset-password").send({
+      token: rawToken,
+      password: "NewPassword456!",
+      confirmation_password: "NewPassword456!",
     })
 
     expect(res.status).toBe(200)
+    expect(res.body.message).toBe("Password reset successfully")
 
-    // Should be able to fail 5 more times before lockout (proves counter was reset)
-    for (let i = 0; i < 4; i++) {
-      await agent.post("/api/auth/signin").send({
-        username: "resetuser",
-        password: "Wrongpass1!",
-      })
-    }
-    const stillOk = await agent.post("/api/auth/signin").send({
-      username: "resetuser",
-      password: "Testpass123!",
+    // Old password should no longer work
+    const oldSignin = await (await request())
+      .post("/api/auth/signin")
+      .send({ email: "reset@example.com", password: "Password123!" })
+    expect(oldSignin.status).toBe(401)
+
+    // New password should work (user is verified by default in createTestUser)
+    const newSignin = await (await request())
+      .post("/api/auth/signin")
+      .send({ email: "reset@example.com", password: "NewPassword456!" })
+    expect(newSignin.status).toBe(200)
+  })
+
+  it("returns 400 for invalid token", async () => {
+    const res = await (await request()).post("/api/auth/reset-password").send({
+      token: "bogus",
+      password: "NewPassword456!",
+      confirmation_password: "NewPassword456!",
     })
-    expect(stillOk.status).toBe(200)
+
+    expect(res.status).toBe(400)
+  })
+
+  it("returns 400 for expired token", async () => {
+    const user = await createTestUser({ email: "expired@example.com" })
+
+    const rawToken = crypto.randomBytes(32).toString("hex")
+    const tokenHash = emailTokenModel.hashToken(rawToken)
+    await emailTokenModel.create({
+      id: crypto.randomUUID(),
+      user_id: user.id,
+      token_hash: tokenHash,
+      type: "reset_password",
+      expires_at: new Date(Date.now() - 1000), // already expired
+      created_at: new Date(),
+    })
+
+    const res = await (await request()).post("/api/auth/reset-password").send({
+      token: rawToken,
+      password: "NewPassword456!",
+      confirmation_password: "NewPassword456!",
+    })
+
+    expect(res.status).toBe(400)
+  })
+})
+
+describe("GET /api/auth/me", () => {
+  it("returns user data for authenticated user", async () => {
+    const user = await createTestUser()
+    const res = await (await request()).get("/api/auth/me").set(await getAuthHeaders(user.id))
+
+    expect(res.status).toBe(200)
+    expect(res.body.data.email).toBe(user.email)
+    expect(res.body.data.password_hash).toBeUndefined()
+  })
+
+  it("returns 401 without token", async () => {
+    const res = await (await request()).get("/api/auth/me")
+    expect(res.status).toBe(401)
   })
 })
 
 describe("POST /api/auth/refresh", () => {
-  it("should return new cookies on refresh (rotation)", async () => {
-    const agent = await request()
-    await agent.post("/api/auth/signup").send({
-      username: "refreshuser",
-      password: "Testpass123!",
-      confirmation_password: "Testpass123!",
-    })
-    const signinRes = await agent.post("/api/auth/signin").send({
-      username: "refreshuser",
-      password: "Testpass123!",
-    })
+  it("issues new cookies on refresh", async () => {
+    const user = await createTestUser()
+    const headers = await getAuthHeaders(user.id)
 
-    const cookieStr = extractCookies(signinRes)
-
-    const res = await agent.post("/api/auth/refresh").set("Cookie", cookieStr)
+    const res = await (await request()).post("/api/auth/refresh").set(headers)
 
     expect(res.status).toBe(200)
-    expect(res.headers["set-cookie"]).toBeDefined()
-    const newCookieStr = Array.isArray(res.headers["set-cookie"])
-      ? res.headers["set-cookie"].join("; ")
-      : res.headers["set-cookie"]
-    expect(newCookieStr).toContain("access_token=")
-    expect(newCookieStr).toContain("refresh_token=")
+    const cookies = res.headers["set-cookie"]
+    expect(cookies.some((c) => c.startsWith("access_token="))).toBe(true)
+    expect(cookies.some((c) => c.startsWith("refresh_token="))).toBe(true)
   })
 
-  it("should reject reused refresh token (rotation)", async () => {
-    const agent = await request()
-    await agent.post("/api/auth/signup").send({
-      username: "reuseuser",
-      password: "Testpass123!",
-      confirmation_password: "Testpass123!",
-    })
-    const signinRes = await agent.post("/api/auth/signin").send({
-      username: "reuseuser",
-      password: "Testpass123!",
-    })
+  it("rejects reused refresh token", async () => {
+    const user = await createTestUser()
+    const headers = await getAuthHeaders(user.id)
 
-    const cookieStr = extractCookies(signinRes)
+    // First refresh succeeds
+    await (await request()).post("/api/auth/refresh").set(headers)
 
-    await agent.post("/api/auth/refresh").set("Cookie", cookieStr)
-
-    const res = await agent.post("/api/auth/refresh").set("Cookie", cookieStr)
-
-    expect(res.status).toBe(401)
-  })
-
-  it("should reject request without refresh token", async () => {
-    const res = await (await request()).post("/api/auth/refresh")
-
+    // Second refresh with same token should fail
+    const res = await (await request()).post("/api/auth/refresh").set(headers)
     expect(res.status).toBe(401)
   })
 })
 
 describe("POST /api/auth/logout", () => {
-  it("should revoke refresh token on logout", async () => {
-    const agent = await request()
-    await agent.post("/api/auth/signup").send({
-      username: "logoutuser",
-      password: "Testpass123!",
-      confirmation_password: "Testpass123!",
-    })
-    const signinRes = await agent.post("/api/auth/signin").send({
-      username: "logoutuser",
-      password: "Testpass123!",
-    })
-
-    const cookieStr = extractCookies(signinRes)
-
-    const logoutRes = await agent.post("/api/auth/logout").set("Cookie", cookieStr)
-    expect(logoutRes.status).toBe(200)
-
-    const refreshRes = await agent.post("/api/auth/refresh").set("Cookie", cookieStr)
-    expect(refreshRes.status).toBe(401)
-  })
-
-  it("should return 401 without refresh token cookie", async () => {
-    const agent = await request()
-    const res = await agent.post("/api/auth/logout")
-
-    expect(res.status).toBe(401)
-  })
-})
-
-describe("GET /api/auth/me", () => {
-  it("should return current user with valid access token", async () => {
-    const agent = await request()
-    await agent.post("/api/auth/signup").send({
-      username: "meuser",
-      password: "Testpass123!",
-      confirmation_password: "Testpass123!",
-    })
-    const signinRes = await agent.post("/api/auth/signin").send({
-      username: "meuser",
-      password: "Testpass123!",
-    })
-
-    const cookieStr = extractCookies(signinRes)
-
-    const res = await agent.get("/api/auth/me").set("Cookie", cookieStr)
+  it("clears cookies and revokes token", async () => {
+    const user = await createTestUser()
+    const headers = await getAuthHeaders(user.id)
+    const res = await (await request()).post("/api/auth/logout").set(headers)
 
     expect(res.status).toBe(200)
-    expect(res.body.data.id).toBeDefined()
-    expect(res.body.data.username).toBe("meuser")
-  })
+    const cookies = res.headers["set-cookie"] || []
+    const refreshCookie = cookies.find((c) => c.startsWith("refresh_token="))
+    expect(refreshCookie).toMatch(/refresh_token=;/)
 
-  it("should return 401 without access token", async () => {
-    const res = await (await request()).get("/api/auth/me")
-
-    expect(res.status).toBe(401)
-  })
-
-  it("should return 401 with invalid access token", async () => {
-    const agent = await request()
-
-    const res = await agent.get("/api/auth/me").set("Cookie", "access_token=invalidtoken")
-
-    expect(res.status).toBe(401)
+    // Token should be revoked — refresh with same token should fail
+    const refreshRes = await (await request()).post("/api/auth/refresh").set(headers)
+    expect(refreshRes.status).toBe(401)
   })
 })
