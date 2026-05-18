@@ -1,10 +1,10 @@
-# Vue Template
+# RAG Chatbot Frontend
 
-A fully-featured Vue 3 starter template with authentication, CRUD operations, and a scalable architecture pattern. Built with modern best practices and ready for production.
+Vue 3 SPA frontend for the RAG Chatbot platform. Features cookie-based JWT authentication with automatic token refresh, Ant Design Vue UI components, and a layered architecture built for scalability.
 
 ## Monorepo Usage
 
-This package now lives at `apps/app` inside the monorepo.
+This package lives at `apps/app` inside the monorepo.
 
 From the repository root, run:
 
@@ -16,31 +16,12 @@ corepack pnpm lint:app
 
 You can still run package-local commands from `apps/app` with `pnpm`.
 
-This is my personal project that can be used together with the following backend repositories:
-
-- [express-template](https://github.com/dnwandana/express-template) - Node.js/Express backend
-
 ## Features
 
-- **Authentication System**
-  - User signup and login with httpOnly cookie-based JWT tokens
-  - Automatic token refresh on expiration (server rotates cookies)
-  - Protected routes with navigation guards
-  - Persistent sessions via localStorage (user data only — tokens in httpOnly cookies)
-
-- **Todo Management**
-  - Create, read, update, and delete todos
-  - Bulk delete operations
-  - Paginated list view with customizable page sizes
-  - Sortable by title or update date
-  - Status tracking (completed/pending)
-
-- **Developer Experience**
-  - Fast HMR with Vite
-  - Dual-linting setup (oxlint + eslint)
-  - Code formatting with Prettier
-  - Vue DevTools integration (development only)
-  - Clean, layered architecture
+- **Cookie-Based Auth**: JWT tokens in httpOnly cookies set by the server, automatic refresh on 401, request queuing during refresh
+- **RBAC-Aware UI**: Permission-gated components via `can()` / `canAny()` composables
+- **Ant Design Vue**: Full component library with icons
+- **Layered Architecture**: API → Store → Composable → View separation
 
 ## Tech Stack
 
@@ -53,29 +34,17 @@ This is my personal project that can be used together with the following backend
 | Fetch API      | Native HTTP client with cookie-based auth          |
 | Vue Router     | Client-side routing with guards                    |
 
-## Backend
-
-This Vue template is designed to work with compatible backend APIs. You can use one of these backend templates:
-
-- [express-template](https://github.com/dnwandana/express-template) - Express.js with JWT auth, todo CRUD, PostgreSQL
-
-Both backends provide:
-
-- JWT authentication via httpOnly cookies (signup, signin, refresh, logout)
-- RESTful API for todo management
-- Compatible API endpoints
-
 ## Prerequisites
 
-- **Node.js**: `^20.19.0 || >=22.12.0`
-- A running backend API (see Backend section above)
+- **Node.js**: `>=24.0.0`
+- A running backend API
 
 ## Quick Start
 
 1. **Install dependencies**
 
    ```bash
-   npm install
+   corepack pnpm install
    ```
 
 2. **Configure environment variables**
@@ -84,50 +53,64 @@ Both backends provide:
    cp .env.example .env
    ```
 
-   Then edit `.env` and set your API base URL:
+   Set your API base URL:
 
    ```
    VITE_API_BASE_URL=http://localhost:3000/api
    ```
 
 3. **Start the development server**
+
    ```bash
    npm run dev
    ```
+
    The app will be available at `http://localhost:8080`
 
 ## Development Commands
 
 ```bash
-# Start dev server (port 8080)
-npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
-
-# Run linters (oxlint + eslint with auto-fix)
-npm run lint
-
-# Format code with Prettier
-npm run format
+npm run dev       # Start dev server (port 8080)
+npm run build     # Build for production
+npm run preview   # Preview production build
+npm run lint      # Run linters (oxlint + eslint with auto-fix)
+npm run format    # Format code with Prettier
 ```
 
 ## Project Structure
 
-The application follows a layered architecture pattern for maintainability and scalability:
-
 ```
 src/
 ├── api/           # API service layer - pure HTTP calls
+│   ├── auth.js
+│   ├── invitations.js
+│   ├── permissions.js
+│   └── roles.js
 ├── stores/        # Pinia stores - business logic and state
+│   ├── auth.js
+│   ├── invitations.js
+│   ├── members.js
+│   └── roles.js
 ├── composables/   # Composables - form handling, UI state
+│   ├── useAuth.js
+│   ├── useInvitations.js
+│   ├── useMembers.js
+│   ├── usePermissions.js
+│   └── useRoles.js
 ├── views/         # Page components - *View.vue naming
+│   ├── auth/           # LoginView, SignupView
+│   └── invitations/    # MyInvitationsView
 ├── components/    # Reusable components
+│   ├── AppLayout.vue
+│   ├── AppSidebar.vue
+│   ├── InviteFormModal.vue
+│   ├── InvitationsTable.vue
+│   ├── MembersTable.vue
+│   └── RoleFormModal.vue
 ├── router/        # Vue Router configuration with auth guards
-└── utils/         # Utilities (fetch-based HTTP client with cookie auth, localStorage)
+└── utils/         # Utilities (fetch-based HTTP client, localStorage)
+    ├── http.js
+    └── storage.js
 ```
 
 ### Layer Architecture
@@ -137,33 +120,9 @@ src/
 3. **Composable Layer** (`src/composables/`) - Reusable composition functions for UI logic
 4. **View Layer** (`src/views/`) - Page components that use composables
 
-This separation ensures each layer has a single responsibility and makes testing easier.
-
 ## Code Style
 
-- **Linters**: oxlint (fast) + eslint (comprehensive)
+- **Linters**: oxlint (fast) + eslint (comprehensive) via npm-run-all2
 - **Formatter**: Prettier
 - **Rules**: No semicolons, double quotes, 100 char line width
 - **Import alias**: `@` maps to `src/`
-
-## Browser DevTools Setup
-
-For the best development experience, install the Vue.js devtools browser extension:
-
-### Chromium-based browsers (Chrome, Edge, Brave)
-
-- [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-- [Enable Custom Object Formatter](http://bit.ly/object-formatters)
-
-### Firefox
-
-- [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-- [Enable Custom Object Formatter](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
-
-## Using This Template
-
-See [TEMPLATE_GUIDE.md](TEMPLATE_GUIDE.md) for detailed instructions on:
-
-- Customizing this template for your project
-- Adding new features following the architecture pattern
-- Removing the todo features for a clean slate

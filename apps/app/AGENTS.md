@@ -1,32 +1,20 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Vue 3 SPA frontend for the RAG Chatbot platform. Cookie-based auth with automatic token refresh, Ant Design Vue UI, Pinia state management. No TypeScript.
 
 ## Development Commands
 
 ```bash
-# Install dependencies
-npm install
-
-# Start dev server (runs on port 8080)
-npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
-
-# Lint code (runs oxlint then eslint sequentially via npm-run-all2)
-npm run lint
-
-# Format code with Prettier
-npm run format
+npm run dev       # Start dev server (port 8080)
+npm run build     # Build for production
+npm run preview   # Preview production build
+npm run lint      # Lint (oxlint then eslint sequentially via npm-run-all2)
+npm run format    # Format code with Prettier
 ```
 
 ## Architecture Overview
 
-Vue 3 SPA built with Vite, using a Pinia store + composables pattern for state management. The app implements cookie-based authentication with automatic token refresh via a custom fetch-based HTTP client (httpOnly cookies set by the server).
+Vue 3 SPA built with Vite, using a Pinia store + composables pattern for state management. Cookie-based authentication with automatic token refresh via a custom fetch-based HTTP client (httpOnly cookies set by the server).
 
 ### Tech Stack
 
@@ -51,21 +39,19 @@ Vue 3 SPA built with Vite, using a Pinia store + composables pattern for state m
 
 ## Route Table
 
-| Path                                         | Name            | Component                                 | Auth Meta       |
-| -------------------------------------------- | --------------- | ----------------------------------------- | --------------- |
-| `/login`                                     | Login           | `views/auth/LoginView.vue`                | `requiresGuest` |
-| `/signup`                                    | Signup          | `views/auth/SignupView.vue`               | `requiresGuest` |
-| `/`                                          | —               | redirect to `/orgs`                       | —               |
-| `/orgs`                                      | OrgsList        | `views/orgs/OrgsListView.vue`             | `requiresAuth`  |
-| `/orgs/:orgId`                               | ProjectsList    | `views/projects/ProjectsListView.vue`     | `requiresAuth`  |
-| `/orgs/:orgId/settings`                      | OrgSettings     | `views/settings/OrgSettingsView.vue`      | `requiresAuth`  |
-| `/orgs/:orgId/projects/:projectId`           | TodosList       | `views/todos/TodosListView.vue`           | `requiresAuth`  |
-| `/orgs/:orgId/projects/:projectId/todos/:id` | TodoDetail      | `views/todos/TodoDetailView.vue`          | `requiresAuth`  |
-| `/orgs/:orgId/projects/:projectId/settings`  | ProjectSettings | `views/settings/ProjectSettingsView.vue`  | `requiresAuth`  |
-| `/invitations`                               | MyInvitations   | `views/invitations/MyInvitationsView.vue` | `requiresAuth`  |
-| `/:pathMatch(.*)*`                           | —               | redirect to `/orgs`                       | —               |
+| Path               | Name           | Component                                 | Auth Meta       | Status  |
+| ------------------ | -------------- | ----------------------------------------- | --------------- | ------- |
+| `/login`           | Login          | `views/auth/LoginView.vue`                | `requiresGuest` | Working |
+| `/signup`          | Signup         | `views/auth/SignupView.vue`               | `requiresGuest` | Working |
+| `/`                | —              | redirect to `/orgs`                       | —               | Stale   |
+| `/orgs`            | OrgsList       | `views/orgs/OrgsListView.vue`             | `requiresAuth`  | Deleted |
+| `/orgs/:orgId`     | ProjectsList   | `views/projects/ProjectsListView.vue`     | `requiresAuth`  | Deleted |
+| `/invitations`     | MyInvitations  | `views/invitations/MyInvitationsView.vue` | `requiresAuth`  | Working |
+| `/:pathMatch(.*)*` | —              | redirect to `/orgs`                       | —               | Stale   |
 
-**Navigation guard**: Unauthenticated users on `requiresAuth` routes are redirected to `/login` with `?redirect=`. Authenticated users on `requiresGuest` routes are redirected to `/orgs`. Auth store is initialized from localStorage on first navigation.
+**Stale routes**: Router still references deleted org/project/todo views. These need to be replaced with workspace/dataset/agent/conversation routes when the corresponding API features are built.
+
+**Navigation guard**: Unauthenticated users on `requiresAuth` routes redirect to `/login?redirect=`. Authenticated users on `requiresGuest` routes redirect to `/orgs` (stale — should redirect to workspace list eventually). Auth store is initialized from localStorage on first navigation.
 
 ## HTTP Client (`src/utils/http.js`)
 
@@ -85,72 +71,59 @@ Custom fetch-based client (NOT Axios). Key behaviors:
 
 ## Authentication Flow
 
-1. **Signin**: `LoginView.vue` → `useAuth().handleSignin()` → `useAuthStore().signin()` → `api/auth.js signin()` → `POST /auth/signin` → server sets httpOnly cookies (`access_token` + `refresh_token`) + returns user data → stores user data in localStorage → redirects to `/orgs`
-2. **Token attachment**: Every API call includes `credentials: 'include'` so cookies are sent automatically by the browser
+1. **Signin**: `LoginView.vue` → `useAuth().handleSignin()` → `useAuthStore().signin()` → `api/auth.js signin()` → `POST /auth/signin` → server sets httpOnly cookies → stores user data in localStorage → redirects to `/orgs`
+2. **Token attachment**: Every API call includes `credentials: 'include'` so cookies are sent automatically
 3. **Token refresh**: Automatic on 401 responses. Server rotates both tokens via httpOnly cookies.
-4. **Logout**: `AppLayout.vue` → `authStore.logout()` → `POST /auth/logout` (best-effort, cookies sent automatically) → clears all localStorage → redirects to `/login`
-5. **Route protection**: `router.beforeEach` guard calls `authStore.initAuth()` (which calls `GET /auth/me` to verify cookie validity) on first nav, then checks `requiresAuth`/`requiresGuest` meta flags
-6. **Permission loading**: On entering org-scoped pages, `loadPermissions(orgId, userId)` resolves the user's role and extracts permission name strings for UI gating via `can()` and `canAny()`
+4. **Logout**: `AppLayout.vue` → `authStore.logout()` → `POST /auth/logout` → clears localStorage → redirects to `/login`
+5. **Route protection**: `router.beforeEach` guard calls `authStore.initAuth()` (verifies cookie via `GET /auth/me`) on first nav, then checks route meta flags
 
 ## Store Catalog
 
-| Store                 | File                    | State                                                                                                                      | Key Actions                                                                                                                                                 |
-| --------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `useAuthStore`        | `stores/auth.js`        | `user`, `loading`                                                                                                          | `initAuth`, `signup`, `signin`, `logout`                                                                                                                    |
-| `useOrgsStore`        | `stores/orgs.js`        | `orgs`, `currentOrg`, `loading`                                                                                            | `fetchOrgs`, `fetchOrgById`, `createOrg`, `updateOrg`, `deleteOrg`                                                                                          |
-| `useProjectsStore`    | `stores/projects.js`    | `projects`, `currentProject`, `loading`                                                                                    | `fetchProjects`, `fetchProjectById`, `createProject`, `updateProject`, `deleteProject`                                                                      |
-| `useTodosStore`       | `stores/todos.js`       | `todos`, `currentTodo`, `pagination`, `selectedIds`, `sortBy`, `sortOrder`, `searchQuery`, `orgId`, `projectId`, `loading` | `setContext`, `fetchTodos`, `fetchTodoById`, `createTodo`, `updateTodo`, `deleteTodo`, `bulkDelete`, `toggleSelection`, `selectAll`, `setSort`, `setSearch` |
-| `useRolesStore`       | `stores/roles.js`       | `roles`, `currentRole`, `allPermissions`, `userPermissions`, `loading`                                                     | `fetchRoles`, `fetchRoleById`, `createRole`, `updateRole`, `deleteRole`, `fetchAllPermissions`, `loadUserPermissions`                                       |
-| `useMembersStore`     | `stores/members.js`     | `orgMembers`, `projectMembers`, `loading`                                                                                  | `fetchOrgMembers`, `fetchProjectMembers`, `updateOrgMemberRole`, `removeOrgMember`, `updateProjectMemberRole`, `removeProjectMember`                        |
-| `useInvitationsStore` | `stores/invitations.js` | `orgInvitations`, `myInvitations`, `loading`                                                                               | `fetchOrgInvitations`, `fetchMyInvitations`, `inviteToOrg`, `inviteToProject`, `acceptInvitation`, `declineInvitation`, `revokeInvitation`                  |
+| Store                 | File                    | State                                          | Key Actions                                        | Status  |
+| --------------------- | ----------------------- | ---------------------------------------------- | -------------------------------------------------- | ------- |
+| `useAuthStore`        | `stores/auth.js`        | `user`, `loading`                              | `initAuth`, `signup`, `signin`, `logout`           | Working |
+| `useRolesStore`       | `stores/roles.js`       | `roles`, `currentRole`, `allPermissions`, `userPermissions`, `loading` | `fetchRoles`, `fetchRoleById`, `createRole`, `updateRole`, `deleteRole`, `fetchAllPermissions`, `loadUserPermissions` | Working (references org API paths) |
+| `useMembersStore`     | `stores/members.js`     | `orgMembers`, `projectMembers`, `loading`      | `fetchOrgMembers`, `fetchProjectMembers`, role update/remove | Working (references org/project API) |
+| `useInvitationsStore` | `stores/invitations.js` | `orgInvitations`, `myInvitations`, `loading`   | `fetchOrgInvitations`, `fetchMyInvitations`, invite/accept/decline/revoke | Working |
+
+**Note**: Roles, members, and invitations stores still reference org/project API paths. They need to be updated to workspace API paths when F3 (workspaces + RBAC) is implemented.
 
 ## Composable Catalog
 
-| Composable       | File                            | Returns                                                                                                                                                                                                                                  |
-| ---------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `useAuth`        | `composables/useAuth.js`        | `formState`, `error`, `loading`, `isAuthenticated`, `currentUser`, validation rules, `handleSignin`, `handleSignup`, `handleLogout`, `resetForm`                                                                                         |
-| `useOrgs`        | `composables/useOrgs.js`        | `orgs`, `currentOrg`, `loading`, modal state, validation rules, CRUD wrappers, `openCreateModal`, `openEditModal`, `closeModal`, `handleSubmit`                                                                                          |
-| `useProjects`    | `composables/useProjects.js`    | `projects`, `currentProject`, `loading`, modal state, validation rules, CRUD wrappers, `openCreateModal`, `openEditModal`, `closeModal`, `handleSubmit`                                                                                  |
-| `useTodos`       | `composables/useTodos.js`       | `todos`, `pagination`, `loading`, `selectedIds`, `sortBy`, `sortOrder`, `searchQuery`, `currentTodo`, modal state, validation rules, CRUD wrappers, `setContext`, pagination/sort/search handlers, `isSelected`, `handleSelectionChange` |
-| `useRoles`       | `composables/useRoles.js`       | `roles`, `currentRole`, `allPermissions`, `loading`, modal state, validation rules, CRUD wrappers, `openCreateModal`, `openEditModal`, `closeModal`, `handleSubmit`                                                                      |
-| `useMembers`     | `composables/useMembers.js`     | `orgMembers`, `projectMembers`, `loading`, role-change modal state, `fetchOrgMembers`, `fetchProjectMembers`, `openRoleModal`, `closeRoleModal`, `handleRoleChange`, `handleRemove`                                                      |
-| `useInvitations` | `composables/useInvitations.js` | `orgInvitations`, `myInvitations`, `loading`, `pendingCount`, invite modal state, `fetchOrgInvitations`, `fetchMyInvitations`, `openInviteModal`, `closeInviteModal`, `handleInvite`, `handleAccept`, `handleDecline`, `handleRevoke`    |
-| `usePermissions` | `composables/usePermissions.js` | `userPermissions`, `can(permission)`, `canAny(permissions[])`, `loadPermissions(orgId, userId)`, `clearPermissions`                                                                                                                      |
+| Composable       | File                            | Returns                                                                                                    |
+| ---------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `useAuth`        | `composables/useAuth.js`        | `formState`, `error`, `loading`, `isAuthenticated`, `currentUser`, validation rules, action handlers       |
+| `useRoles`       | `composables/useRoles.js`       | `roles`, `currentRole`, `allPermissions`, `loading`, modal state, CRUD wrappers                            |
+| `useMembers`     | `composables/useMembers.js`     | `orgMembers`, `projectMembers`, `loading`, role-change modal state, fetch/change/remove handlers           |
+| `useInvitations` | `composables/useInvitations.js` | `orgInvitations`, `myInvitations`, `loading`, `pendingCount`, invite modal state, invite/accept/decline    |
+| `usePermissions` | `composables/usePermissions.js` | `userPermissions`, `can(permission)`, `canAny(permissions[])`, `loadPermissions(orgId, userId)`, `clearPermissions` |
 
 ## Component Catalog
 
-| Component          | File                              | Purpose                                                                                                                            |
-| ------------------ | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `AppLayout`        | `components/AppLayout.vue`        | Main shell: header with org/project selectors, pending invitations badge, logout button, collapsible sidebar, content slot, footer |
-| `AppSidebar`       | `components/AppSidebar.vue`       | Context-aware navigation menu that adapts based on current route (org list, org-scoped, or project-scoped)                         |
-| `OrgFormModal`     | `components/OrgFormModal.vue`     | Create/edit organization modal form (name + description)                                                                           |
-| `ProjectFormModal` | `components/ProjectFormModal.vue` | Create/edit project modal form (name + description)                                                                                |
-| `TodoFormModal`    | `components/TodoFormModal.vue`    | Create/edit todo modal form (title + description + completed checkbox)                                                             |
-| `RoleFormModal`    | `components/RoleFormModal.vue`    | Create/edit role modal with permissions grouped by resource as checkboxes                                                          |
-| `InviteFormModal`  | `components/InviteFormModal.vue`  | Invite member modal — toggle between username/email input, with role selection dropdown                                            |
-| `MembersTable`     | `components/MembersTable.vue`     | Members table with inline role-change dropdown and remove button with confirmation                                                 |
-| `InvitationsTable` | `components/InvitationsTable.vue` | Invitations table with color-coded status tags and revoke button for pending invitations                                           |
+| Component          | File                              | Purpose                                                                 |
+| ------------------ | --------------------------------- | ----------------------------------------------------------------------- |
+| `AppLayout`        | `components/AppLayout.vue`        | Main shell: header, sidebar, content slot, footer                       |
+| `AppSidebar`       | `components/AppSidebar.vue`       | Context-aware navigation menu (currently org/project, needs workspace)  |
+| `RoleFormModal`    | `components/RoleFormModal.vue`    | Create/edit role modal with permissions grouped by resource             |
+| `InviteFormModal`  | `components/InviteFormModal.vue`  | Invite member modal — username/email toggle, role selection             |
+| `MembersTable`     | `components/MembersTable.vue`     | Members table with inline role-change dropdown and remove button        |
+| `InvitationsTable` | `components/InvitationsTable.vue` | Invitations table with status tags and revoke button                    |
 
 ## API Service Catalog
 
-| Module         | File                    | Exports                                                                                                                                  |
-| -------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| auth           | `api/auth.js`           | `signup`, `signin`, `getMe`, `refreshToken`, `logout`                                                                                    |
-| orgs           | `api/orgs.js`           | `getOrgs`, `getOrg`, `createOrg`, `updateOrg`, `deleteOrg`                                                                               |
-| projects       | `api/projects.js`       | `getProjects`, `getProject`, `createProject`, `updateProject`, `deleteProject`                                                           |
-| todos          | `api/todos.js`          | `getTodos`, `getTodoById`, `createTodo`, `updateTodo`, `deleteTodo`, `deleteTodos`                                                       |
-| roles          | `api/roles.js`          | `getRoles`, `getRole`, `createRole`, `updateRole`, `deleteRole`                                                                          |
-| permissions    | `api/permissions.js`    | `getPermissions`                                                                                                                         |
-| invitations    | `api/invitations.js`    | `inviteToOrg`, `inviteToProject`, `listOrgInvitations`, `listMyInvitations`, `acceptInvitation`, `declineInvitation`, `revokeInvitation` |
-| orgMembers     | `api/orgMembers.js`     | `getOrgMembers`, `updateOrgMemberRole`, `removeOrgMember`                                                                                |
-| projectMembers | `api/projectMembers.js` | `getProjectMembers`, `updateProjectMemberRole`, `removeProjectMember`                                                                    |
+| Module      | File                 | Exports                                                       |
+| ----------- | -------------------- | ------------------------------------------------------------- |
+| auth        | `api/auth.js`        | `signup`, `signin`, `getMe`, `refreshToken`, `logout`         |
+| roles       | `api/roles.js`       | `getRoles`, `getRole`, `createRole`, `updateRole`, `deleteRole` |
+| permissions | `api/permissions.js` | `getPermissions`                                              |
+| invitations | `api/invitations.js` | `inviteToOrg`, `inviteToProject`, list/accept/decline/revoke  |
 
 ## Utility Files
 
 | File               | Exports                                                                                        |
 | ------------------ | ---------------------------------------------------------------------------------------------- |
 | `utils/http.js`    | `baseURL` (const), `HttpError` (class), `request` object (`send`, `get`, `post`, `put`, `del`) |
-| `utils/storage.js` | `getUserData`, `setUserData`, `clearUserData`, `clearAuthData`                                 |
+| `utils/storage.js` | `getUserData`, `setUserData`, `clearUserData`                                                  |
 
 ## Environment Configuration
 
@@ -166,8 +139,8 @@ Custom fetch-based client (NOT Axios). Key behaviors:
 
 ## File Naming
 
-- Views: `*View.vue` (e.g., `LoginView.vue`, `TodosListView.vue`)
-- Components: PascalCase (e.g., `AppLayout.vue`, `TodoFormModal.vue`)
+- Views: `*View.vue` (e.g., `LoginView.vue`)
+- Components: PascalCase (e.g., `AppLayout.vue`, `RoleFormModal.vue`)
 - Stores: camelCase with `use` prefix (e.g., `useAuthStore`)
-- Composables: camelCase with `use` prefix (e.g., `useAuth`, `useTodos`)
-- API modules: camelCase (e.g., `auth.js`, `orgMembers.js`)
+- Composables: camelCase with `use` prefix (e.g., `useAuth`, `useRoles`)
+- API modules: camelCase (e.g., `auth.js`, `invitations.js`)

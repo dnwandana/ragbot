@@ -1,32 +1,39 @@
-# Fullstack Template
+# RAG Chatbot
 
-A production-ready monorepo for building multi-tenant SaaS applications. Combines a secure Express.js REST API with a Vue 3 SPA, wired together with JWT authentication, RBAC, an invitation system, and a full Organization → Project → Resource hierarchy.
+A workspace-based RAG (Retrieval-Augmented Generation) chatbot platform. Users upload documents into datasets, configure AI agents, and chat with their data — all isolated by workspace with role-based access control.
 
 ## What's inside
 
-| App        | Stack                              | Purpose                                 |
-| ---------- | ---------------------------------- | --------------------------------------- |
-| `apps/api` | Express 5, PostgreSQL, Knex.js     | REST API with auth, RBAC, multi-tenancy |
-| `apps/app` | Vue 3, Pinia, Ant Design Vue, Vite | Single-page app consuming the API       |
+| App        | Stack                                                            | Purpose                            |
+| ---------- | ---------------------------------------------------------------- | ---------------------------------- |
+| `apps/api` | Express 5, PostgreSQL + pgvector, Knex.js, OpenRouter API       | REST API with auth, RAG pipeline   |
+| `apps/app` | Vue 3, Pinia, Ant Design Vue, Vite                              | Single-page app consuming the API  |
 
 ## Architecture at a glance
 
 ```
-Organization
-  └── Projects
-        └── Todos (example resource)
+Workspace (tenant boundary)
+  ├── Roles & Permissions (RBAC)
+  ├── Members (invited via email)
+  ├── Datasets (knowledge bases)
+  │     └── Files → Chunks → Vector Embeddings
+  ├── Agents (configurable system prompt + model)
+  │     └── Conversations (chat sessions)
+  │           └── Messages + Citations
+  └── Audit Logs (immutable trail)
 ```
 
-- **Multi-tenancy**: Shared PostgreSQL database, tenant-scoped via `org_id`/`project_id` columns
-- **RBAC**: 4 system roles (owner / admin / member / viewer) + custom roles, 16 granular permissions
-- **Auth**: Dual-token JWT via httpOnly cookies, Argon2 password hashing, password complexity, account lockout
-- **Invitations**: Invite by username or email, 7-day expiry, accept/decline flow
+- **Multi-tenancy**: Shared PostgreSQL database, tenant-scoped via `workspace_id` columns with composite foreign keys enforcing isolation at the DB level
+- **RBAC**: 4 system roles (owner / admin / editor / viewer) + custom roles, 30 granular permissions across 8 resources
+- **Auth**: Dual-token JWT via httpOnly cookies, Argon2 password hashing, account lockout after 5 failed attempts
+- **RAG pipeline**: File upload → parsing (LlamaIndex) → chunking (LangChain) → embedding (OpenRouter) → vector search (pgvector HNSW)
+- **AI chat**: ReAct loop with OpenRouter, SSE streaming, citation tracking back to source chunks
 
 ## Prerequisites
 
 - Node.js `>=24.0.0`
 - Corepack (bundled with Node 24+)
-- PostgreSQL (for the API)
+- PostgreSQL with `pgvector` extension (for the API)
 
 For production deployment:
 
@@ -55,6 +62,20 @@ ACCESS_TOKEN_SECRET=<at-least-32-characters>
 REFRESH_TOKEN_SECRET=<at-least-32-characters>
 JWT_ISSUER=https://api.example.com
 JWT_AUDIENCE=https://api.example.com
+OPENROUTER_API_KEY=<key>
+BREVO_API_KEY=<key>
+BREVO_TEMPLATE_VERIFY_EMAIL=<template-id>
+BREVO_TEMPLATE_RESET_PASSWORD=<template-id>
+BREVO_TEMPLATE_WORKSPACE_INVITATION=<template-id>
+EMAIL_FROM_ADDRESS=noreply@example.com
+APP_URL=http://localhost:8080
+S3_BUCKET=<bucket>
+S3_ACCESS_KEY=<key>
+S3_SECRET_KEY=<key>
+S3_ENDPOINT=https://<account>.r2.cloudflarestorage.com
+LLAMAINDEX_API_KEY=<key>
+LLAMAINDEX_WEBHOOK_SECRET=<at-least-16-chars>
+FIRECRAWL_API_KEY=<key>
 ```
 
 Optional (with defaults):
@@ -69,6 +90,10 @@ RATE_LIMIT_AUTH_MAX=10
 RATE_LIMIT_GENERAL_MAX=100
 LOG_LEVEL=info
 LOG_TO_FILE=true
+DEFAULT_EMBEDDINGS_MODEL=openai/text-embedding-3-small
+DEFAULT_CHAT_MODEL=openai/gpt-4.1
+S3_REGION=auto
+EMAIL_FROM_NAME=RAG Chatbot
 ```
 
 ### App (`apps/app`)
@@ -83,12 +108,25 @@ VITE_API_BASE_URL=http://localhost:3000/api
 
 ## Database setup
 
-Run migrations and (optional) seed data:
+Requires PostgreSQL with the `pgvector` extension installed. Run migrations and (optional) seed data:
 
 ```bash
 cd apps/api
-npm run migrate
-npm run seed      # loads test users, orgs, projects, ~250 todos
+corepack pnpm migrate        # runs knex migrate:latest
+corepack pnpm seed           # seeds permissions + 2 test users
+```
+
+This creates 15 tables across 8 migrations:
+
+```
+001_extensions_and_types   → pgcrypto + vector extensions, 5 ENUM types
+002_core_tenancy           → workspaces, users, email_tokens, refresh_tokens
+003_roles_and_permissions  → permissions, roles, role_permissions, workspace_members
+004_rag_pipeline            → datasets, dataset_files, document_chunks (with HNSW vector index)
+005_agents                  → agents (configurable system prompt + model)
+006_conversations_and_messages → conversations, conversation_datasets, messages, message_citations
+007_functions               → trigger_set_updated_at(), search_chunks() function
+008_audit_logs              → audit_logs (immutable, append-only)
 ```
 
 ## Development
@@ -114,39 +152,25 @@ corepack pnpm dev:app   # http://localhost:8080
 
 Append `:api` or `:app` to target a single workspace (e.g. `pnpm test:api`).
 
-## API overview
+## Current API endpoints
 
-### Authentication endpoints (public)
+### Authentication (public)
 
 | Method | Path                | Description                                           |
 | ------ | ------------------- | ----------------------------------------------------- |
 | POST   | `/api/auth/signup`  | Register — returns `{ id, username, email }`          |
 | POST   | `/api/auth/signin`  | Login — sets httpOnly auth cookies, returns user info |
+| GET    | `/api/auth/me`      | Current user (requires access token)                  |
 | POST   | `/api/auth/refresh` | Rotate tokens via httpOnly cookie                     |
 | POST   | `/api/auth/logout`  | Revoke refresh token, clear cookies                   |
 
-### Protected endpoints (authenticated via httpOnly `access_token` cookie)
+### Permissions (authenticated)
 
-```
-GET  /api/invitations                              # User's pending invitations
-GET  /api/permissions                              # Permission reference list
+| Method | Path              | Description              |
+| ------ | ----------------- | ------------------------ |
+| GET    | `/api/permissions` | Permission reference list |
 
-POST /api/orgs                                     # Create org
-GET  /api/orgs/:org_id                             # Get org
-GET  /api/orgs/:org_id/members                     # List members
-POST /api/orgs/:org_id/invitations                 # Invite to org
-
-GET  /api/orgs/:org_id/projects                    # List projects
-POST /api/orgs/:org_id/projects                    # Create project
-
-GET  /api/orgs/:org_id/projects/:project_id/todos  # List todos (paginated)
-POST /api/orgs/:org_id/projects/:project_id/todos  # Create todo
-
-GET  /api/orgs/:org_id/roles                       # List roles
-POST /api/orgs/:org_id/roles                       # Create custom role
-```
-
-Health check (no auth, not rate-limited):
+### Health check (public, not rate-limited)
 
 ```
 GET /health    # { status, uptime, database } (production omits uptime/database)
@@ -171,20 +195,35 @@ The API uses httpOnly cookies (not headers) for token management:
 
 Tokens are set by the server on signin/refresh and never exposed to JavaScript. Both use `Secure` (production), `SameSite=Strict`.
 
+## Feature roadmap
+
+| Feature | Description                              | Status        |
+| ------- | ---------------------------------------- | ------------- |
+| F1      | Database schema + infrastructure         | **Complete**  |
+| F2      | Email-based authentication (Brevo)       | Planned       |
+| F3      | Workspaces + RBAC + members              | Planned       |
+| F4      | Datasets + file upload + RAG pipeline    | Planned       |
+| F5      | Agent management                         | Planned       |
+| F6      | Conversations (CRUD + dataset linking)   | Planned       |
+| F7      | Chat (ReAct loop + SSE streaming)        | Planned       |
+
+Detailed plans live in `plans/` and design specs in `docs/superpowers/specs/`.
+
 ## Testing
 
 ```bash
 corepack pnpm test:api
 ```
 
-Tests require a PostgreSQL test database. Copy and configure:
+Tests require a PostgreSQL test database with pgvector. Copy and configure:
 
 ```bash
 cp apps/api/.env.example apps/api/.env.test
 # Set DATABASE_URL to a separate test database
+# Update PORT (e.g. 3001), LOG_LEVEL=error, LOG_TO_FILE=false
 ```
 
-The test suite uses real PostgreSQL (no mocks), runs migrations before each session, and truncates tables between tests. 64 tests across unit (pagination, sanitize, http-error) and integration (auth, health, orgs, todos, permissions) suites.
+The test suite uses real PostgreSQL (no mocks). Vitest runs migrations once before the session, and `cleanAllTables()` truncates between tests. Currently passing: health (5), http-error (3), pagination (9), request-id (4), sanitize (6) — 27 tests total. Auth and permissions integration tests need rewriting for the new schema.
 
 ## Deployment
 
@@ -210,7 +249,8 @@ Test the production images locally over HTTP (no SSL required).
 
 ```bash
 cp .env.example .env.local
-# Edit .env.local — fill in DATABASE_URL, JWT secrets, and set these local values:
+# Edit .env.local — fill in DATABASE_URL, JWT secrets, and all service keys.
+# Set these local values:
 #   NODE_ENV=development        ← required: keeps cookies non-Secure so browsers accept them over HTTP
 #   JWT_ISSUER=http://localhost
 #   JWT_AUDIENCE=http://localhost
@@ -258,7 +298,7 @@ ln -s /etc/letsencrypt/live/<domain>/privkey.pem certs/privkey.pem
 
 ```bash
 cp .env.example .env
-# Edit .env — fill in DATABASE_URL, JWT secrets, and your domain
+# Edit .env — fill in DATABASE_URL, JWT secrets, service keys, and your domain
 ```
 
 **3. Build and start**
@@ -299,57 +339,112 @@ docker compose run --rm api sh -c "node_modules/.bin/knex seed:run"
 | `REFRESH_TOKEN_SECRET` | Yes      | JWT secret, min 32 chars, must differ from access secret                            |
 | `JWT_ISSUER`           | Yes      | e.g. `https://yourdomain.com`                                                       |
 | `JWT_AUDIENCE`         | Yes      | e.g. `https://yourdomain.com`                                                       |
+| `OPENROUTER_API_KEY`   | Yes      | API key for OpenRouter (LLM + embedding inference)                                  |
+| `BREVO_API_KEY`        | Yes      | API key for Brevo (transactional email)                                             |
+| `S3_BUCKET`            | Yes      | Cloudflare R2 bucket name for file storage                                          |
+| `S3_ACCESS_KEY`        | Yes      | R2 access key                                                                       |
+| `S3_SECRET_KEY`        | Yes      | R2 secret key                                                                       |
+| `S3_ENDPOINT`          | Yes      | R2 endpoint URL                                                                     |
+| `LLAMAINDEX_API_KEY`   | Yes      | API key for LlamaIndex (document parsing)                                           |
+| `FIRECRAWL_API_KEY`    | Yes      | API key for Firecrawl (URL scraping)                                                |
 | `CORS_ALLOWED_ORIGINS` | No       | Defaults to `http://localhost:8080`. Set to `https://yourdomain.com` in production. |
 
-See `.env.example` for the full list.
+See `apps/api/.env.example` for the full list with defaults.
 
 ---
 
 ## Project structure
 
 ```
-fullstack-template/
+rag-chatbot/
 ├── apps/
 │   ├── api/
 │   │   ├── src/
-│   │   │   ├── app.js              # Express app (middleware + routes)
-│   │   │   ├── index.js            # Entry point (env validation, server start)
-│   │   │   ├── config/             # Database config
-│   │   │   ├── controllers/        # Business logic + Joi validation
-│   │   │   ├── models/             # Knex.js queries (no business logic)
-│   │   │   ├── routes/             # Route definitions
-│   │   │   ├── middlewares/        # Auth, tenant resolution, permission guards
-│   │   │   └── utils/              # JWT, logging, response, pagination helpers
+│   │   │   ├── app.js              # Express app (middleware stack + routes)
+│   │   │   ├── index.js            # Entry point (env validation, server start, graceful shutdown)
+│   │   │   ├── config/
+│   │   │   │   └── database.js     # Knex instance
+│   │   │   ├── controllers/
+│   │   │   │   ├── authentication.js
+│   │   │   │   ├── permissions.js
+│   │   │   │   └── roles.js
+│   │   │   ├── models/
+│   │   │   │   ├── permissions.js
+│   │   │   │   ├── refresh-tokens.js
+│   │   │   │   ├── roles.js
+│   │   │   │   └── users.js
+│   │   │   ├── routes/
+│   │   │   │   ├── authentication.js
+│   │   │   │   ├── health.js
+│   │   │   │   ├── index.js
+│   │   │   │   └── permissions.js
+│   │   │   ├── middlewares/
+│   │   │   │   ├── authorization.js   # requireAccessToken, requireRefreshToken
+│   │   │   │   ├── error.js           # errorHandler, notFoundHandler
+│   │   │   │   ├── logger.js          # httpLogger (Morgan), requestLogger (Winston)
+│   │   │   │   ├── rate-limit.js      # authLimiter, generalLimiter
+│   │   │   │   └── request-id.js
+│   │   │   └── utils/
+│   │   │       ├── argon2.js
+│   │   │       ├── constant.js
+│   │   │       ├── cookies.js
+│   │   │       ├── http-error.js
+│   │   │       ├── jwt.js
+│   │   │       ├── logger.js
+│   │   │       ├── pagination.js
+│   │   │       ├── response.js
+│   │   │       ├── sanitize.js
+│   │   │       └── validate-env.js
 │   │   ├── database/
-│   │   │   ├── migrations/         # 10 Knex migrations
-│   │   │   └── seeds/              # 9 seed files (permissions, users, test data)
+│   │   │   ├── migrations/         # 8 Knex migrations (workspace-based RAG schema)
+│   │   │   └── seeds/
+│   │   │       ├── 01_permissions.js  # 30 permissions across 8 resources
+│   │   │       └── 02_test_users.js   # 2 test users (alice, bob)
 │   │   └── tests/
-│   │       ├── integration/        # HTTP endpoint tests
-│   │       └── unit/               # Utility unit tests
+│   │       ├── helpers.js          # createTestUser, createTestWorkspace, getAuthHeaders, cleanAllTables
+│   │       ├── global-setup.js
+│   │       ├── global-teardown.js
+│   │       ├── integration/        # auth, health, permissions
+│   │       └── unit/               # http-error, pagination, request-id, sanitize
 │   │
 │   └── app/
 │       └── src/
-│           ├── api/                # HTTP service layer (pure fetch calls)
-│           ├── stores/             # Pinia stores (state + API orchestration)
-│           ├── composables/        # Bridge: stores → components
+│           ├── api/                # HTTP service layer (fetch-based)
+│           │   ├── auth.js
+│           │   ├── invitations.js
+│           │   ├── permissions.js
+│           │   └── roles.js
+│           ├── stores/             # Pinia stores
+│           │   ├── auth.js
+│           │   ├── invitations.js
+│           │   ├── members.js
+│           │   └── roles.js
+│           ├── composables/        # Bridge: stores -> components
+│           │   ├── useAuth.js
+│           │   ├── useInvitations.js
+│           │   ├── useMembers.js
+│           │   ├── usePermissions.js
+│           │   └── useRoles.js
 │           ├── views/              # Routed page components
+│           │   ├── auth/           # LoginView, SignupView
+│           │   └── invitations/    # MyInvitationsView
 │           ├── components/         # Reusable UI components
+│           │   ├── AppLayout.vue
+│           │   ├── AppSidebar.vue
+│           │   ├── InviteFormModal.vue
+│           │   ├── InvitationsTable.vue
+│           │   ├── MembersTable.vue
+│           │   └── RoleFormModal.vue
 │           ├── router/             # Vue Router + auth guards
 │           └── utils/              # Fetch client, localStorage helpers
 │
+├── plans/                          # Feature implementation plans (F1–F7)
+├── docs/superpowers/specs/         # Design specifications
+├── nginx/                          # nginx configs (production + local)
 ├── package.json                    # Monorepo root
 ├── pnpm-workspace.yaml
 └── turbo.json
 ```
-
-## Adding a new resource
-
-1. **Migration**: `npm run migrate:make create_<resource>_table` — add `org_id`/`project_id` FK for tenant scoping
-2. **Model** (`src/models/<resource>.js`): Knex queries with tenant-scoped conditions
-3. **Controller** (`src/controllers/<resource>.js`): Business logic using `req.org.id`/`req.project.id`
-4. **Routes** (`src/routes/<resource>.js`): `Router({ mergeParams: true })`, apply `requirePermission()` guards
-5. Wire into parent route file (e.g. `src/routes/projects.js`)
-6. Add permissions to `01_permissions.js` seed; update `05_role_permissions.js`
 
 ## Code style
 
