@@ -1,319 +1,213 @@
-/**
- * Test helper utilities for integration tests.
- *
- * Provides factory functions for creating test users, organizations, projects,
- * and memberships. All helpers operate directly on the database, bypassing
- * the API layer for faster, more isolated setup.
- *
- * @module tests/helpers
- */
-import crypto from "node:crypto"
 import supertest from "supertest"
+import db from "../src/config/database.js"
+import { generateAccessToken, generateRefreshToken } from "../src/utils/jwt.js"
+import { hashPassword } from "../src/utils/argon2.js"
+import { hashToken } from "../src/models/refresh-tokens.js"
 
-let app
+let _app
 
-/**
- * Lazily imports and caches the Express app instance.
- * Uses dynamic import so the app is only loaded when tests actually run.
- *
- * @returns {Promise<import("express").Express>} The Express app
- */
 export async function getApp() {
-  if (!app) {
-    const mod = await import("../src/app.js")
-    app = mod.default
+  if (!_app) {
+    const { default: app } = await import("../src/app.js")
+    _app = app
   }
-  return app
+  return _app
 }
 
-/**
- * Creates a Supertest agent bound to the Express app.
- *
- * @returns {Promise<import("supertest").SuperTest>} Supertest agent
- */
 export async function request() {
-  const app = await getApp()
-  return supertest(app)
+  return supertest(await getApp())
 }
 
-/**
- * Creates a test user directly in the database.
- *
- * @param {Object} [overrides={}] - Override default values
- * @param {string} [overrides.username] - Custom username
- * @param {string} [overrides.email] - Custom email
- * @param {string} [overrides.password] - Custom plaintext password
- * @returns {Promise<Object>} User object with id, username, email, and plainPassword
- */
 export async function createTestUser(overrides = {}) {
-  const { hashPassword } = await import("../src/utils/argon2.js")
-  const { default: db } = await import("../src/config/database.js")
-
   const id = crypto.randomUUID()
-  const username = overrides.username || `testuser_${id.slice(0, 8)}`
-  const email = overrides.email || `${username}@test.com`
-  const password = overrides.password || "Testpass123!"
-  const hashedPassword = await hashPassword(password)
+  const email = overrides.email ?? `user-${id.slice(0, 8)}@example.com`
+  const plainPassword = overrides.password ?? "Password123!"
+  const password_hash = await hashPassword(plainPassword)
 
-  const [user] = await db("users")
-    .insert({
-      id,
-      username,
-      email,
-      password: hashedPassword,
-      failed_login_attempts: 0,
-      locked_until: null,
-      created_at: new Date(),
-      updated_at: new Date(),
-    })
-    .returning(["id", "username", "email", "created_at", "updated_at"])
+  await db("users").insert({
+    id,
+    email,
+    password_hash,
+    full_name: overrides.full_name ?? "Test User",
+    email_verified: overrides.email_verified ?? true,
+    created_at: new Date(),
+    updated_at: new Date(),
+  })
 
-  return { ...user, plainPassword: password }
+  return { id, email, full_name: overrides.full_name ?? "Test User", plainPassword }
 }
 
-/**
- * Generates auth cookies (access + refresh tokens) for a given user ID.
- *
- * @param {string} userId - UUID of the user
- * @returns {Promise<Object>} Object with access_token and refresh_token cookie values
- */
-export async function getAuthCookies(userId) {
-  const { generateAccessToken, generateRefreshToken } = await import("../src/utils/jwt.js")
-  return {
-    access_token: generateAccessToken(userId),
-    refresh_token: generateRefreshToken(userId),
-  }
-}
-
-/**
- * Generates auth headers with a Cookie header for a given user ID.
- *
- * @param {string} userId - UUID of the user
- * @returns {Promise<Object>} Headers object with Cookie header containing both tokens
- */
 export async function getAuthHeaders(userId) {
-  const cookies = await getAuthCookies(userId)
-  return { Cookie: `access_token=${cookies.access_token}; refresh_token=${cookies.refresh_token}` }
+  const accessToken = generateAccessToken({ id: userId })
+  const refreshToken = generateRefreshToken({ id: userId })
+  const tokenHash = hashToken(refreshToken)
+
+  await db("refresh_tokens").insert({
+    id: crypto.randomUUID(),
+    user_id: userId,
+    token_hash: tokenHash,
+    expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    created_at: new Date(),
+    updated_at: new Date(),
+  })
+
+  return { Cookie: `access_token=${accessToken}; refresh_token=${refreshToken}` }
 }
 
-/**
- * Creates a test organization with system roles and adds the creator as owner.
- *
- * Creates all four system roles (owner, admin, member, viewer) with their
- * corresponding permissions, mirroring the createOrg controller logic.
- *
- * @param {string} userId - UUID of the user to be the org owner
- * @param {Object} [overrides={}] - Override default values
- * @param {string} [overrides.name] - Custom org name
- * @param {string} [overrides.description] - Custom description
- * @returns {Promise<Object>} Org object with id, name, description, and roles map
- */
-export async function createTestOrg(userId, overrides = {}) {
-  const { default: db } = await import("../src/config/database.js")
+export async function seedPermissions() {
+  const { seed } = await import("../database/seeds/01_permissions.js")
+  await seed(db)
+}
 
-  const orgId = crypto.randomUUID()
-  const name = overrides.name || `Test Org ${orgId.slice(0, 8)}`
+export async function createTestWorkspace(userId, overrides = {}) {
+  // Requires permissions already seeded
+  const workspaceId = crypto.randomUUID()
 
-  const [org] = await db("organizations")
-    .insert({
-      id: orgId,
-      name,
-      description: overrides.description || null,
-      created_by: userId,
+  await db.transaction(async (trx) => {
+    await trx("workspaces").insert({
+      id: workspaceId,
+      name: overrides.name ?? `Workspace ${workspaceId.slice(0, 8)}`,
+      settings: JSON.stringify({}),
       created_at: new Date(),
       updated_at: new Date(),
     })
-    .returning("*")
 
-  // Create system roles with mapped permissions
-  const allPermissions = await db.select("id", "name").from("permissions")
-  const permissionMap = {}
-  for (const p of allPermissions) {
-    permissionMap[p.name] = p.id
-  }
+    // Create 4 system roles
+    const roleIds = {}
+    const roleNames = ["owner", "admin", "editor", "viewer"]
+    for (const name of roleNames) {
+      const roleId = crypto.randomUUID()
+      roleIds[name] = roleId
+      await trx("roles").insert({
+        id: roleId,
+        workspace_id: workspaceId,
+        name,
+        description: `System ${name} role`,
+        is_system: true,
+        created_at: new Date(),
+        updated_at: new Date(),
+      })
+    }
 
-  const allPermIds = Object.values(permissionMap)
-  const roleDefinitions = {
-    owner: allPermIds,
-    admin: allPermIds.filter(
-      (id) => id !== permissionMap["org:delete"] && id !== permissionMap["org:manage_roles"],
-    ),
-    member: [
-      permissionMap["org:read"],
-      permissionMap["project:read"],
-      permissionMap["todos:create"],
-      permissionMap["todos:read"],
-      permissionMap["todos:update"],
-      permissionMap["todos:delete"],
-    ],
-    viewer: [permissionMap["org:read"], permissionMap["project:read"], permissionMap["todos:read"]],
-  }
+    // Assign all permissions to owner
+    const allPerms = await trx("permissions").select("id", "name")
+    const ownerPerms = allPerms
+    const adminPerms = allPerms.filter((p) => !["workspace:delete", "role:delete"].includes(p.name))
+    const editorPerms = allPerms.filter((p) =>
+      [
+        "workspace:read",
+        "role:read",
+        "member:read",
+        "dataset:create",
+        "dataset:read",
+        "dataset:update",
+        "file:read",
+        "file:upload",
+        "file:update",
+        "file:reprocess",
+        "agent:create",
+        "agent:read",
+        "agent:update",
+        "conversation:create",
+        "conversation:read",
+        "conversation:update",
+        "conversation:chat",
+        "audit:read",
+      ].includes(p.name),
+    )
+    const viewerPerms = allPerms.filter((p) =>
+      [
+        "workspace:read",
+        "role:read",
+        "member:read",
+        "dataset:read",
+        "file:read",
+        "agent:read",
+        "conversation:read",
+      ].includes(p.name),
+    )
 
-  const roles = {}
-  for (const [roleName, permIds] of Object.entries(roleDefinitions)) {
-    const roleId = crypto.randomUUID()
-    roles[roleName] = roleId
-    await db("roles").insert({
-      id: roleId,
-      org_id: orgId,
-      name: roleName,
-      description: `System ${roleName} role`,
+    const permMap = {
+      owner: ownerPerms,
+      admin: adminPerms,
+      editor: editorPerms,
+      viewer: viewerPerms,
+    }
+    for (const [role, perms] of Object.entries(permMap)) {
+      if (perms.length > 0) {
+        await trx("role_permissions").insert(
+          perms.map((p) => ({ role_id: roleIds[role], permission_id: p.id })),
+        )
+      }
+    }
+
+    // Add creator as owner
+    await trx("workspace_members").insert({
+      id: crypto.randomUUID(),
+      workspace_id: workspaceId,
+      user_id: userId,
+      role_id: roleIds.owner,
+      status: "active",
+      joined_at: new Date(),
+      created_at: new Date(),
+      updated_at: new Date(),
+    })
+
+    // Create system agent
+    await trx("agents").insert({
+      id: crypto.randomUUID(),
+      workspace_id: workspaceId,
+      name: "Default Assistant",
+      description: "Default workspace AI assistant",
+      system_prompt:
+        "You are a helpful AI assistant. Use the provided context to answer questions accurately.",
+      model_config: JSON.stringify({
+        model: process.env.DEFAULT_CHAT_MODEL || "openai/gpt-4.1",
+        temperature: 0.7,
+        top_p: 1,
+        max_tokens: 4096,
+      }),
       is_system: true,
       created_at: new Date(),
       updated_at: new Date(),
     })
-
-    if (permIds.length > 0) {
-      await db("role_permissions").insert(
-        permIds.map((permId) => ({ role_id: roleId, permission_id: permId })),
-      )
-    }
-  }
-
-  // Add creator as owner
-  await db("org_members").insert({
-    user_id: userId,
-    org_id: orgId,
-    role_id: roles.owner,
   })
 
-  return { ...org, roles }
+  return { id: workspaceId, roles: roleIds }
 }
 
-/**
- * Creates a test project within an organization and adds the creator as a member.
- *
- * @param {string} orgId - UUID of the organization
- * @param {string} userId - UUID of the user creating the project
- * @param {string} roleId - UUID of the role to assign the creator in this project
- * @param {Object} [overrides={}] - Override default values
- * @returns {Promise<Object>} Project object with id, org_id, name, description
- */
-export async function createTestProject(orgId, userId, roleId, overrides = {}) {
-  const { default: db } = await import("../src/config/database.js")
-
-  const projectId = crypto.randomUUID()
-  const name = overrides.name || `Test Project ${projectId.slice(0, 8)}`
-
-  const [project] = await db("projects")
-    .insert({
-      id: projectId,
-      org_id: orgId,
-      name,
-      description: overrides.description || null,
-      created_by: userId,
-      created_at: new Date(),
-      updated_at: new Date(),
-    })
-    .returning("*")
-
-  // Add creator as project member
-  await db("project_members").insert({
-    user_id: userId,
-    project_id: projectId,
-    role_id: roleId,
-  })
-
-  return project
-}
-
-/**
- * Adds a user as an organization member with a specific role.
- *
- * @param {string} orgId - UUID of the organization
- * @param {string} userId - UUID of the user
- * @param {string} roleId - UUID of the role
- */
-export async function addOrgMember(orgId, userId, roleId) {
-  const { default: db } = await import("../src/config/database.js")
-  await db("org_members").insert({ user_id: userId, org_id: orgId, role_id: roleId })
-}
-
-/**
- * Adds a user as a project member with a specific role.
- *
- * @param {string} projectId - UUID of the project
- * @param {string} userId - UUID of the user
- * @param {string} roleId - UUID of the role
- */
-export async function addProjectMember(projectId, userId, roleId) {
-  const { default: db } = await import("../src/config/database.js")
-  await db("project_members").insert({ user_id: userId, project_id: projectId, role_id: roleId })
-}
-
-/**
- * Truncates a single table with CASCADE.
- *
- * @param {string} tableName - Name of the table to truncate
- */
-export async function cleanTable(tableName) {
-  const { default: db } = await import("../src/config/database.js")
-  await db.raw(`TRUNCATE TABLE ${tableName} CASCADE`)
-}
-
-/**
- * Truncates all application tables in the correct dependency order.
- * Preserves the permissions table since it's seeded once in global setup.
- */
-export async function cleanAllTables() {
-  const { default: db } = await import("../src/config/database.js")
-  await db.raw(
-    "TRUNCATE TABLE refresh_tokens, invitations, todos, project_members, projects, org_members, role_permissions, roles, organizations, users CASCADE",
-  )
-}
-
-/**
- * Seeds the permissions table if not already populated.
- * Called once in global setup — permissions are immutable system data
- * that persist across test runs (not truncated by cleanAllTables).
- */
-export async function seedPermissions() {
-  const { default: db } = await import("../src/config/database.js")
-  const existing = await db("permissions").count("* as count").first()
-  if (parseInt(existing.count) > 0) return
-
-  const permissionDefs = [
-    { resource: "org", action: "read" },
-    { resource: "org", action: "update" },
-    { resource: "org", action: "delete" },
-    { resource: "org", action: "manage_members" },
-    { resource: "org", action: "manage_roles" },
-    { resource: "project", action: "create" },
-    { resource: "project", action: "read" },
-    { resource: "project", action: "update" },
-    { resource: "project", action: "delete" },
-    { resource: "project", action: "manage_members" },
-    { resource: "todos", action: "create" },
-    { resource: "todos", action: "read" },
-    { resource: "todos", action: "update" },
-    { resource: "todos", action: "delete" },
-    { resource: "invitations", action: "create" },
-    { resource: "invitations", action: "manage" },
-  ]
-
-  const permissions = permissionDefs.map((def) => ({
+export async function addWorkspaceMember(workspaceId, userId, roleId) {
+  await db("workspace_members").insert({
     id: crypto.randomUUID(),
-    name: `${def.resource}:${def.action}`,
-    description: `${def.action} ${def.resource}`,
-    resource: def.resource,
-    action: def.action,
+    workspace_id: workspaceId,
+    user_id: userId,
+    role_id: roleId,
+    status: "active",
+    joined_at: new Date(),
     created_at: new Date(),
-  }))
-
-  await db("permissions").insert(permissions)
+    updated_at: new Date(),
+  })
 }
 
-/**
- * Extracts cookie name=value pairs from a Supertest response's Set-Cookie header.
- * Returns a string suitable for use as a Cookie header in subsequent requests.
- *
- * @param {import("supertest").Response} res - Supertest response
- * @returns {string} Semicolon-separated cookie name=value pairs
- */
-export function extractCookies(res) {
-  const setCookieHeader = res.headers["set-cookie"]
-  if (!setCookieHeader) return ""
-  return Array.isArray(setCookieHeader)
-    ? setCookieHeader.map((c) => c.split(";")[0]).join("; ")
-    : setCookieHeader.split(";")[0]
+export async function cleanAllTables() {
+  await db.raw(`
+    TRUNCATE TABLE
+      audit_logs,
+      message_citations,
+      messages,
+      conversation_datasets,
+      conversations,
+      agents,
+      document_chunks,
+      dataset_files,
+      datasets,
+      workspace_members,
+      role_permissions,
+      roles,
+      email_tokens,
+      refresh_tokens,
+      users,
+      workspaces
+    RESTART IDENTITY CASCADE
+  `)
 }
