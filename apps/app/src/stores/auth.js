@@ -11,7 +11,7 @@ import {
   logout as apiLogout,
   getMe as apiGetMe,
 } from "@/api/auth"
-import { setUserData, getUserData, clearUserData } from "@/utils/storage"
+import { setUserData, clearUserData } from "@/utils/storage"
 
 export const useAuthStore = defineStore("auth", () => {
   // State
