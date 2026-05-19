@@ -32,7 +32,9 @@ describe("POST /api/workspaces/:id/members/invite", () => {
     const owner = await createTestUser()
     const { id: workspaceId, roles } = await createTestWorkspace(owner.id)
 
-    const res = await (await request())
+    const res = await (
+      await request()
+    )
       .post(`/api/workspaces/${workspaceId}/members/invite`)
       .set(await getAuthHeaders(owner.id))
       .send({ email: "newuser@example.com", role_id: roles.viewer })
@@ -49,7 +51,9 @@ describe("GET /api/workspaces/:id/members", () => {
     const { id: workspaceId, roles } = await createTestWorkspace(owner.id)
 
     // Invite an unregistered email — no user row exists, so user_id on the member row is null
-    const inviteRes = await (await request())
+    const inviteRes = await (
+      await request()
+    )
       .post(`/api/workspaces/${workspaceId}/members/invite`)
       .set(await getAuthHeaders(owner.id))
       .send({ email: "pending@example.com", role_id: roles.viewer })
@@ -79,7 +83,9 @@ describe("PUT /api/workspaces/:id/members/:memberId/role", () => {
       .whereNull("deleted_at")
       .first()
 
-    const res = await (await request())
+    const res = await (
+      await request()
+    )
       .put(`/api/workspaces/${workspaceId}/members/${membership.id}/role`)
       .set(await getAuthHeaders(owner.id))
       .send({ role_id: roles.admin })
@@ -136,7 +142,9 @@ describe("POST /api/invitations/accept", () => {
     const { id: workspaceId, roles } = await createTestWorkspace(owner.id)
 
     // Invite the registered user — the member row gets user_id = invitee.id
-    const inviteRes = await (await request())
+    const inviteRes = await (
+      await request()
+    )
       .post(`/api/workspaces/${workspaceId}/members/invite`)
       .set(await getAuthHeaders(owner.id))
       .send({ email: invitee.email, role_id: roles.viewer })
@@ -146,7 +154,9 @@ describe("POST /api/invitations/accept", () => {
     const acceptUrl = emailService.sendInvitationEmail.mock.calls[0][0].acceptUrl
     const token = new URL(acceptUrl).searchParams.get("token")
 
-    const res = await (await request())
+    const res = await (
+      await request()
+    )
       .post("/api/invitations/accept")
       .set(await getAuthHeaders(invitee.id))
       .send({ token })
@@ -166,7 +176,9 @@ describe("POST /api/invitations/accept", () => {
     const { id: workspaceId, roles } = await createTestWorkspace(owner.id)
 
     // Invite the registered user
-    const inviteRes = await (await request())
+    const inviteRes = await (
+      await request()
+    )
       .post(`/api/workspaces/${workspaceId}/members/invite`)
       .set(await getAuthHeaders(owner.id))
       .send({ email: invitee.email, role_id: roles.viewer })
@@ -176,7 +188,9 @@ describe("POST /api/invitations/accept", () => {
     const token = new URL(acceptUrl).searchParams.get("token")
 
     // Intruder tries to accept an invitation addressed to invitee
-    const res = await (await request())
+    const res = await (
+      await request()
+    )
       .post("/api/invitations/accept")
       .set(await getAuthHeaders(intruder.id))
       .send({ token })
