@@ -62,6 +62,18 @@ const routes = [
     component: () => import("@/views/settings/WorkspaceSettingsView.vue"),
     meta: { requiresAuth: true },
   },
+  {
+    path: "/workspaces/:workspaceId/datasets",
+    name: "DatasetsList",
+    component: () => import("@/views/datasets/DatasetsListView.vue"),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/workspaces/:workspaceId/datasets/:datasetId",
+    name: "DatasetDetail",
+    component: () => import("@/views/datasets/DatasetDetailView.vue"),
+    meta: { requiresAuth: true },
+  },
 
   // ── Catch-all ───────────────────────────────────────────────────────
   {
