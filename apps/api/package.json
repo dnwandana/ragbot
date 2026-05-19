@@ -30,6 +30,7 @@
     "@getbrevo/brevo": "^5.0.4",
     "@langchain/textsplitters": "^1.0.1",
     "argon2": "^0.43.1",
+    "bullmq": "^5.76.10",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
