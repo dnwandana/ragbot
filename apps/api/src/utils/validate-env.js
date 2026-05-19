@@ -6,6 +6,10 @@ const envSchema = joi
     PORT: joi.number().default(3000),
 
     DATABASE_URL: joi.string().uri().required(),
+    REDIS_URL: joi
+      .string()
+      .uri({ scheme: ["redis", "rediss"] })
+      .required(),
 
     ACCESS_TOKEN_SECRET: joi.string().min(32).required(),
     ACCESS_TOKEN_EXPIRES_IN: joi.string().default("15m"),
@@ -41,6 +45,10 @@ const envSchema = joi
 
     // Parsing
     LLAMAINDEX_API_KEY: joi.string().required(),
+    LLAMAINDEX_PARSE_TIER: joi
+      .string()
+      .valid("fast", "cost_effective", "agentic", "agentic_plus")
+      .default("cost_effective"),
     LLAMAINDEX_WEBHOOK_SECRET: joi.string().min(16).required(),
     FIRECRAWL_API_KEY: joi.string().required(),
   })

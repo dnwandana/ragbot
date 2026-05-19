@@ -28,7 +28,7 @@ export async function up(knex) {
       filename TEXT NOT NULL,
       mime_type VARCHAR(255),
       file_size_bytes BIGINT CHECK (file_size_bytes >= 0),
-      storage_provider TEXT NOT NULL DEFAULT 's3',
+      storage_provider TEXT,
       storage_path TEXT,
       status file_processing_status NOT NULL DEFAULT 'pending',
       error_message TEXT,

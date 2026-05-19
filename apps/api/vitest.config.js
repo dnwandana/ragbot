@@ -5,6 +5,7 @@ export default defineConfig({
     globals: true,
     environment: "node",
     globalSetup: ["./tests/global-setup.js"],
+    setupFiles: ["./tests/setup.js"],
     include: ["tests/**/*.test.js"],
     testTimeout: 10000,
     hookTimeout: 30000, // cleanAllTables() TRUNCATE CASCADE can be slow on cold Neon connections
