@@ -4,6 +4,7 @@ import authRoutes from "./authentication.js"
 import permissionsRoutes from "./permissions.js"
 import workspacesRoutes from "./workspaces.js"
 import invitationsRoutes from "./workspace-invitations.js"
+import webhooksRouter from "./webhooks.js"
 
 const router = Router()
 
@@ -12,6 +13,7 @@ const router = Router()
 router.use("/auth", authRoutes)
 router.use("/permissions", requireAccessToken, permissionsRoutes)
 router.use("/invitations", invitationsRoutes)
+router.use("/webhooks", webhooksRouter)
 router.use("/workspaces", requireAccessToken, workspacesRoutes)
 
 export default router

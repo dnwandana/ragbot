@@ -5,6 +5,7 @@ import * as workspaces from "../controllers/workspaces.js"
 import rolesRouter from "./roles.js"
 import membersRouter from "./workspace-members.js"
 import auditLogsRouter from "./audit-logs.js"
+import datasetsRouter from "./datasets.js"
 
 const router = Router()
 
@@ -18,5 +19,6 @@ router.delete("/:workspace_id", requirePermission("workspace:delete"), workspace
 router.use("/:workspace_id/roles", rolesRouter)
 router.use("/:workspace_id/members", membersRouter)
 router.use("/:workspace_id/audit-logs", auditLogsRouter)
+router.use("/:workspace_id/datasets", datasetsRouter)
 
 export default router

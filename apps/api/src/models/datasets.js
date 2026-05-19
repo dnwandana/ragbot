@@ -1,0 +1,93 @@
+import db from "../config/database.js"
+
+const TABLE = "datasets"
+const COLUMNS = [
+  "id",
+  "workspace_id",
+  "name",
+  "description",
+  "embedding_model",
+  "chunk_size",
+  "chunk_overlap",
+  "created_at",
+  "updated_at",
+]
+
+/**
+ * Insert a new dataset record and return all selected columns.
+ *
+ * @param {Object} dataset - Dataset data object including all required fields
+ * @returns {Promise<Object[]>} Array containing the created dataset record
+ */
+export const create = (dataset) => db.insert(dataset).into(TABLE).returning(COLUMNS)
+
+/**
+ * Find a single active dataset matching the given conditions.
+ *
+ * @param {Object} conditions - Knex where conditions (e.g. { id, workspace_id })
+ * @returns {Promise<Object|undefined>} The dataset record, or undefined if not found
+ */
+export const findOne = (conditions) =>
+  db.select(COLUMNS).from(TABLE).where(conditions).whereNull("deleted_at").first()
+
+/**
+ * Count active datasets for a workspace with optional ILIKE search.
+ *
+ * @param {Object} filter - Must include workspace_id
+ * @param {string} filter.workspace_id - UUID of the workspace
+ * @param {Object} [options]
+ * @param {string} [options.search] - Search string applied via ILIKE
+ * @param {string[]} [options.searchColumns] - Columns to search (e.g. ['name', 'description'])
+ * @returns {Promise<{ count: string }>} Row count object
+ */
+export const count = ({ workspace_id }, { search, searchColumns } = {}) => {
+  let q = db(TABLE).count("* as count").where({ workspace_id }).whereNull("deleted_at")
+  if (search && searchColumns?.length) {
+    q = q.where((b) => searchColumns.forEach((col) => b.orWhereILike(col, `%${search}%`)))
+  }
+  return q.first()
+}
+
+/**
+ * Return a paginated list of active datasets for a workspace with optional search and ordering.
+ *
+ * @param {Object} filter - Must include workspace_id
+ * @param {string} filter.workspace_id - UUID of the workspace
+ * @param {Object} [options]
+ * @param {number} [options.limit] - Maximum rows to return
+ * @param {number} [options.offset] - Number of rows to skip
+ * @param {Array<{ column: string, order: string }>} [options.orders] - Sort directives
+ * @param {string} [options.search] - Search string applied via ILIKE
+ * @param {string[]} [options.searchColumns] - Columns to search
+ * @returns {Promise<Object[]>} Array of dataset records
+ */
+export const findManyPaginated = (
+  { workspace_id },
+  { limit, offset, orders, search, searchColumns } = {},
+) => {
+  let q = db.select(COLUMNS).from(TABLE).where({ workspace_id }).whereNull("deleted_at")
+  if (search && searchColumns?.length) {
+    q = q.where((b) => searchColumns.forEach((col) => b.orWhereILike(col, `%${search}%`)))
+  }
+  if (orders?.length) orders.forEach(({ column, order }) => q.orderBy(column, order))
+  return q.limit(limit).offset(offset)
+}
+
+/**
+ * Update active dataset records matching the given conditions.
+ *
+ * @param {Object} conditions - Knex where conditions (e.g. { id })
+ * @param {Object} data - Fields to update
+ * @returns {Promise<Object[]>} Array containing the updated dataset record
+ */
+export const update = (conditions, data) =>
+  db.update(data).table(TABLE).where(conditions).whereNull("deleted_at").returning(COLUMNS)
+
+/**
+ * Soft-delete a dataset by setting deleted_at to the current timestamp.
+ *
+ * @param {string} id - UUID of the dataset to delete
+ * @returns {Promise<number>} Number of rows affected
+ */
+export const softDelete = (id) =>
+  db(TABLE).where({ id }).whereNull("deleted_at").update({ deleted_at: new Date() })

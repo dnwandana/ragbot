@@ -8,6 +8,7 @@ validateEnv()
 const { default: app } = await import("./app.js")
 const { default: logger } = await import("./utils/logger.js")
 const { default: db } = await import("./config/database.js")
+const { startWorker } = await import("./workers/file-processing.js")
 
 const PORT = process.env.PORT
 
@@ -19,9 +20,15 @@ const server = app.listen(PORT, () => {
   })
 })
 
+// start inline BullMQ worker
+const worker = startWorker()
+logger.info("File processing worker started")
+
 // graceful shutdown
 const gracefulShutdown = async (signal) => {
   logger.info(`Received ${signal}, starting graceful shutdown`)
+  await worker.close()
+  logger.info("File processing worker closed")
   server.close(async () => {
     logger.info("HTTP server closed")
     try {
