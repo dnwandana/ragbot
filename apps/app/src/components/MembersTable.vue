@@ -1,6 +1,6 @@
 <script setup>
 /**
- * MembersTable — Displays organization or project members in an Ant Design table.
+ * MembersTable — Displays workspace members in an Ant Design table.
  *
  * Features:
  *   - Optional role-change dropdown (controlled by `canUpdateRole`)
@@ -14,8 +14,8 @@
  *   - canRemove: whether to show the remove (delete) button
  *
  * Emits:
- *   - roleChange({ userId, roleId }) — when a member's role is changed
- *   - remove(userId) — when a member is removed (after Popconfirm)
+ *   - roleChange({ memberId, roleId }) — when a member's role is changed
+ *   - remove(memberId) — when a member is removed (after Popconfirm)
  */
 
 import { h, computed } from "vue"
@@ -49,19 +49,19 @@ const emit = defineEmits(["roleChange", "remove"])
 
 /**
  * Handle role change from the Select dropdown.
- * @param {string} userId - The user whose role is changing
+ * @param {string} memberId - The workspace_members record ID
  * @param {string} roleId - The newly selected role ID
  */
-function handleRoleChange(userId, roleId) {
-  emit("roleChange", { userId, roleId })
+function handleRoleChange(memberId, roleId) {
+  emit("roleChange", { memberId, roleId })
 }
 
 /**
  * Handle member removal after Popconfirm confirmation.
- * @param {string} userId - The user being removed
+ * @param {string} memberId - The workspace_members record ID
  */
-function handleRemove(userId) {
-  emit("remove", userId)
+function handleRemove(memberId) {
+  emit("remove", memberId)
 }
 
 /**
@@ -71,9 +71,9 @@ function handleRemove(userId) {
 const columns = computed(() => {
   const cols = [
     {
-      title: "Username",
-      dataIndex: "username",
-      key: "username",
+      title: "Name",
+      dataIndex: "full_name",
+      key: "full_name",
     },
     {
       title: "Email",
@@ -101,7 +101,7 @@ const columns = computed(() => {
             {
               value: record.role_id,
               style: { width: "140px" },
-              onChange: (value) => handleRoleChange(record.user_id, value),
+              onChange: (value) => handleRoleChange(record.id, value),
             },
             () =>
               props.roles.map((role) =>
@@ -139,7 +139,7 @@ const columns = computed(() => {
               title: "Are you sure you want to remove this member?",
               okText: "Yes",
               cancelText: "No",
-              onConfirm: () => handleRemove(record.user_id),
+              onConfirm: () => handleRemove(record.id),
             },
             () => h(Button, { danger: true, size: "small" }, () => [h(DeleteOutlined), " Remove"]),
           ),
@@ -157,7 +157,7 @@ const columns = computed(() => {
     :columns="columns"
     :data-source="members"
     :loading="loading"
-    :row-key="(record) => record.user_id"
+    :row-key="(record) => record.id"
     :pagination="false"
   />
 </template>

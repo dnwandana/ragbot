@@ -49,6 +49,20 @@ const routes = [
     meta: { requiresAuth: true },
   },
 
+  // ── Workspace routes ──────────────────────────────────────────────────
+  {
+    path: "/workspaces",
+    name: "WorkspacesList",
+    component: () => import("@/views/workspaces/WorkspacesListView.vue"),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/workspaces/:workspaceId/settings",
+    name: "WorkspaceSettings",
+    component: () => import("@/views/settings/WorkspaceSettingsView.vue"),
+    meta: { requiresAuth: true },
+  },
+
   // ── Catch-all ───────────────────────────────────────────────────────
   {
     path: "/:pathMatch(.*)*",

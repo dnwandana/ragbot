@@ -1,19 +1,17 @@
 <script setup>
-import { computed, ref, watch, onMounted } from "vue"
+import { computed, ref, onMounted } from "vue"
 import { useRouter, useRoute } from "vue-router"
 import { Layout, Button, Space, Typography, Badge, Select } from "ant-design-vue"
 import { BellOutlined, LogoutOutlined, UserOutlined } from "@ant-design/icons-vue"
 import { useAuthStore } from "@/stores/auth"
-import { useOrgsStore } from "@/stores/orgs"
-import { useProjectsStore } from "@/stores/projects"
+import { useWorkspacesStore } from "@/stores/workspaces"
 import { useInvitations } from "@/composables/useInvitations"
 import AppSidebar from "@/components/AppSidebar.vue"
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
-const orgsStore = useOrgsStore()
-const projectsStore = useProjectsStore()
+const workspacesStore = useWorkspacesStore()
 const { pendingCount, fetchMyInvitations } = useInvitations()
 
 // Sidebar collapse state
@@ -22,82 +20,41 @@ const collapsed = ref(false)
 // Computed
 const currentUser = computed(() => authStore.currentUser)
 
-// Route params as computed for reactivity
-const currentOrgId = computed(() => route.params.orgId || null)
-const currentProjectId = computed(() => route.params.projectId || null)
-
-// Org selector options
-const orgOptions = computed(() =>
-  orgsStore.orgs.map((org) => ({
-    value: org.id,
-    label: org.name,
-  })),
+// Workspace selector
+const workspaceOptions = computed(() =>
+  workspacesStore.workspaces.map((ws) => ({ value: ws.id, label: ws.name })),
 )
 
-// Project selector options
-const projectOptions = computed(() =>
-  projectsStore.projects.map((project) => ({
-    value: project.id,
-    label: project.name,
-  })),
-)
+const currentWorkspaceId = computed(() => route.params.workspaceId || null)
 
 // Only show value in selector when it has a matching option (avoids UUID flash on direct URL nav)
-const selectedOrgId = computed(() => {
-  if (!currentOrgId.value) return null
-  return orgOptions.value.some((o) => o.value === currentOrgId.value) ? currentOrgId.value : null
-})
-const selectedProjectId = computed(() => {
-  if (!currentProjectId.value) return null
-  return projectOptions.value.some((o) => o.value === currentProjectId.value)
-    ? currentProjectId.value
+const selectedWorkspaceId = computed(() => {
+  if (!currentWorkspaceId.value) return null
+  return workspaceOptions.value.some((o) => o.value === currentWorkspaceId.value)
+    ? currentWorkspaceId.value
     : null
 })
 
 /**
- * Handle org selection change.
- * Navigates to the selected org's projects list and clears project context.
+ * Handle workspace selection change.
+ * Navigates to the selected workspace's settings page or back to workspaces list.
+ * @param {string|null} wsId - The selected workspace ID, or null if cleared.
  */
-function onOrgChange(orgId) {
-  if (orgId) {
-    router.push(`/orgs/${orgId}`)
+function onWorkspaceChange(wsId) {
+  if (wsId) {
+    router.push(`/workspaces/${wsId}/settings`)
   } else {
-    router.push("/orgs")
+    router.push("/workspaces")
   }
 }
 
-/**
- * Handle project selection change.
- * Navigates to the selected project's todos list within the current org.
- */
-function onProjectChange(projectId) {
-  if (projectId && currentOrgId.value) {
-    router.push(`/orgs/${currentOrgId.value}/projects/${projectId}`)
-  } else if (currentOrgId.value) {
-    router.push(`/orgs/${currentOrgId.value}`)
-  }
-}
-
-// Fetch orgs list on mount for the org selector
+// Fetch workspaces list on mount for the workspace selector
 onMounted(() => {
   if (authStore.isAuthenticated) {
-    orgsStore.fetchOrgs()
+    workspacesStore.fetchWorkspaces()
     fetchMyInvitations()
   }
 })
-
-// When orgId changes, fetch projects for the new org
-watch(
-  currentOrgId,
-  (newOrgId) => {
-    if (newOrgId) {
-      projectsStore.fetchProjects(newOrgId)
-    } else {
-      projectsStore.clearProjects()
-    }
-  },
-  { immediate: true },
-)
 
 // Handle logout
 function handleLogout() {
@@ -117,38 +74,25 @@ function navigateTo(path) {
     <Layout.Header
       style="display: flex; align-items: center; justify-content: space-between; padding: 0 24px"
     >
-      <!-- Left side: Logo + Org/Project selectors -->
+      <!-- Left side: Logo + Workspace selector -->
       <div style="display: flex; align-items: center; gap: 12px">
         <Typography.Title
           :level="4"
           style="color: white; margin: 0; cursor: pointer; white-space: nowrap"
-          @click="navigateTo('/orgs')"
+          @click="navigateTo('/workspaces')"
         >
-          Todo App
+          RAG Chatbot
         </Typography.Title>
 
-        <!-- Org selector — always visible -->
+        <!-- Workspace selector — always visible -->
         <Select
-          :value="selectedOrgId"
-          :options="orgOptions"
-          placeholder="Select organization"
+          :value="selectedWorkspaceId"
+          :options="workspaceOptions"
+          placeholder="Select workspace"
           style="min-width: 180px"
           :bordered="false"
           allow-clear
-          @change="onOrgChange"
-          class="header-select"
-        />
-
-        <!-- Project selector — visible only when an org is selected -->
-        <Select
-          v-if="currentOrgId"
-          :value="selectedProjectId"
-          :options="projectOptions"
-          placeholder="Select project"
-          style="min-width: 180px"
-          :bordered="false"
-          allow-clear
-          @change="onProjectChange"
+          @change="onWorkspaceChange"
           class="header-select"
         />
       </div>
@@ -166,7 +110,7 @@ function navigateTo(path) {
         <Space>
           <UserOutlined style="color: white" />
           <Typography.Text style="color: white">
-            {{ currentUser?.username }}
+            {{ currentUser?.full_name }}
           </Typography.Text>
         </Space>
 
@@ -210,7 +154,7 @@ function navigateTo(path) {
         </Layout.Content>
 
         <Layout.Footer style="text-align: center">
-          Todo App ©{{ new Date().getFullYear() }}
+          RAG Chatbot ©{{ new Date().getFullYear() }}
         </Layout.Footer>
       </Layout>
     </Layout>
