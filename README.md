@@ -34,6 +34,7 @@ Workspace (tenant boundary)
 - Node.js `>=24.0.0`
 - Corepack (bundled with Node 24+)
 - PostgreSQL with `pgvector` extension (for the API)
+- Redis service — any Redis-compatible provider — for the BullMQ job queue
 
 For production deployment:
 
@@ -58,6 +59,7 @@ Required variables:
 
 ```bash
 DATABASE_URL=postgresql://user:pass@localhost/dbname
+REDIS_URL=rediss://default:<password>@<host>:6380
 ACCESS_TOKEN_SECRET=<at-least-32-characters>
 REFRESH_TOKEN_SECRET=<at-least-32-characters>
 JWT_ISSUER=https://api.example.com
@@ -71,7 +73,6 @@ S3_ACCESS_KEY=<key>
 S3_SECRET_KEY=<key>
 S3_ENDPOINT=https://<account>.r2.cloudflarestorage.com
 LLAMAINDEX_API_KEY=<key>
-LLAMAINDEX_WEBHOOK_SECRET=<at-least-16-chars>
 FIRECRAWL_API_KEY=<key>
 ```
 
@@ -89,6 +90,7 @@ LOG_LEVEL=info
 LOG_TO_FILE=true
 DEFAULT_EMBEDDINGS_MODEL=openai/text-embedding-3-small
 DEFAULT_CHAT_MODEL=openai/gpt-4.1
+LLAMAINDEX_PARSE_TIER=cost_effective  # fast | cost_effective | agentic | agentic_plus
 S3_REGION=auto
 EMAIL_FROM_NAME=RAG Chatbot
 ```
@@ -203,7 +205,7 @@ Tokens are set by the server on signin/refresh and never exposed to JavaScript. 
 | F1      | Database schema + infrastructure         | **Complete**    |
 | F2      | Email-based authentication (Brevo)       | **Complete**    |
 | F3      | Workspaces + RBAC + members              | **Complete**    |
-| F4      | Datasets + file upload + RAG pipeline    | Planned         |
+| F4      | Datasets + file upload + RAG pipeline    | **Complete**    |
 | F5      | Agent management                         | Planned         |
 | F6      | Conversations (CRUD + dataset linking)   | Planned         |
 | F7      | Chat (ReAct loop + SSE streaming)        | Planned         |
@@ -224,7 +226,7 @@ cp apps/api/.env.example apps/api/.env.test
 # Update PORT (e.g. 3001), LOG_LEVEL=error, LOG_TO_FILE=false
 ```
 
-The test suite uses real PostgreSQL (no mocks). Vitest runs migrations once before the session, and `cleanAllTables()` truncates between tests. Auth tests mock the Brevo email service to avoid real API calls. Currently passing: health (5), http-error (3), pagination (9), request-id (4), sanitize (6) — 27 tests total. Auth integration tests rewritten for email-based flow. Permissions tests still need rewriting.
+The test suite uses real PostgreSQL (no mocks). Vitest runs migrations once before the session, and `cleanAllTables()` truncates between tests. Auth tests mock the Brevo email service; queue tests mock BullMQ so no Redis is required locally. Currently passing: 79 tests (health, auth, workspaces, webhooks, http-error, pagination, request-id, sanitize, redis), 6 skipped (permissions — need rewriting).
 
 ## Deployment
 
@@ -239,7 +241,8 @@ nginx (ports 80/443)
   └── /health → proxies to Express container
 
 api (internal only)
-  └── connects to external PostgreSQL via DATABASE_URL
+  ├── connects to external PostgreSQL via DATABASE_URL
+  └── connects to external Redis via REDIS_URL
 ```
 
 ### Local Docker
@@ -336,6 +339,7 @@ docker compose run --rm api sh -c "node_modules/.bin/knex seed:run"
 | ---------------------- | -------- | ----------------------------------------------------------------------------------- |
 | `VITE_API_BASE_URL`    | No       | Build-time API base URL. Defaults to `/api` (same-origin, recommended).             |
 | `DATABASE_URL`         | Yes      | PostgreSQL connection string                                                        |
+| `REDIS_URL`            | Yes      | Redis connection string (`redis://localhost:6379` or `redis://:pass@host:6379`)     |
 | `ACCESS_TOKEN_SECRET`  | Yes      | JWT secret, min 32 chars                                                            |
 | `REFRESH_TOKEN_SECRET` | Yes      | JWT secret, min 32 chars, must differ from access secret                            |
 | `JWT_ISSUER`           | Yes      | e.g. `https://yourdomain.com`                                                       |
@@ -347,7 +351,9 @@ docker compose run --rm api sh -c "node_modules/.bin/knex seed:run"
 | `S3_SECRET_KEY`        | Yes      | R2 secret key                                                                       |
 | `S3_ENDPOINT`          | Yes      | R2 endpoint URL                                                                     |
 | `LLAMAINDEX_API_KEY`   | Yes      | API key for LlamaIndex (document parsing)                                           |
+| `LLAMAINDEX_WEBHOOK_SECRET` | Yes      | Shared secret for LlamaIndex webhook verification (min 16 chars)                   |
 | `FIRECRAWL_API_KEY`    | Yes      | API key for Firecrawl (URL scraping)                                                |
+| `LLAMAINDEX_PARSE_TIER` | No      | LlamaParse tier: `fast`, `cost_effective`, `agentic`, `agentic_plus`. Defaults to `cost_effective`. |
 | `CORS_ALLOWED_ORIGINS` | No       | Defaults to `http://localhost:8080`. Set to `https://yourdomain.com` in production. |
 
 See `apps/api/.env.example` for the full list with defaults.

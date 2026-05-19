@@ -28,7 +28,8 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 - **RBAC**: `requirePermission(name)` middleware, permissions resolved on `req.permissions`. 30 permissions across 8 resources (workspace, role, member, audit, dataset, file, agent, conversation)
 - **Request context**: `req.id` (request ID), `req.user` (from JWT), `req.permissions` (from RBAC). `req.workspace` planned but not yet implemented
 - **Error handling**: Controllers throw `HttpError(status, msg)`, caught by centralized `errorHandler`
-- **Env validation**: API fails fast at startup if required vars are missing (expected behavior). 16 service-level env vars required (OpenRouter, Brevo, S3/R2, LlamaIndex, Firecrawl)
+- **Env validation**: API fails fast at startup if required vars are missing (expected behavior). 16 service-level env vars required (OpenRouter, Brevo, S3/R2, LlamaIndex, Firecrawl, Redis)
+- **Async processing**: BullMQ job queue backed by Redis — dataset file processing (upload, scrape, reprocess) runs in an inline worker started alongside Express
 
 ## Current implementation state
 
@@ -38,13 +39,13 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 - Authentication — email-based signup with verification, signin (email + password), refresh, logout, me, forgot/reset password, resend verification. Brevo sends inline HTML emails via `sendTransacEmail`
 - Permissions (read-only reference endpoint)
 - Health check (database connectivity, request ID)
-- Roles CRUD (controller exists, routes need re-registration for workspace context)
+- Roles CRUD (workspace-scoped)
 - Full middleware stack (helmet, CORS, rate limiting, request ID, cookie parser, error handling)
 - Database schema — 8 migrations, 15 tables, pgvector HNSW index, `search_chunks()` SQL function
+- Workspace CRUD + RBAC + member management (F3)
+- Datasets + file upload (LlamaIndex) + URL scraping (Firecrawl) + BullMQ processing pipeline (F4)
 
 **Planned but not wired:**
-- Workspace CRUD + `resolveWorkspace` middleware (F3)
-- Dataset + file upload + RAG processing pipeline (F4)
 - Agent management (F5)
 - Conversation CRUD + dataset linking (F6)
 - Chat with ReAct loop + SSE streaming (F7)
@@ -65,9 +66,9 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 
 ### Tests
 
-**Passing (27 tests):** health (5), http-error (3), pagination (9), request-id (4), sanitize (6)
-**Rewritten for email-based auth:** auth.test.js (10 tests with Brevo mock, email-based signup/signin, verify-email, forgot-password, logout)
-**Broken (need rewrite):** permissions.test.js (7 tests, imports removed helpers)
+**Passing (79 tests):** health (5), auth (10), workspaces (32), webhooks (5), redis (5), http-error (3), pagination (9), request-id (4), sanitize (6)
+**Skipped (6):** permissions.test.js (imports need rewriting)
+**No Redis required locally:** queue module mocked via `tests/setup.js`
 
 ### Database schema
 
@@ -129,4 +130,5 @@ docker compose -f docker-compose.local.yml down
 
 - `app` container: nginx serves Vue static files + proxies `/api` and `/health` to the `api` container
 - `api` container: Express.js, no host port published, only reachable as `http://api:3000` inside Docker network
+- `redis`: external service — connect via `REDIS_URL` (`redis://` for plain, `rediss://` for TLS)
 - Migrations do **not** run automatically — run manually: `docker compose [-f docker-compose.local.yml] run --rm api sh -c "node_modules/.bin/knex migrate:latest"`

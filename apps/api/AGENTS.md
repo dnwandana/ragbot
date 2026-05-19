@@ -53,7 +53,23 @@ No pre-commit hooks. Run `npm run lint:fix && npm run format:fix` before committ
 
 ### App Extraction (`src/app.js` vs `src/index.js`)
 
-`src/app.js` configures Express (middleware, routes) and exports the app without calling `listen()`. `src/index.js` is the thin entry point: loads env, validates it, dynamically imports `app.js`, then starts the server. This split enables Supertest to import the app directly without binding to a port.
+`src/app.js` configures Express (middleware, routes) and exports the app without calling `listen()`. `src/index.js` is the thin entry point: loads env, validates it, dynamically imports `app.js`, starts the server, then starts the BullMQ worker. This split enables Supertest to import the app directly without binding to a port or starting Redis connections.
+
+### Async File Processing (BullMQ)
+
+Dataset file processing uses a persistent BullMQ job queue backed by Redis. All three trigger points (file upload via LlamaIndex webhook, URL scraping, reprocess) push the same minimal job payload:
+
+```js
+{ datasetFileId: string, datasetId: string }
+```
+
+No content is stored in Redis — the worker re-fetches markdown from the source on every run, making jobs idempotent and safe to retry.
+
+**Queue** (`src/queues/file-processing.js`): `fileProcessingQueue` (BullMQ Queue, named `'file-processing'`), `addProcessingJob({ datasetFileId, datasetId })`. Jobs retry 3× with exponential backoff (5 s base).
+
+**Worker** (`src/workers/file-processing.js`): `startWorker()` — creates a BullMQ Worker (concurrency 2). The processor resolves the markdown source from DB metadata (`llamaindex_job_id` → LlamaIndex, `source_url` → Firecrawl), then runs the pipeline: split → embed → delete old chunks → bulk insert → generate questions → mark `completed`. On final failure (after all retries), sets `status = 'failed'`. Worker is started in `src/index.js` and closed gracefully on SIGTERM/SIGINT before the DB connection.
+
+**Test mocking**: `tests/setup.js` mocks `src/queues/file-processing.js` with no-op stubs so tests don't require a running Redis instance.
 
 ### Request ID Tracking
 
@@ -257,6 +273,7 @@ GET    /api/workspaces/:workspace_id/conversations/:conversation_id/messages
 | `sanitize.js`     | `escapeIlike`                                                                            |
 | `constant.js`     | `HTTP_STATUS_CODE`, `HTTP_STATUS_MESSAGE`                                                |
 | `logger.js`       | `logger` (default, Winston instance)                                                     |
+| `redis.js`        | `parseRedisUrl`                                                                          |
 | `validate-env.js` | `validateEnv` (default)                                                                  |
 
 ## Code Style
@@ -272,9 +289,9 @@ GET    /api/workspaces/:workspace_id/conversations/:conversation_id/messages
 
 ## Environment Variables
 
-Required: `DATABASE_URL`, `ACCESS_TOKEN_SECRET` (≥32 chars), `REFRESH_TOKEN_SECRET` (≥32 chars, must differ), `JWT_ISSUER`, `JWT_AUDIENCE`, `OPENROUTER_API_KEY`, `BREVO_API_KEY`, `EMAIL_FROM_ADDRESS`, `APP_URL`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_ENDPOINT`, `LLAMAINDEX_API_KEY`, `LLAMAINDEX_WEBHOOK_SECRET` (≥16 chars), `FIRECRAWL_API_KEY`
+Required: `DATABASE_URL`, `REDIS_URL` (Redis connection string — `redis://localhost:6379` locally, `rediss://` for TLS), `ACCESS_TOKEN_SECRET` (≥32 chars), `REFRESH_TOKEN_SECRET` (≥32 chars, must differ), `JWT_ISSUER`, `JWT_AUDIENCE`, `OPENROUTER_API_KEY`, `BREVO_API_KEY`, `EMAIL_FROM_ADDRESS`, `APP_URL`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_ENDPOINT`, `LLAMAINDEX_API_KEY`, `LLAMAINDEX_WEBHOOK_SECRET` (≥16 chars), `FIRECRAWL_API_KEY`
 
-Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_EXPIRES_IN` (15m), `REFRESH_TOKEN_EXPIRES_IN` (7d), `LOG_LEVEL` (info), `LOG_TO_FILE` (true), `CORS_ALLOWED_ORIGINS` (http://localhost:8080), `RATE_LIMIT_AUTH_MAX` (10, capped at 50), `RATE_LIMIT_GENERAL_MAX` (100), `DEFAULT_EMBEDDINGS_MODEL` (openai/text-embedding-3-small), `DEFAULT_CHAT_MODEL` (openai/gpt-4.1), `S3_REGION` (auto), `EMAIL_FROM_NAME` ("RAG Chatbot")
+Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_EXPIRES_IN` (15m), `REFRESH_TOKEN_EXPIRES_IN` (7d), `LOG_LEVEL` (info), `LOG_TO_FILE` (true), `CORS_ALLOWED_ORIGINS` (http://localhost:8080), `RATE_LIMIT_AUTH_MAX` (10, capped at 50), `RATE_LIMIT_GENERAL_MAX` (100), `DEFAULT_EMBEDDINGS_MODEL` (openai/text-embedding-3-small), `DEFAULT_CHAT_MODEL` (openai/gpt-4.1), `S3_REGION` (auto), `EMAIL_FROM_NAME` ("RAG Chatbot"), `LLAMAINDEX_PARSE_TIER` (cost_effective)
 
 ## Database
 
@@ -302,6 +319,7 @@ Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_E
 - **Database**: Real PostgreSQL test database (configured in `.env.test`)
 - **Config**: `vitest.config.js` — `fileParallelism: false` (integration tests share DB state), 10s timeout
 - **Setup**: `tests/global-setup.js` — creates Knex client, runs migrations, seeds permissions, destroys client
+- **Setup file**: `tests/setup.js` — mocks `src/queues/file-processing.js` (no-op stubs) so tests run without Redis
 - **Helpers**: `tests/helpers.js`:
   - `getApp()`, `request()` — app bootstrapping
   - `createTestUser(overrides)` — inserts user with Argon2-hashed password, returns `{ id, email, full_name, plainPassword }`
@@ -311,9 +329,9 @@ Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_E
   - `cleanAllTables()` — truncates all 15 tables in dependency order
   - `seedPermissions()` — seeds 30 RAG permissions
 - **Current test status**:
-  - Passing (27): health (5), http-error (3), pagination (9), request-id (4), sanitize (6)
-  - Rewritten for email-based auth: auth.test.js (10 tests with Brevo email service mock)
-  - Broken (need rewrite): permissions.test.js (7 tests, imports removed helpers)
+  - Passing (79): health (5), http-error (3), pagination (9), request-id (4), sanitize (6), redis (5), auth (10), workspaces (32), webhooks (5)
+  - Skipped (6): permissions tests (imports need rewriting)
+  - No Redis required for local test runs (queue module mocked via `tests/setup.js`)
 
 ## Adding a New Resource
 
