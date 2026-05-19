@@ -49,12 +49,12 @@ const validateRoleIdParam = (roleId) => {
 }
 
 /**
- * POST /api/orgs/:org_id/roles — Create a custom role for the organization.
+ * POST /api/workspaces/:workspace_id/roles — Create a custom role for the workspace.
  *
- * Custom roles (is_system = false) allow org admins to define granular permission sets.
+ * Custom roles (is_system = false) allow workspace admins to define granular permission sets.
  * All provided permission_ids are validated against the permissions table before creation.
  *
- * @param {Object} req - Express request object (req.org.id set by middleware)
+ * @param {Object} req - Express request object (req.workspace.id set by resolveWorkspace middleware)
  * @param {Object} res - Express response object
  * @param {Function} next - Express next middleware function
  */
@@ -78,7 +78,7 @@ export const createRole = async (req, res, next) => {
     // Create the role record and assign permissions atomically
     const roleData = {
       id: roleId,
-      org_id: req.org.id,
+      workspace_id: req.workspace.id,
       name,
       is_system: false,
       created_at: new Date(),
@@ -89,7 +89,15 @@ export const createRole = async (req, res, next) => {
     const [role] = await db.transaction(async (trx) => {
       const [created] = await trx("roles")
         .insert(roleData)
-        .returning(["id", "org_id", "name", "description", "is_system", "created_at", "updated_at"])
+        .returning([
+          "id",
+          "workspace_id",
+          "name",
+          "description",
+          "is_system",
+          "created_at",
+          "updated_at",
+        ])
 
       // Assign permissions within the same transaction
       const rolePerms = permissionIds.map((permissionId) => ({
@@ -116,16 +124,16 @@ export const createRole = async (req, res, next) => {
 }
 
 /**
- * GET /api/orgs/:org_id/roles — List all roles for the organization.
- * Includes both system and custom roles, ordered by name.
+ * GET /api/workspaces/:workspace_id/roles — List all roles for the workspace.
+ * Includes both system and custom roles, ordered by system roles first then by name.
  *
- * @param {Object} req - Express request object (req.org.id set by middleware)
+ * @param {Object} req - Express request object (req.workspace.id set by resolveWorkspace middleware)
  * @param {Object} res - Express response object
  * @param {Function} next - Express next middleware function
  */
 export const getRoles = async (req, res, next) => {
   try {
-    const roles = await roleModel.findMany({ org_id: req.org.id })
+    const roles = await roleModel.findMany({ workspace_id: req.workspace.id })
 
     return res.json(
       apiResponse({
@@ -139,10 +147,10 @@ export const getRoles = async (req, res, next) => {
 }
 
 /**
- * GET /api/orgs/:org_id/roles/:role_id — Get a single role with its permissions.
+ * GET /api/workspaces/:workspace_id/roles/:role_id — Get a single role with its permissions.
  * Returns the role details along with all assigned permissions.
  *
- * @param {Object} req - Express request object (req.org.id set by middleware)
+ * @param {Object} req - Express request object (req.workspace.id set by resolveWorkspace middleware)
  * @param {Object} res - Express response object
  * @param {Function} next - Express next middleware function
  */
@@ -150,8 +158,8 @@ export const getRole = async (req, res, next) => {
   try {
     const roleId = validateRoleIdParam(req.params.role_id)
 
-    // Fetch the role, scoped to the current org
-    const role = await roleModel.findOne({ id: roleId, org_id: req.org.id })
+    // Fetch the role, scoped to the current workspace
+    const role = await roleModel.findOne({ id: roleId, workspace_id: req.workspace.id })
     if (!role) {
       throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "Role not found")
     }
@@ -171,13 +179,13 @@ export const getRole = async (req, res, next) => {
 }
 
 /**
- * PUT /api/orgs/:org_id/roles/:role_id — Update a role's name, description, or permissions.
+ * PUT /api/workspaces/:workspace_id/roles/:role_id — Update a role's name, description, or permissions.
  *
  * Guards:
  * - Cannot rename a system role (system role names are immutable)
  * - Permission IDs (if provided) are validated against the permissions table
  *
- * @param {Object} req - Express request object (req.org.id set by middleware)
+ * @param {Object} req - Express request object (req.workspace.id set by resolveWorkspace middleware)
  * @param {Object} res - Express response object
  * @param {Function} next - Express next middleware function
  */
@@ -190,8 +198,8 @@ export const updateRole = async (req, res, next) => {
       throw new HttpError(HTTP_STATUS_CODE.BAD_REQUEST, error.details[0].message)
     }
 
-    // Fetch the existing role, scoped to the current org
-    const existingRole = await roleModel.findOne({ id: roleId, org_id: req.org.id })
+    // Fetch the existing role, scoped to the current workspace
+    const existingRole = await roleModel.findOne({ id: roleId, workspace_id: req.workspace.id })
     if (!existingRole) {
       throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "Role not found")
     }
@@ -225,18 +233,20 @@ export const updateRole = async (req, res, next) => {
     // Update role metadata and permissions atomically
     const [updatedRole] = await db.transaction(async (trx) => {
       const [updated] = await trx("roles")
-        .where({ id: roleId, org_id: req.org.id })
+        .where({ id: roleId, workspace_id: req.workspace.id })
         .update(updateData)
-        .returning(["id", "org_id", "name", "description", "is_system", "created_at", "updated_at"])
+        .returning([
+          "id",
+          "workspace_id",
+          "name",
+          "description",
+          "is_system",
+          "created_at",
+          "updated_at",
+        ])
 
       if (permissionIds) {
-        // Replace all permissions within the same transaction
-        await trx("role_permissions").where("role_id", roleId).delete()
-        const rolePerms = permissionIds.map((permissionId) => ({
-          role_id: roleId,
-          permission_id: permissionId,
-        }))
-        await trx("role_permissions").insert(rolePerms)
+        await roleModel.setPermissions(trx, roleId, permissionIds)
       }
 
       return [updated]
@@ -257,13 +267,13 @@ export const updateRole = async (req, res, next) => {
 }
 
 /**
- * DELETE /api/orgs/:org_id/roles/:role_id — Delete a custom role.
+ * DELETE /api/workspaces/:workspace_id/roles/:role_id — Delete a custom role.
  *
  * Guards:
- * - Cannot delete system roles (owner, admin, member, viewer)
- * - Cannot delete a role that is currently assigned to any org or project member
+ * - Cannot delete system roles (owner, admin, editor, viewer)
+ * - Cannot delete a role that is currently assigned to any workspace member
  *
- * @param {Object} req - Express request object (req.org.id set by middleware)
+ * @param {Object} req - Express request object (req.workspace.id set by resolveWorkspace middleware)
  * @param {Object} res - Express response object
  * @param {Function} next - Express next middleware function
  */
@@ -271,8 +281,8 @@ export const deleteRole = async (req, res, next) => {
   try {
     const roleId = validateRoleIdParam(req.params.role_id)
 
-    // Fetch the role, scoped to the current org
-    const role = await roleModel.findOne({ id: roleId, org_id: req.org.id })
+    // Fetch the role, scoped to the current workspace
+    const role = await roleModel.findOne({ id: roleId, workspace_id: req.workspace.id })
     if (!role) {
       throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "Role not found")
     }
@@ -282,33 +292,19 @@ export const deleteRole = async (req, res, next) => {
       throw new HttpError(HTTP_STATUS_CODE.BAD_REQUEST, "Cannot delete a system role")
     }
 
-    // Check if the role is in use by any org members
-    const orgMemberUsingRole = await db
-      .select("user_id")
-      .from("org_members")
+    // Check if the role is in use by any workspace members
+    const memberUsingRole = await db("workspace_members")
       .where({ role_id: roleId })
+      .whereNull("deleted_at")
       .first()
-    if (orgMemberUsingRole) {
+    if (memberUsingRole) {
       throw new HttpError(
         HTTP_STATUS_CODE.BAD_REQUEST,
         "Cannot delete a role that is currently assigned to members",
       )
     }
 
-    // Check if the role is in use by any project members
-    const projectMemberUsingRole = await db
-      .select("user_id")
-      .from("project_members")
-      .where({ role_id: roleId })
-      .first()
-    if (projectMemberUsingRole) {
-      throw new HttpError(
-        HTTP_STATUS_CODE.BAD_REQUEST,
-        "Cannot delete a role that is currently assigned to members",
-      )
-    }
-
-    await roleModel.remove({ id: roleId, org_id: req.org.id })
+    await roleModel.remove({ id: roleId, workspace_id: req.workspace.id })
 
     return res.json(
       apiResponse({
