@@ -202,7 +202,7 @@ Tokens are set by the server on signin/refresh and never exposed to JavaScript. 
 | ------- | ---------------------------------------- | --------------- |
 | F1      | Database schema + infrastructure         | **Complete**    |
 | F2      | Email-based authentication (Brevo)       | **Complete**    |
-| F3      | Workspaces + RBAC + members              | Planned         |
+| F3      | Workspaces + RBAC + members              | **Complete**    |
 | F4      | Datasets + file upload + RAG pipeline    | Planned         |
 | F5      | Agent management                         | Planned         |
 | F6      | Conversations (CRUD + dataset linking)   | Planned         |
