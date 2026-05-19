@@ -39,7 +39,7 @@ export async function up(knex) {
     CREATE TABLE workspace_members (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      user_id UUID REFERENCES users(id) ON DELETE CASCADE,
       role_id UUID NOT NULL,
       status membership_status NOT NULL DEFAULT 'invited',
       invited_by UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -53,7 +53,8 @@ export async function up(knex) {
   `)
   await knex.raw(`
     CREATE UNIQUE INDEX idx_workspace_members_workspace_user
-      ON workspace_members (workspace_id, user_id) WHERE deleted_at IS NULL
+      ON workspace_members (workspace_id, user_id)
+      WHERE deleted_at IS NULL AND user_id IS NOT NULL
   `)
   await knex.raw(`CREATE INDEX idx_workspace_members_user ON workspace_members (user_id)`)
   await knex.raw(`CREATE INDEX idx_workspace_members_role ON workspace_members (role_id)`)
