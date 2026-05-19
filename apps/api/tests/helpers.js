@@ -38,8 +38,8 @@ export async function createTestUser(overrides = {}) {
 }
 
 export async function getAuthHeaders(userId) {
-  const accessToken = generateAccessToken({ id: userId })
-  const refreshToken = generateRefreshToken({ id: userId })
+  const accessToken = generateAccessToken(userId)
+  const refreshToken = generateRefreshToken(userId)
   const tokenHash = hashToken(refreshToken)
 
   await db("refresh_tokens").insert({
@@ -63,6 +63,8 @@ export async function createTestWorkspace(userId, overrides = {}) {
   // Requires permissions already seeded
   const workspaceId = crypto.randomUUID()
 
+  const roleIds = {}
+
   await db.transaction(async (trx) => {
     await trx("workspaces").insert({
       id: workspaceId,
@@ -73,7 +75,6 @@ export async function createTestWorkspace(userId, overrides = {}) {
     })
 
     // Create 4 system roles
-    const roleIds = {}
     const roleNames = ["owner", "admin", "editor", "viewer"]
     for (const name of roleNames) {
       const roleId = crypto.randomUUID()

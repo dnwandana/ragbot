@@ -1,4 +1,11 @@
+import { vi } from "vitest"
 import { request, cleanAllTables } from "../helpers.js"
+
+vi.mock("../../src/services/email.js", () => ({
+  sendVerificationEmail: vi.fn(),
+  sendPasswordResetEmail: vi.fn(),
+  sendInvitationEmail: vi.fn(),
+}))
 
 afterEach(async () => {
   await cleanAllTables()
