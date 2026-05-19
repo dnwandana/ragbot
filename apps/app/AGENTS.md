@@ -49,8 +49,9 @@ Vue 3 SPA built with Vite, using a Pinia store + composables pattern for state m
 | `/`                | —              | redirect to `/workspaces`                 | —               | Stale   |
 | `/invitations`     | MyInvitations  | `views/invitations/MyInvitationsView.vue` | `requiresAuth`  | Working |
 | `/:pathMatch(.*)*` | —              | redirect to `/workspaces`                 | —               | Stale   |
+| `/workspaces/:workspaceId/agents` | AgentsList | `views/agents/AgentsListView.vue` | `requiresAuth` | Working |
 
-**Stale routes**: `/` and catch-all redirect to `/workspaces` which doesn't exist yet. These will work once F3 (workspace CRUD) is implemented.
+**Stale routes**: `/` and catch-all redirect to `/workspaces`.
 
 **Navigation guard**: Unauthenticated users on `requiresAuth` routes redirect to `/login?redirect=`. Authenticated users on `requiresGuest` routes redirect to `/workspaces`. Auth store is initialized from localStorage on first navigation.
 
@@ -86,6 +87,7 @@ Custom fetch-based client (NOT Axios). Key behaviors:
 | `useRolesStore`       | `stores/roles.js`       | `roles`, `currentRole`, `allPermissions`, `userPermissions`, `loading` | `fetchRoles`, `fetchRoleById`, `createRole`, `updateRole`, `deleteRole`, `fetchAllPermissions`, `loadUserPermissions` | Working (references org API paths) |
 | `useMembersStore`     | `stores/members.js`     | `orgMembers`, `projectMembers`, `loading`      | `fetchOrgMembers`, `fetchProjectMembers`, role update/remove | Working (references org/project API) |
 | `useInvitationsStore` | `stores/invitations.js` | `orgInvitations`, `myInvitations`, `loading`   | `fetchOrgInvitations`, `fetchMyInvitations`, invite/accept/decline/revoke | Working |
+| `useAgentsStore`      | `stores/agents.js`      | `agents`, `loading`                            | `fetchAgents`, `createAgent`, `updateAgent`, `deleteAgent` | Working |
 
 **Note**: Roles, members, and invitations stores still reference org/project API paths. They need to be updated to workspace API paths when F3 (workspaces + RBAC) is implemented.
 
@@ -98,6 +100,7 @@ Custom fetch-based client (NOT Axios). Key behaviors:
 | `useMembers`     | `composables/useMembers.js`     | `orgMembers`, `projectMembers`, `loading`, role-change modal state, fetch/change/remove handlers           |
 | `useInvitations` | `composables/useInvitations.js` | `orgInvitations`, `myInvitations`, `loading`, `pendingCount`, invite modal state, invite/accept/decline    |
 | `usePermissions` | `composables/usePermissions.js` | `userPermissions`, `can(permission)`, `canAny(permissions[])`, `loadPermissions(orgId, userId)`, `clearPermissions` |
+| `useAgents`      | `composables/useAgents.js`      | `agents`, `loading`, modal state, CRUD wrappers                            |
 
 ## Component Catalog
 
@@ -109,6 +112,7 @@ Custom fetch-based client (NOT Axios). Key behaviors:
 | `InviteFormModal`  | `components/InviteFormModal.vue`  | Invite member modal — username/email toggle, role selection             |
 | `MembersTable`     | `components/MembersTable.vue`     | Members table with inline role-change dropdown and remove button        |
 | `InvitationsTable` | `components/InvitationsTable.vue` | Invitations table with status tags and revoke button                    |
+| `AgentFormModal`   | `components/AgentFormModal.vue`   | Create/edit agent modal with model config                               |
 
 ## API Service Catalog
 
@@ -118,6 +122,7 @@ Custom fetch-based client (NOT Axios). Key behaviors:
 | roles       | `api/roles.js`       | `getRoles`, `getRole`, `createRole`, `updateRole`, `deleteRole`                                      |
 | permissions | `api/permissions.js` | `getPermissions`                                                                                     |
 | invitations | `api/invitations.js` | `inviteToOrg`, `inviteToProject`, list/accept/decline/revoke                                         |
+| agents      | `api/agents.js`      | `listAgents`, `getAgent`, `createAgent`, `updateAgent`, `deleteAgent`                                |
 
 ## Utility Files
 
