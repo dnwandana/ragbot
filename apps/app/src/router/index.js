@@ -86,6 +86,12 @@ const routes = [
     component: () => import("@/views/conversations/ConversationsListView.vue"),
     meta: { requiresAuth: true },
   },
+  {
+    path: "/workspaces/:workspaceId/conversations/:conversationId",
+    name: "Chat",
+    component: () => import("@/views/conversations/ChatView.vue"),
+    meta: { requiresAuth: true },
+  },
 
   // ── Catch-all ───────────────────────────────────────────────────────
   {
