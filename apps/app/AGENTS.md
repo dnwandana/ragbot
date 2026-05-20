@@ -39,18 +39,19 @@ Vue 3 SPA built with Vite, using a Pinia store + composables pattern for state m
 
 ## Route Table
 
-| Path               | Name           | Component                                 | Auth Meta       | Status  |
-| ------------------ | -------------- | ----------------------------------------- | --------------- | ------- |
-| `/login`           | Login          | `views/auth/LoginView.vue`                | `requiresGuest` | Working |
-| `/signup`          | Signup         | `views/auth/SignupView.vue`               | `requiresGuest` | Working |
-| `/verify-email`    | VerifyEmail    | `views/auth/VerifyEmailView.vue`          | none            | Working |
-| `/forgot-password` | ForgotPassword | `views/auth/ForgotPasswordView.vue`       | `requiresGuest` | Working |
-| `/reset-password`  | ResetPassword  | `views/auth/ResetPasswordView.vue`        | `requiresGuest` | Working |
-| `/`                | —              | redirect to `/workspaces`                 | —               | Stale   |
-| `/invitations`     | MyInvitations  | `views/invitations/MyInvitationsView.vue` | `requiresAuth`  | Working |
-| `/:pathMatch(.*)*` | —              | redirect to `/workspaces`                 | —               | Stale   |
-| `/workspaces/:workspaceId/agents` | AgentsList | `views/agents/AgentsListView.vue` | `requiresAuth` | Working |
-| `/workspaces/:workspaceId/conversations` | ConversationsList | `views/conversations/ConversationsListView.vue` | `requiresAuth` | Working |
+| Path                                                     | Name              | Component                                       | Auth Meta       | Status  |
+| -------------------------------------------------------- | ----------------- | ----------------------------------------------- | --------------- | ------- |
+| `/login`                                                 | Login             | `views/auth/LoginView.vue`                      | `requiresGuest` | Working |
+| `/signup`                                                | Signup            | `views/auth/SignupView.vue`                     | `requiresGuest` | Working |
+| `/verify-email`                                          | VerifyEmail       | `views/auth/VerifyEmailView.vue`                | none            | Working |
+| `/forgot-password`                                       | ForgotPassword    | `views/auth/ForgotPasswordView.vue`             | `requiresGuest` | Working |
+| `/reset-password`                                        | ResetPassword     | `views/auth/ResetPasswordView.vue`              | `requiresGuest` | Working |
+| `/`                                                      | —                 | redirect to `/workspaces`                       | —               | Stale   |
+| `/invitations`                                           | MyInvitations     | `views/invitations/MyInvitationsView.vue`       | `requiresAuth`  | Working |
+| `/:pathMatch(.*)*`                                       | —                 | redirect to `/workspaces`                       | —               | Stale   |
+| `/workspaces/:workspaceId/agents`                        | AgentsList        | `views/agents/AgentsListView.vue`               | `requiresAuth`  | Working |
+| `/workspaces/:workspaceId/conversations`                 | ConversationsList | `views/conversations/ConversationsListView.vue` | `requiresAuth`  | Working |
+| `/workspaces/:workspaceId/conversations/:conversationId` | Chat              | `views/conversations/ChatView.vue`              | `requiresAuth`  | Working |
 
 **Stale routes**: `/` and catch-all redirect to `/workspaces`.
 
@@ -82,51 +83,54 @@ Custom fetch-based client (NOT Axios). Key behaviors:
 
 ## Store Catalog
 
-| Store                 | File                    | State                                          | Key Actions                                        | Status  |
-| --------------------- | ----------------------- | ---------------------------------------------- | -------------------------------------------------- | ------- |
-| `useAuthStore`        | `stores/auth.js`        | `user`, `loading`                              | `initAuth`, `signup`, `signin`, `logout`           | Working |
-| `useRolesStore`       | `stores/roles.js`       | `roles`, `currentRole`, `allPermissions`, `userPermissions`, `loading` | `fetchRoles`, `fetchRoleById`, `createRole`, `updateRole`, `deleteRole`, `fetchAllPermissions`, `loadUserPermissions` | Working (references org API paths) |
-| `useMembersStore`     | `stores/members.js`     | `orgMembers`, `projectMembers`, `loading`      | `fetchOrgMembers`, `fetchProjectMembers`, role update/remove | Working (references org/project API) |
-| `useInvitationsStore` | `stores/invitations.js` | `orgInvitations`, `myInvitations`, `loading`   | `fetchOrgInvitations`, `fetchMyInvitations`, invite/accept/decline/revoke | Working |
-| `useAgentsStore`      | `stores/agents.js`      | `agents`, `loading`                            | `fetchAgents`, `createAgent`, `updateAgent`, `deleteAgent` | Working |
-| `useConversationsStore` | `stores/conversations.js` | `conversations`, `currentConversation`, `pagination`, `loading` | `fetchConversations`, `fetchConversation`, `createConversation`, `updateConversation`, `deleteConversation` | Working |
+| Store                   | File                      | State                                                                                    | Key Actions                                                                                                           | Status                               |
+| ----------------------- | ------------------------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| `useAuthStore`          | `stores/auth.js`          | `user`, `loading`                                                                        | `initAuth`, `signup`, `signin`, `logout`                                                                              | Working                              |
+| `useRolesStore`         | `stores/roles.js`         | `roles`, `currentRole`, `allPermissions`, `userPermissions`, `loading`                   | `fetchRoles`, `fetchRoleById`, `createRole`, `updateRole`, `deleteRole`, `fetchAllPermissions`, `loadUserPermissions` | Working (references org API paths)   |
+| `useMembersStore`       | `stores/members.js`       | `orgMembers`, `projectMembers`, `loading`                                                | `fetchOrgMembers`, `fetchProjectMembers`, role update/remove                                                          | Working (references org/project API) |
+| `useInvitationsStore`   | `stores/invitations.js`   | `orgInvitations`, `myInvitations`, `loading`                                             | `fetchOrgInvitations`, `fetchMyInvitations`, invite/accept/decline/revoke                                             | Working                              |
+| `useAgentsStore`        | `stores/agents.js`        | `agents`, `loading`                                                                      | `fetchAgents`, `createAgent`, `updateAgent`, `deleteAgent`                                                            | Working                              |
+| `useConversationsStore` | `stores/conversations.js` | `conversations`, `currentConversation`, `pagination`, `loading`                          | `fetchConversations`, `fetchConversation`, `createConversation`, `updateConversation`, `deleteConversation`           | Working                              |
+| `useChatStore`          | `stores/chat.js`          | `isStreaming`, `currentContent`, `thoughts`, `observations`, `pendingCitations`, `error` | `reset`                                                                                                               | Working                              |
 
 **Note**: Roles, members, and invitations stores still reference org/project API paths. They need to be updated to workspace API paths when F3 (workspaces + RBAC) is implemented.
 
 ## Composable Catalog
 
-| Composable       | File                            | Returns                                                                                                    |
-| ---------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `useAuth`        | `composables/useAuth.js`        | `formState`, `error`, `loading`, `isAuthenticated`, `currentUser`, validation rules, action handlers       |
-| `useRoles`       | `composables/useRoles.js`       | `roles`, `currentRole`, `allPermissions`, `loading`, modal state, CRUD wrappers                            |
-| `useMembers`     | `composables/useMembers.js`     | `orgMembers`, `projectMembers`, `loading`, role-change modal state, fetch/change/remove handlers           |
-| `useInvitations` | `composables/useInvitations.js` | `orgInvitations`, `myInvitations`, `loading`, `pendingCount`, invite modal state, invite/accept/decline    |
-| `usePermissions` | `composables/usePermissions.js` | `userPermissions`, `can(permission)`, `canAny(permissions[])`, `loadPermissions(orgId, userId)`, `clearPermissions` |
-| `useAgents`      | `composables/useAgents.js`      | `agents`, `loading`, modal state, CRUD wrappers                            |
-| `useConversations` | `composables/useConversations.js` | `conversations`, `pagination`, `loading`, modal state, create/delete handlers |
+| Composable         | File                              | Returns                                                                                                             |
+| ------------------ | --------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `useAuth`          | `composables/useAuth.js`          | `formState`, `error`, `loading`, `isAuthenticated`, `currentUser`, validation rules, action handlers                |
+| `useRoles`         | `composables/useRoles.js`         | `roles`, `currentRole`, `allPermissions`, `loading`, modal state, CRUD wrappers                                     |
+| `useMembers`       | `composables/useMembers.js`       | `orgMembers`, `projectMembers`, `loading`, role-change modal state, fetch/change/remove handlers                    |
+| `useInvitations`   | `composables/useInvitations.js`   | `orgInvitations`, `myInvitations`, `loading`, `pendingCount`, invite modal state, invite/accept/decline             |
+| `usePermissions`   | `composables/usePermissions.js`   | `userPermissions`, `can(permission)`, `canAny(permissions[])`, `loadPermissions(orgId, userId)`, `clearPermissions` |
+| `useAgents`        | `composables/useAgents.js`        | `agents`, `loading`, modal state, CRUD wrappers                                                                     |
+| `useConversations` | `composables/useConversations.js` | `conversations`, `pagination`, `loading`, modal state, create/delete handlers                                       |
+| `useChat`          | `composables/useChat.js`          | `sendMessage`, `abort`. Probes `GET /auth/me` through the HTTP client before opening the raw-fetch SSE stream so a stale access token is refreshed first |
 
 ## Component Catalog
 
-| Component          | File                              | Purpose                                                                 |
-| ------------------ | --------------------------------- | ----------------------------------------------------------------------- |
-| `AppLayout`        | `components/AppLayout.vue`        | Main shell: header, sidebar, content slot, footer                       |
-| `AppSidebar`       | `components/AppSidebar.vue`       | Context-aware navigation menu (currently org/project, needs workspace)  |
-| `RoleFormModal`    | `components/RoleFormModal.vue`    | Create/edit role modal with permissions grouped by resource             |
-| `InviteFormModal`  | `components/InviteFormModal.vue`  | Invite member modal — username/email toggle, role selection             |
-| `MembersTable`     | `components/MembersTable.vue`     | Members table with inline role-change dropdown and remove button        |
-| `InvitationsTable` | `components/InvitationsTable.vue` | Invitations table with status tags and revoke button                    |
-| `AgentFormModal`   | `components/AgentFormModal.vue`   | Create/edit agent modal with model config                               |
+| Component          | File                              | Purpose                                                                |
+| ------------------ | --------------------------------- | ---------------------------------------------------------------------- |
+| `AppLayout`        | `components/AppLayout.vue`        | Main shell: header, sidebar, content slot, footer                      |
+| `AppSidebar`       | `components/AppSidebar.vue`       | Context-aware navigation menu (currently org/project, needs workspace) |
+| `RoleFormModal`    | `components/RoleFormModal.vue`    | Create/edit role modal with permissions grouped by resource            |
+| `InviteFormModal`  | `components/InviteFormModal.vue`  | Invite member modal — username/email toggle, role selection            |
+| `MembersTable`     | `components/MembersTable.vue`     | Members table with inline role-change dropdown and remove button       |
+| `InvitationsTable` | `components/InvitationsTable.vue` | Invitations table with status tags and revoke button                   |
+| `AgentFormModal`   | `components/AgentFormModal.vue`   | Create/edit agent modal with model config                              |
 
 ## API Service Catalog
 
-| Module      | File                 | Exports                                                                                              |
-| ----------- | -------------------- | ---------------------------------------------------------------------------------------------------- |
-| auth        | `api/auth.js`        | `signup`, `verifyEmail`, `resendVerification`, `signin`, `forgotPassword`, `resetPassword`, `getMe`, `logout` |
-| roles       | `api/roles.js`       | `getRoles`, `getRole`, `createRole`, `updateRole`, `deleteRole`                                      |
-| permissions | `api/permissions.js` | `getPermissions`                                                                                     |
-| invitations | `api/invitations.js` | `inviteToOrg`, `inviteToProject`, list/accept/decline/revoke                                         |
-| agents      | `api/agents.js`      | `listAgents`, `getAgent`, `createAgent`, `updateAgent`, `deleteAgent`                                |
-| conversations | `api/conversations.js` | `listConversations`, `getConversation`, `createConversation`, `updateConversation`, `deleteConversation` |
+| Module        | File                   | Exports                                                                                                       |
+| ------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------- |
+| auth          | `api/auth.js`          | `signup`, `verifyEmail`, `resendVerification`, `signin`, `forgotPassword`, `resetPassword`, `getMe`, `logout` |
+| roles         | `api/roles.js`         | `getRoles`, `getRole`, `createRole`, `updateRole`, `deleteRole`                                               |
+| permissions   | `api/permissions.js`   | `getPermissions`                                                                                              |
+| invitations   | `api/invitations.js`   | `inviteToOrg`, `inviteToProject`, list/accept/decline/revoke                                                  |
+| agents        | `api/agents.js`        | `listAgents`, `getAgent`, `createAgent`, `updateAgent`, `deleteAgent`                                         |
+| conversations | `api/conversations.js` | `listConversations`, `getConversation`, `createConversation`, `updateConversation`, `deleteConversation`      |
+| chat          | `api/chat.js`          | `sendMessage`                                                                                                 |
 
 ## Utility Files
 

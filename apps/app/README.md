@@ -83,22 +83,26 @@ npm run format    # Format code with Prettier
 src/
 ├── api/           # API service layer - pure HTTP calls
 │   ├── auth.js
+│   ├── chat.js         # SSE chat via native fetch
 │   ├── invitations.js
 │   ├── permissions.js
 │   └── roles.js
 ├── stores/        # Pinia stores - business logic and state
 │   ├── auth.js
+│   ├── chat.js         # Chat streaming state
 │   ├── invitations.js
 │   ├── members.js
 │   └── roles.js
 ├── composables/   # Composables - form handling, UI state
 │   ├── useAuth.js
+│   ├── useChat.js      # Chat sendMessage + abort
 │   ├── useInvitations.js
 │   ├── useMembers.js
 │   ├── usePermissions.js
 │   └── useRoles.js
 ├── views/         # Page components - *View.vue naming
 │   ├── auth/           # LoginView, SignupView, VerifyEmailView, ForgotPasswordView, ResetPasswordView
+│   ├── conversations/  # ConversationsListView, ChatView
 │   └── invitations/    # MyInvitationsView
 ├── components/    # Reusable components
 │   ├── AppLayout.vue
@@ -119,6 +123,12 @@ src/
 2. **Store Layer** (`src/stores/`) - Pinia stores that manage domain state
 3. **Composable Layer** (`src/composables/`) - Reusable composition functions for UI logic
 4. **View Layer** (`src/views/`) - Page components that use composables
+
+### Chat with SSE Streaming
+
+The chat feature uses Server-Sent Events (SSE) for real-time streaming of AI responses. The native `fetch` API is used directly (rather than the project HTTP client) because the custom fetch wrapper does not expose the `ReadableStream` body needed to consume SSE frames.
+
+**Flow**: User sends message -> native fetch POST with `Accept: text/event-stream` -> server runs ReAct loop (embed -> search -> stream) -> client parses `token`/`thought`/`observation`/`citation`/`done` events -> reloads conversation from server on completion.
 
 ## Code Style
 

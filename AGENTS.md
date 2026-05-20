@@ -36,6 +36,7 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 ### API (`apps/api`)
 
 **Wired and working:**
+
 - Authentication — email-based signup with verification, signin (email + password), refresh, logout, me, forgot/reset password, resend verification. Brevo sends inline HTML emails via `sendTransacEmail`
 - Permissions (read-only reference endpoint)
 - Health check (database connectivity, request ID)
@@ -46,14 +47,16 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 - Datasets + file upload (LlamaIndex) + URL scraping (Firecrawl) + BullMQ processing pipeline (F4)
 - Agent management — CRUD with system agent protection (F5)
 - Conversation CRUD + dataset linking + dataset shortcut endpoint (F6)
+- Chat with ReAct loop + SSE streaming (F7) — RAG search, message persistence, citations
 
 **Planned but not wired:**
-- Chat with ReAct loop + SSE streaming (F7)
+
 - Audit logging middleware (schema exists, no middleware yet)
 
 ### Frontend (`apps/app`)
 
 **Wired and working:**
+
 - Auth views (Login, Signup, VerifyEmail, ForgotPassword, ResetPassword)
 - Invitations view (MyInvitationsView)
 - AppLayout, AppSidebar, RoleFormModal, InviteFormModal, MembersTable, InvitationsTable
@@ -62,13 +65,15 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 - Vue Router with auth guards
 - Agent views (AgentsListView, AgentFormModal), store, composable, and API module
 - Conversation views (ConversationsListView), store, composable, and API module (F6)
+- Chat view (ChatView) with SSE streaming, chat store, composable, and API module (F7)
 
 **Referenced but deleted (router/stores point to non-existent files):**
+
 - Org/project/todo views, stores, composables, and API modules were removed in the schema migration. These need to be replaced with workspace/dataset/agent/conversation equivalents when the corresponding API features are built.
 
 ### Tests
 
-**Passing (114 tests):** health (5), auth (10), workspaces (32), webhooks (5), agents (12), conversations (9), datasets (14), redis (5), http-error (3), pagination (9), request-id (4), sanitize (6)
+**Passing (121 tests):** health (5), auth (10), workspaces (32), webhooks (5), agents (12), conversations (9), datasets (14), chat (7), redis (5), http-error (3), pagination (9), request-id (4), sanitize (6)
 **Skipped (6):** permissions.test.js (imports need rewriting)
 **No Redis required locally:** queue module mocked via `tests/setup.js`
 

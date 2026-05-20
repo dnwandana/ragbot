@@ -4,10 +4,10 @@ A workspace-based RAG (Retrieval-Augmented Generation) chatbot platform. Users u
 
 ## What's inside
 
-| App        | Stack                                                            | Purpose                            |
-| ---------- | ---------------------------------------------------------------- | ---------------------------------- |
-| `apps/api` | Express 5, PostgreSQL + pgvector, Knex.js, OpenRouter API       | REST API with auth, RAG pipeline   |
-| `apps/app` | Vue 3, Pinia, Ant Design Vue, Vite                              | Single-page app consuming the API  |
+| App        | Stack                                                     | Purpose                           |
+| ---------- | --------------------------------------------------------- | --------------------------------- |
+| `apps/api` | Express 5, PostgreSQL + pgvector, Knex.js, OpenRouter API | REST API with auth, RAG pipeline  |
+| `apps/app` | Vue 3, Pinia, Ant Design Vue, Vite                        | Single-page app consuming the API |
 
 ## Architecture at a glance
 
@@ -155,23 +155,46 @@ Append `:api` or `:app` to target a single workspace (e.g. `pnpm test:api`).
 
 ### Authentication (public)
 
-| Method | Path                          | Description                                                    |
-| ------ | ----------------------------- | -------------------------------------------------------------- |
-| POST   | `/api/auth/signup`            | Register — sends verification email, returns `{ id, email, full_name }` |
-| POST   | `/api/auth/verify-email`      | Verify email via token from email link                         |
-| POST   | `/api/auth/resend-verification` | Resend verification email (always returns 200)              |
-| POST   | `/api/auth/signin`            | Login — requires verified email, sets httpOnly auth cookies   |
-| POST   | `/api/auth/forgot-password`   | Request password reset email (always returns 200)             |
-| POST   | `/api/auth/reset-password`    | Reset password via token from email, revokes all sessions     |
-| GET    | `/api/auth/me`                | Current user (requires access token)                           |
-| POST   | `/api/auth/refresh`           | Rotate tokens via httpOnly cookie                              |
-| POST   | `/api/auth/logout`            | Revoke refresh token, clear cookies                            |
+| Method | Path                            | Description                                                             |
+| ------ | ------------------------------- | ----------------------------------------------------------------------- |
+| POST   | `/api/auth/signup`              | Register — sends verification email, returns `{ id, email, full_name }` |
+| POST   | `/api/auth/verify-email`        | Verify email via token from email link                                  |
+| POST   | `/api/auth/resend-verification` | Resend verification email (always returns 200)                          |
+| POST   | `/api/auth/signin`              | Login — requires verified email, sets httpOnly auth cookies             |
+| POST   | `/api/auth/forgot-password`     | Request password reset email (always returns 200)                       |
+| POST   | `/api/auth/reset-password`      | Reset password via token from email, revokes all sessions               |
+| GET    | `/api/auth/me`                  | Current user (requires access token)                                    |
+| POST   | `/api/auth/refresh`             | Rotate tokens via httpOnly cookie                                       |
+| POST   | `/api/auth/logout`              | Revoke refresh token, clear cookies                                     |
 
 ### Permissions (authenticated)
 
-| Method | Path              | Description              |
-| ------ | ----------------- | ------------------------ |
+| Method | Path               | Description               |
+| ------ | ------------------ | ------------------------- |
 | GET    | `/api/permissions` | Permission reference list |
+
+### Workspace-scoped (authenticated + workspace membership)
+
+| Method | Path                                              | Description                     |
+| ------ | ------------------------------------------------- | ------------------------------- |
+| POST   | `/api/workspaces`                                 | Create workspace                |
+| GET    | `/api/workspaces`                                 | List user's workspaces          |
+| GET    | `/api/workspaces/:id`                             | Get workspace detail            |
+| PATCH  | `/api/workspaces/:id`                             | Update workspace                |
+| DELETE | `/api/workspaces/:id`                             | Delete workspace                |
+| POST   | `/api/workspaces/:id/roles`                       | Create role                     |
+| GET    | `/api/workspaces/:id/roles`                       | List roles                      |
+| GET    | `/api/workspaces/:id/members`                     | List members                    |
+| POST   | `/api/workspaces/:id/members/invite`              | Invite member                   |
+| POST   | `/api/workspaces/:id/datasets`                    | Create dataset                  |
+| GET    | `/api/workspaces/:id/datasets`                    | List datasets                   |
+| POST   | `/api/workspaces/:id/datasets/:did/files/upload`  | Upload file                     |
+| POST   | `/api/workspaces/:id/datasets/:did/files/scrape`  | Scrape URL                      |
+| POST   | `/api/workspaces/:id/agents`                      | Create agent                    |
+| GET    | `/api/workspaces/:id/agents`                      | List agents                     |
+| POST   | `/api/workspaces/:id/conversations`               | Create conversation             |
+| GET    | `/api/workspaces/:id/conversations`               | List conversations              |
+| POST   | `/api/workspaces/:id/conversations/:cid/messages` | Send chat message (SSE or JSON) |
 
 ### Health check (public, not rate-limited)
 
@@ -198,20 +221,6 @@ The API uses httpOnly cookies (not headers) for token management:
 
 Tokens are set by the server on signin/refresh and never exposed to JavaScript. Both use `Secure` (production), `SameSite=Strict`.
 
-## Feature roadmap
-
-| Feature | Description                              | Status          |
-| ------- | ---------------------------------------- | --------------- |
-| F1      | Database schema + infrastructure         | **Complete**    |
-| F2      | Email-based authentication (Brevo)       | **Complete**    |
-| F3      | Workspaces + RBAC + members              | **Complete**    |
-| F4      | Datasets + file upload + RAG pipeline    | **Complete**    |
-| F5      | Agent management                         | **Complete**    |
-| F6      | Conversations (CRUD + dataset linking)   | **Complete**    |
-| F7      | Chat (ReAct loop + SSE streaming)        | Planned         |
-
-Detailed plans live in `plans/` and design specs in `docs/superpowers/specs/`.
-
 ## Testing
 
 ```bash
@@ -226,7 +235,7 @@ cp apps/api/.env.example apps/api/.env.test
 # Update PORT (e.g. 3001), LOG_LEVEL=error, LOG_TO_FILE=false
 ```
 
-The test suite uses real PostgreSQL (no mocks). Vitest runs migrations once before the session, and `cleanAllTables()` truncates between tests. Auth tests mock the Brevo email service; queue tests mock BullMQ so no Redis is required locally. Currently passing: 114 tests (health, auth, workspaces, webhooks, datasets, agents, conversations, http-error, pagination, request-id, sanitize, redis), 6 skipped (permissions — need rewriting).
+The test suite uses real PostgreSQL (no mocks). Vitest runs migrations once before the session, and `cleanAllTables()` truncates between tests. Auth tests mock the Brevo email service; queue tests mock BullMQ so no Redis is required locally. Currently passing: 119 tests (health, auth, workspaces, webhooks, datasets, agents, conversations, chat, http-error, pagination, request-id, sanitize, redis), 6 skipped (permissions — need rewriting).
 
 ## Deployment
 
@@ -335,26 +344,26 @@ docker compose run --rm api sh -c "node_modules/.bin/knex seed:run"
 
 ### Environment variables
 
-| Variable               | Required | Description                                                                         |
-| ---------------------- | -------- | ----------------------------------------------------------------------------------- |
-| `VITE_API_BASE_URL`    | No       | Build-time API base URL. Defaults to `/api` (same-origin, recommended).             |
-| `DATABASE_URL`         | Yes      | PostgreSQL connection string                                                        |
-| `REDIS_URL`            | Yes      | Redis connection string (`redis://localhost:6379` or `redis://:pass@host:6379`)     |
-| `ACCESS_TOKEN_SECRET`  | Yes      | JWT secret, min 32 chars                                                            |
-| `REFRESH_TOKEN_SECRET` | Yes      | JWT secret, min 32 chars, must differ from access secret                            |
-| `JWT_ISSUER`           | Yes      | e.g. `https://yourdomain.com`                                                       |
-| `JWT_AUDIENCE`         | Yes      | e.g. `https://yourdomain.com`                                                       |
-| `OPENROUTER_API_KEY`   | Yes      | API key for OpenRouter (LLM + embedding inference)                                  |
-| `BREVO_API_KEY`        | Yes      | API key for Brevo (transactional email)                                             |
-| `S3_BUCKET`            | Yes      | Cloudflare R2 bucket name for file storage                                          |
-| `S3_ACCESS_KEY`        | Yes      | R2 access key                                                                       |
-| `S3_SECRET_KEY`        | Yes      | R2 secret key                                                                       |
-| `S3_ENDPOINT`          | Yes      | R2 endpoint URL                                                                     |
-| `LLAMAINDEX_API_KEY`   | Yes      | API key for LlamaIndex (document parsing)                                           |
-| `LLAMAINDEX_WEBHOOK_SECRET` | Yes      | Shared secret for LlamaIndex webhook verification (min 16 chars)                   |
-| `FIRECRAWL_API_KEY`    | Yes      | API key for Firecrawl (URL scraping)                                                |
-| `LLAMAINDEX_PARSE_TIER` | No      | LlamaParse tier: `fast`, `cost_effective`, `agentic`, `agentic_plus`. Defaults to `cost_effective`. |
-| `CORS_ALLOWED_ORIGINS` | No       | Defaults to `http://localhost:8080`. Set to `https://yourdomain.com` in production. |
+| Variable                    | Required | Description                                                                                         |
+| --------------------------- | -------- | --------------------------------------------------------------------------------------------------- |
+| `VITE_API_BASE_URL`         | No       | Build-time API base URL. Defaults to `/api` (same-origin, recommended).                             |
+| `DATABASE_URL`              | Yes      | PostgreSQL connection string                                                                        |
+| `REDIS_URL`                 | Yes      | Redis connection string (`redis://localhost:6379` or `redis://:pass@host:6379`)                     |
+| `ACCESS_TOKEN_SECRET`       | Yes      | JWT secret, min 32 chars                                                                            |
+| `REFRESH_TOKEN_SECRET`      | Yes      | JWT secret, min 32 chars, must differ from access secret                                            |
+| `JWT_ISSUER`                | Yes      | e.g. `https://yourdomain.com`                                                                       |
+| `JWT_AUDIENCE`              | Yes      | e.g. `https://yourdomain.com`                                                                       |
+| `OPENROUTER_API_KEY`        | Yes      | API key for OpenRouter (LLM + embedding inference)                                                  |
+| `BREVO_API_KEY`             | Yes      | API key for Brevo (transactional email)                                                             |
+| `S3_BUCKET`                 | Yes      | Cloudflare R2 bucket name for file storage                                                          |
+| `S3_ACCESS_KEY`             | Yes      | R2 access key                                                                                       |
+| `S3_SECRET_KEY`             | Yes      | R2 secret key                                                                                       |
+| `S3_ENDPOINT`               | Yes      | R2 endpoint URL                                                                                     |
+| `LLAMAINDEX_API_KEY`        | Yes      | API key for LlamaIndex (document parsing)                                                           |
+| `LLAMAINDEX_WEBHOOK_SECRET` | Yes      | Shared secret for LlamaIndex webhook verification (min 16 chars)                                    |
+| `FIRECRAWL_API_KEY`         | Yes      | API key for Firecrawl (URL scraping)                                                                |
+| `LLAMAINDEX_PARSE_TIER`     | No       | LlamaParse tier: `fast`, `cost_effective`, `agentic`, `agentic_plus`. Defaults to `cost_effective`. |
+| `CORS_ALLOWED_ORIGINS`      | No       | Defaults to `http://localhost:8080`. Set to `https://yourdomain.com` in production.                 |
 
 See `apps/api/.env.example` for the full list with defaults.
 
@@ -373,6 +382,7 @@ rag-chatbot/
 │   │   │   │   └── database.js     # Knex instance
 │   │   │   ├── controllers/
 │   │   │   │   ├── authentication.js
+│   │   │   │   ├── chat.js
 │   │   │   │   ├── permissions.js
 │   │   │   │   └── roles.js
 │   │   │   ├── emails/
@@ -385,9 +395,12 @@ rag-chatbot/
 │   │   │   │   ├── roles.js
 │   │   │   │   └── users.js
 │   │   │   ├── services/
-│   │   │   │   └── email.js             # Brevo transactional email via inline HTML
+│   │   │   │   ├── email.js             # Brevo transactional email via inline HTML
+│   │   │   │   ├── openrouter.js        # LLM inference + streaming chat completions
+│   │   │   │   └── rag.js               # RAG pipeline: embed, search, build context
 │   │   │   ├── routes/
 │   │   │   │   ├── authentication.js
+│   │   │   │   ├── conversations.js    # Conversation CRUD + chat messages route
 │   │   │   │   ├── health.js
 │   │   │   │   ├── index.js
 │   │   │   │   └── permissions.js
@@ -424,22 +437,26 @@ rag-chatbot/
 │       └── src/
 │           ├── api/                # HTTP service layer (fetch-based)
 │           │   ├── auth.js
+│           │   ├── chat.js             # SSE chat via native fetch
 │           │   ├── invitations.js
 │           │   ├── permissions.js
 │           │   └── roles.js
 │           ├── stores/             # Pinia stores
 │           │   ├── auth.js
+│           │   ├── chat.js             # Chat streaming state
 │           │   ├── invitations.js
 │           │   ├── members.js
 │           │   └── roles.js
 │           ├── composables/        # Bridge: stores -> components
 │           │   ├── useAuth.js
+│           │   ├── useChat.js          # Chat sendMessage + abort
 │           │   ├── useInvitations.js
 │           │   ├── useMembers.js
 │           │   ├── usePermissions.js
 │           │   └── useRoles.js
 │           ├── views/              # Routed page components
 │           │   ├── auth/           # LoginView, SignupView, VerifyEmailView, ForgotPasswordView, ResetPasswordView
+│           │   ├── conversations/  # ConversationsListView, ChatView
 │           │   └── invitations/    # MyInvitationsView
 │           ├── components/         # Reusable UI components
 │           │   ├── AppLayout.vue

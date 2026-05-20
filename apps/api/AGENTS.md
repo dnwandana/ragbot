@@ -156,6 +156,17 @@ Controllers throw `HttpError(status, message)` → caught by `next(error)` → c
 
 Search input is sanitized via `escapeIlike()` from `src/utils/sanitize.js` — escapes `%`, `_`, and `\` so they are treated as literals in PostgreSQL ILIKE patterns.
 
+### Chat (ReAct Loop + SSE Streaming)
+
+The chat feature uses a server-side ReAct (Reason-Act-Observe) loop with dual-mode response:
+
+- **SSE mode** (default): Client sends `Accept: text/event-stream` → server streams `token`, `thought`, `observation`, `citation`, and `done` events as the ReAct loop iterates
+- **JSON mode**: Client sends normal request → server runs the full loop and returns the complete response as JSON
+
+**RAG Service** (`src/services/rag.js`): `searchChunks` — embeds the query via OpenRouter, calls `search_chunks()` SQL function for cosine similarity search, returns ranked document chunks. `buildSystemMessage` — constructs the agent's system prompt with injected context from search results.
+
+**OpenRouter Streaming** (`src/services/openrouter.js`): `chatCompletionStream` — streams chat completion tokens from OpenRouter API using server-sent events, yielding tokens as they arrive for real-time response delivery.
+
 ## Complete Endpoint Table
 
 ### Public (no authentication)
@@ -181,22 +192,15 @@ Search input is sanitized via `escapeIlike()` from `src/utils/sanitize.js` — e
 
 ### Workspace-scoped (requireAccessToken + resolveWorkspace)
 
-| Method | Path                                                               | Controller                               | Permission            |
-| ------ | ------------------------------------------------------------------ | ---------------------------------------- | --------------------- |
-| POST   | `/api/workspaces/:workspace_id/conversations`                      | `conversations.createConversation`       | `conversation:create` |
-| GET    | `/api/workspaces/:workspace_id/conversations`                      | `conversations.listConversations`        | `conversation:read`   |
-| GET    | `/api/workspaces/:workspace_id/conversations/:conversation_id`     | `conversations.getConversation`          | `conversation:read`   |
-| PATCH  | `/api/workspaces/:workspace_id/conversations/:conversation_id`     | `conversations.updateConversation`       | `conversation:update` |
-| DELETE | `/api/workspaces/:workspace_id/conversations/:conversation_id`     | `conversations.deleteConversation`       | `conversation:delete` |
-| POST   | `/api/workspaces/:workspace_id/datasets/:dataset_id/conversations` | `datasets.createConversationFromDataset` | `conversation:create` |
-
-### Planned Endpoints (not yet implemented)
-
-```
-# F7 — Chat (ReAct + SSE)
-POST   /api/workspaces/:workspace_id/conversations/:conversation_id/messages
-GET    /api/workspaces/:workspace_id/conversations/:conversation_id/messages
-```
+| Method | Path                                                                    | Controller                               | Permission            |
+| ------ | ----------------------------------------------------------------------- | ---------------------------------------- | --------------------- |
+| POST   | `/api/workspaces/:workspace_id/conversations`                           | `conversations.createConversation`       | `conversation:create` |
+| GET    | `/api/workspaces/:workspace_id/conversations`                           | `conversations.listConversations`        | `conversation:read`   |
+| GET    | `/api/workspaces/:workspace_id/conversations/:conversation_id`          | `conversations.getConversation`          | `conversation:read`   |
+| PATCH  | `/api/workspaces/:workspace_id/conversations/:conversation_id`          | `conversations.updateConversation`       | `conversation:update` |
+| DELETE | `/api/workspaces/:workspace_id/conversations/:conversation_id`          | `conversations.deleteConversation`       | `conversation:delete` |
+| POST   | `/api/workspaces/:workspace_id/datasets/:dataset_id/conversations`      | `datasets.createConversationFromDataset` | `conversation:create` |
+| POST   | `/api/workspaces/:workspace_id/conversations/:conversation_id/messages` | `chat.sendMessage`                       | `conversation:chat`   |
 
 ## Model Catalog
 
@@ -223,6 +227,7 @@ GET    /api/workspaces/:workspace_id/conversations/:conversation_id/messages
 | `agents.js`         | `createAgent`, `listAgents`, `getAgent`, `updateAgent`, `deleteAgent`                                                               |
 | `conversations.js`  | `createConversation`, `listConversations`, `getConversation`, `updateConversation`, `deleteConversation`                            |
 | `datasets.js`       | `createDataset`, `listDatasets`, `getDataset`, `updateDataset`, `deleteDataset`, `createConversationFromDataset`                    |
+| `chat.js`           | `sendMessage`                                                                                                                       |
 
 ## Middleware Catalog
 
@@ -253,6 +258,14 @@ GET    /api/workspaces/:workspace_id/conversations/:conversation_id/messages
 | `redis.js`        | `parseRedisUrl`                                                                          |
 | `validate-env.js` | `validateEnv` (default)                                                                  |
 
+## Service Catalog
+
+| File            | Exports                                                             | Description                                                  |
+| --------------- | ------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `email.js`      | `sendEmail`                                                         | Brevo transactional email via inline HTML templates          |
+| `openrouter.js` | `embedText`, `embedBatch`, `chatCompletion`, `chatCompletionStream` | OpenRouter LLM inference for embeddings, chat, and streaming |
+| `rag.js`        | `searchChunks`, `buildSystemMessage`                                | RAG pipeline: embed query, vector search, build context      |
+
 ## Code Style
 
 - **Formatter**: Prettier — no semicolons, 2-space indent, 100 char width
@@ -268,7 +281,7 @@ GET    /api/workspaces/:workspace_id/conversations/:conversation_id/messages
 
 Required: `DATABASE_URL`, `REDIS_URL` (Redis connection string — `redis://localhost:6379` locally, `rediss://` for TLS), `ACCESS_TOKEN_SECRET` (≥32 chars), `REFRESH_TOKEN_SECRET` (≥32 chars, must differ), `JWT_ISSUER`, `JWT_AUDIENCE`, `OPENROUTER_API_KEY`, `BREVO_API_KEY`, `EMAIL_FROM_ADDRESS`, `APP_URL`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_ENDPOINT`, `LLAMAINDEX_API_KEY`, `LLAMAINDEX_WEBHOOK_SECRET` (≥16 chars), `FIRECRAWL_API_KEY`
 
-Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_EXPIRES_IN` (15m), `REFRESH_TOKEN_EXPIRES_IN` (7d), `LOG_LEVEL` (info), `LOG_TO_FILE` (true), `CORS_ALLOWED_ORIGINS` (http://localhost:8080), `RATE_LIMIT_AUTH_MAX` (10, capped at 50), `RATE_LIMIT_GENERAL_MAX` (100), `DEFAULT_EMBEDDINGS_MODEL` (openai/text-embedding-3-small), `DEFAULT_CHAT_MODEL` (openai/gpt-4.1), `S3_REGION` (auto), `EMAIL_FROM_NAME` ("RAG Chatbot"), `LLAMAINDEX_PARSE_TIER` (cost_effective)
+Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_EXPIRES_IN` (15m), `REFRESH_TOKEN_EXPIRES_IN` (7d), `LOG_LEVEL` (info), `LOG_TO_FILE` (true), `CORS_ALLOWED_ORIGINS` (http://localhost:8080), `RATE_LIMIT_AUTH_MAX` (10, capped at 50), `RATE_LIMIT_GENERAL_MAX` (100), `DEFAULT_EMBEDDINGS_MODEL` (openai/text-embedding-3-small), `DEFAULT_CHAT_MODEL` (openai/gpt-4.1), `S3_REGION` (auto), `EMAIL_FROM_NAME` ("RAG Chatbot"), `LLAMAINDEX_PARSE_TIER` (cost_effective), `OPENROUTER_STREAM_TIMEOUT_MS` (60000)
 
 ## Database
 
@@ -306,7 +319,7 @@ Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_E
   - `cleanAllTables()` — truncates all 15 tables in dependency order
   - `seedPermissions()` — seeds 30 RAG permissions
 - **Current test status**:
-  - Passing (114): health (5), http-error (3), pagination (9), request-id (4), sanitize (6), redis (5), auth (10), workspaces (32), webhooks (5), datasets (14), agents (12), conversations (9)
+  - Passing (121): health (5), http-error (3), pagination (9), request-id (4), sanitize (6), redis (5), auth (10), workspaces (32), webhooks (5), datasets (14), agents (12), conversations (9), chat (7)
   - Skipped (6): permissions tests (imports need rewriting)
   - No Redis required for local test runs (queue module mocked via `tests/setup.js`)
 

@@ -47,9 +47,9 @@ You can still run package-local commands from `apps/api` with `pnpm`.
 - **MVC Pattern**: Clean separation of concerns (Models, Controllers, Routes)
 - **ES Modules**: Modern JavaScript with `import/export` syntax
 
-### Planned Integrations
+### Integrations
 
-- **OpenRouter**: LLM inference for chat and embeddings
+- **OpenRouter**: LLM inference for chat and embeddings, including streaming chat completions for real-time responses
 - **Brevo**: Transactional email via inline HTML templates (verification, password reset, invitations)
 - **Cloudflare R2**: S3-compatible file storage
 - **LlamaIndex**: Document parsing via webhook
@@ -109,6 +109,8 @@ The API will be available at `http://localhost:3000/api`
 Create a `.env` file from `.env.example`. See `.env.example` for the full list with defaults.
 
 **Required variables**: `DATABASE_URL`, `REDIS_URL`, `ACCESS_TOKEN_SECRET`, `REFRESH_TOKEN_SECRET`, `JWT_ISSUER`, `JWT_AUDIENCE`, `OPENROUTER_API_KEY`, `BREVO_API_KEY`, `EMAIL_FROM_ADDRESS`, `APP_URL`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_ENDPOINT`, `LLAMAINDEX_API_KEY`, `LLAMAINDEX_WEBHOOK_SECRET`, `FIRECRAWL_API_KEY`
+
+**Optional with defaults**: `OPENROUTER_STREAM_TIMEOUT_MS` (60000) — abort an OpenRouter stream if no data arrives within this many ms. See `.env.example` for the full list.
 
 Generate secrets with:
 
@@ -197,6 +199,82 @@ Authentication uses **httpOnly cookies** set by the server. Tokens are never exp
 - **Authenticated requests**: Browser sends `access_token` cookie with every request under `/api`
 - **Logout**: Server revokes refresh token and clears both cookies
 
+### Workspaces
+
+| Method | Endpoint              | Description            | Auth         | Permission       |
+| ------ | --------------------- | ---------------------- | ------------ | ---------------- |
+| POST   | `/api/workspaces`     | Create workspace       | Access Token | —                |
+| GET    | `/api/workspaces`     | List user's workspaces | Access Token | —                |
+| GET    | `/api/workspaces/:id` | Get workspace          | Access Token | workspace:read   |
+| PATCH  | `/api/workspaces/:id` | Update workspace       | Access Token | workspace:update |
+| DELETE | `/api/workspaces/:id` | Delete workspace       | Access Token | workspace:delete |
+
+### Roles
+
+| Method | Endpoint                         | Description | Permission  |
+| ------ | -------------------------------- | ----------- | ----------- |
+| POST   | `/api/workspaces/:id/roles`      | Create role | role:create |
+| GET    | `/api/workspaces/:id/roles`      | List roles  | role:read   |
+| GET    | `/api/workspaces/:id/roles/:rid` | Get role    | role:read   |
+| PATCH  | `/api/workspaces/:id/roles/:rid` | Update role | role:update |
+| DELETE | `/api/workspaces/:id/roles/:rid` | Delete role | role:delete |
+
+### Members
+
+| Method | Endpoint                                | Description   | Permission         |
+| ------ | --------------------------------------- | ------------- | ------------------ |
+| GET    | `/api/workspaces/:id/members`           | List members  | member:read        |
+| POST   | `/api/workspaces/:id/members/invite`    | Invite member | member:invite      |
+| PATCH  | `/api/workspaces/:id/members/:mid/role` | Change role   | member:manage_role |
+| DELETE | `/api/workspaces/:id/members/:mid`      | Remove member | member:remove      |
+
+### Datasets
+
+| Method | Endpoint                            | Description    | Permission     |
+| ------ | ----------------------------------- | -------------- | -------------- |
+| POST   | `/api/workspaces/:id/datasets`      | Create dataset | dataset:create |
+| GET    | `/api/workspaces/:id/datasets`      | List datasets  | dataset:read   |
+| GET    | `/api/workspaces/:id/datasets/:did` | Get dataset    | dataset:read   |
+| PATCH  | `/api/workspaces/:id/datasets/:did` | Update dataset | dataset:update |
+| DELETE | `/api/workspaces/:id/datasets/:did` | Delete dataset | dataset:delete |
+
+### Dataset Files
+
+| Method | Endpoint                                                 | Description    | Permission     |
+| ------ | -------------------------------------------------------- | -------------- | -------------- |
+| POST   | `/api/workspaces/:id/datasets/:did/files/upload`         | Upload file    | file:upload    |
+| POST   | `/api/workspaces/:id/datasets/:did/files/scrape`         | Scrape URL     | file:upload    |
+| GET    | `/api/workspaces/:id/datasets/:did/files`                | List files     | file:read      |
+| PATCH  | `/api/workspaces/:id/datasets/:did/files/:fid`           | Update file    | file:update    |
+| DELETE | `/api/workspaces/:id/datasets/:did/files/:fid`           | Delete file    | file:delete    |
+| POST   | `/api/workspaces/:id/datasets/:did/files/:fid/reprocess` | Reprocess file | file:reprocess |
+
+### Agents
+
+| Method | Endpoint                          | Description  | Permission   |
+| ------ | --------------------------------- | ------------ | ------------ |
+| POST   | `/api/workspaces/:id/agents`      | Create agent | agent:create |
+| GET    | `/api/workspaces/:id/agents`      | List agents  | agent:read   |
+| GET    | `/api/workspaces/:id/agents/:aid` | Get agent    | agent:read   |
+| PATCH  | `/api/workspaces/:id/agents/:aid` | Update agent | agent:update |
+| DELETE | `/api/workspaces/:id/agents/:aid` | Delete agent | agent:delete |
+
+### Conversations
+
+| Method | Endpoint                                 | Description         | Permission          |
+| ------ | ---------------------------------------- | ------------------- | ------------------- |
+| POST   | `/api/workspaces/:id/conversations`      | Create conversation | conversation:create |
+| GET    | `/api/workspaces/:id/conversations`      | List conversations  | conversation:read   |
+| GET    | `/api/workspaces/:id/conversations/:cid` | Get conversation    | conversation:read   |
+| PATCH  | `/api/workspaces/:id/conversations/:cid` | Update conversation | conversation:update |
+| DELETE | `/api/workspaces/:id/conversations/:cid` | Delete conversation | conversation:delete |
+
+### Chat (SSE)
+
+| Method | Endpoint                                          | Description  | Permission        | Response           |
+| ------ | ------------------------------------------------- | ------------ | ----------------- | ------------------ |
+| POST   | `/api/workspaces/:id/conversations/:cid/messages` | Send message | conversation:chat | SSE stream or JSON |
+
 ## System Roles & Permissions
 
 4 built-in system roles per workspace. 30 permissions across 8 resources.
@@ -221,6 +299,7 @@ apps/api/
 │   │   └── database.js          # Knex instance
 │   ├── controllers/
 │   │   ├── authentication.js    # Signup, verify-email, signin, forgot/reset password, refresh, logout, me
+│   │   ├── chat.js              # SSE ReAct loop for chat messaging
 │   │   ├── permissions.js       # Permission reference endpoint
 │   │   └── roles.js             # CRUD roles (needs workspace re-scoping)
 │   ├── emails/
@@ -240,9 +319,12 @@ apps/api/
 │   │   ├── roles.js
 │   │   └── users.js
 │   ├── services/
-│   │   └── email.js             # Brevo transactional email via inline HTML templates
+│   │   ├── email.js             # Brevo transactional email via inline HTML templates
+│   │   ├── openrouter.js        # LLM inference + streaming chat completions
+│   │   └── rag.js               # RAG pipeline: embed query, vector search, build context
 │   ├── routes/
 │   │   ├── authentication.js
+│   │   ├── conversations.js     # Conversation CRUD + chat messages route
 │   │   ├── health.js
 │   │   ├── index.js             # Route aggregator
 │   │   └── permissions.js
@@ -263,7 +345,7 @@ apps/api/
 │   ├── migrations/              # 8 Knex migrations (15 tables)
 │   └── seeds/                   # 2 seed files (permissions + test users)
 ├── tests/
-│   ├── integration/             # auth, health, permissions
+│   ├── integration/             # auth, health, permissions, chat
 │   ├── unit/                    # http-error, pagination, request-id, sanitize
 │   ├── helpers.js               # Test factories and utilities
 │   ├── global-setup.js
