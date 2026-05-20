@@ -16,6 +16,12 @@ router
   .put(requirePermission("dataset:update"), datasets.updateDataset)
   .delete(requirePermission("dataset:delete"), datasets.deleteDataset)
 
+router.post(
+  "/:dataset_id/conversations",
+  requirePermission("conversation:create"),
+  datasets.createConversationFromDataset,
+)
+
 router.use("/:dataset_id/files", datasetFilesRouter)
 
 export default router

@@ -7,6 +7,7 @@ import membersRouter from "./workspace-members.js"
 import auditLogsRouter from "./audit-logs.js"
 import datasetsRouter from "./datasets.js"
 import agentsRouter from "./agents.js"
+import conversationsRouter from "./conversations.js"
 
 const router = Router()
 
@@ -22,5 +23,6 @@ router.use("/:workspace_id/members", membersRouter)
 router.use("/:workspace_id/audit-logs", auditLogsRouter)
 router.use("/:workspace_id/datasets", datasetsRouter)
 router.use("/:workspace_id/agents", agentsRouter)
+router.use("/:workspace_id/conversations", conversationsRouter)
 
 export default router

@@ -7,6 +7,8 @@ import { validatePaginationQuery, executePaginatedQuery } from "../utils/paginat
 import * as datasetModel from "../models/datasets.js"
 import * as datasetFileModel from "../models/dataset-files.js"
 import * as chunkModel from "../models/document-chunks.js"
+import db from "../config/database.js"
+import * as agentModel from "../models/agents.js"
 
 const createSchema = joi
   .object({
@@ -192,6 +194,82 @@ export const deleteDataset = async (req, res, next) => {
     })
 
     return res.json(apiResponse({ message: "Dataset deleted", data: null }))
+  } catch (error) {
+    return next(error)
+  }
+}
+
+/**
+ * POST /api/workspaces/:workspace_id/datasets/:dataset_id/conversations — Create a conversation from a dataset.
+ *
+ * Creates a conversation linked to the dataset using the workspace's system agent.
+ * The operation runs inside a transaction to ensure atomicity of the conversation,
+ * dataset link, and audit log entries.
+ *
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next middleware function
+ * @returns {Promise<void>}
+ */
+export const createConversationFromDataset = async (req, res, next) => {
+  try {
+    const dataset = await datasetModel.findOne({
+      id: req.params.dataset_id,
+      workspace_id: req.workspace.id,
+    })
+    if (!dataset) throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "Dataset not found")
+
+    const systemAgent = await agentModel.findSystemAgent(req.workspace.id)
+    if (!systemAgent)
+      throw new HttpError(HTTP_STATUS_CODE.INTERNAL_SERVER_ERROR, "No system agent found")
+
+    const conversationId = crypto.randomUUID()
+    const [conversation] = await db.transaction(async (trx) => {
+      const [conv] = await trx("conversations")
+        .insert({
+          id: conversationId,
+          workspace_id: req.workspace.id,
+          user_id: req.user.id,
+          agent_id: systemAgent.id,
+          title: null,
+          created_at: new Date(),
+          updated_at: new Date(),
+        })
+        .returning([
+          "id",
+          "workspace_id",
+          "user_id",
+          "agent_id",
+          "title",
+          "last_message_at",
+          "created_at",
+          "updated_at",
+        ])
+
+      await trx("conversation_datasets").insert({
+        conversation_id: conversationId,
+        dataset_id: dataset.id,
+        workspace_id: req.workspace.id,
+      })
+
+      await logAuditEvent({
+        trx,
+        workspace_id: req.workspace.id,
+        user_id: req.user.id,
+        entity_type: "conversation",
+        entity_id: conversationId,
+        action: "created",
+        context: { request_id: req.id, source: "dataset_shortcut" },
+      })
+
+      return [conv]
+    })
+
+    return res
+      .status(HTTP_STATUS_CODE.CREATED)
+      .json(
+        apiResponse({ message: "Created", data: { ...conversation, dataset_ids: [dataset.id] } }),
+      )
   } catch (error) {
     return next(error)
   }
