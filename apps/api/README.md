@@ -58,28 +58,30 @@ You can still run package-local commands from `apps/api` with `pnpm`.
 
 ## Tech Stack
 
-| Component           | Version                                | Description                  |
-| ------------------- | -------------------------------------- | ---------------------------- |
-| **Runtime**         | Node.js >=24.0.0                       | JavaScript runtime           |
-| **Framework**       | Express.js ^5.2.1                      | Web application framework    |
-| **Database**        | PostgreSQL + pgvector                  | Relational + vector search   |
-| **ORM**             | Knex.js ^3.1.0                         | Query builder & migrations   |
-| **Authentication**  | JWT ^9.0.3, Argon2 ^0.43.1             | Token-based auth & hashing   |
-| **Validation**      | Joi ^17.13.3                           | Schema validation            |
-| **Security**        | Helmet ^8.1.0, CORS ^2.8.5, HPP ^0.2.3 | Security middleware          |
-| **Rate Limiting**   | express-rate-limit ^8.2.1              | Request throttling           |
-| **File Upload**     | Multer ^2.1.1                          | Multipart form handling      |
-| **AWS SDK**         | @aws-sdk/client-s3 ^3.1048.0           | S3-compatible storage access |
-| **Email**           | @getbrevo/brevo ^5.0.4                 | Transactional email          |
-| **Text Processing** | @langchain/textsplitters ^1.0.1        | Document chunking            |
-| **Logging**         | Winston ^3.19.0, Morgan ^1.10.1        | Structured logging           |
-| **Testing**         | Vitest ^4.0.18, Supertest ^7.2.2       | Test runner & HTTP testing   |
-| **Code Quality**    | Oxlint ^1.41.0, Prettier ^3.8.1        | Linting and formatting       |
+| Component           | Version                                | Description                   |
+| ------------------- | -------------------------------------- | ----------------------------- |
+| **Runtime**         | Node.js >=24.0.0                       | JavaScript runtime            |
+| **Framework**       | Express.js ^5.2.1                      | Web application framework     |
+| **Database**        | PostgreSQL + pgvector                  | Relational + vector search    |
+| **ORM**             | Knex.js ^3.1.0                         | Query builder & migrations    |
+| **Authentication**  | JWT ^9.0.3, Argon2 ^0.43.1             | Token-based auth & hashing    |
+| **Validation**      | Joi ^17.13.3                           | Schema validation             |
+| **Security**        | Helmet ^8.1.0, CORS ^2.8.5, HPP ^0.2.3 | Security middleware           |
+| **Rate Limiting**   | express-rate-limit ^8.2.1              | Request throttling            |
+| **Job Queue**       | BullMQ ^5.53.0                         | Redis-backed async processing |
+| **File Upload**     | Multer ^2.1.1                          | Multipart form handling       |
+| **AWS SDK**         | @aws-sdk/client-s3 ^3.1048.0           | S3-compatible storage access  |
+| **Email**           | @getbrevo/brevo ^5.0.4                 | Transactional email           |
+| **Text Processing** | @langchain/textsplitters ^1.0.1        | Document chunking             |
+| **Logging**         | Winston ^3.19.0, Morgan ^1.10.1        | Structured logging            |
+| **Testing**         | Vitest ^4.0.18, Supertest ^7.2.2       | Test runner & HTTP testing    |
+| **Code Quality**    | Oxlint ^1.41.0, Prettier ^3.8.1        | Linting and formatting        |
 
 ## Prerequisites
 
 - **Node.js** v24 or higher
 - **PostgreSQL** with `pgvector` extension
+- **Redis** — any Redis-compatible provider (local, Upstash, etc.) for the BullMQ job queue
 - **Git** for cloning the repository
 
 ## Quick Start
@@ -106,7 +108,7 @@ The API will be available at `http://localhost:3000/api`
 
 Create a `.env` file from `.env.example`. See `.env.example` for the full list with defaults.
 
-**Required variables**: `DATABASE_URL`, `ACCESS_TOKEN_SECRET`, `REFRESH_TOKEN_SECRET`, `JWT_ISSUER`, `JWT_AUDIENCE`, `OPENROUTER_API_KEY`, `BREVO_API_KEY`, `EMAIL_FROM_ADDRESS`, `APP_URL`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_ENDPOINT`, `LLAMAINDEX_API_KEY`, `LLAMAINDEX_WEBHOOK_SECRET`, `FIRECRAWL_API_KEY`
+**Required variables**: `DATABASE_URL`, `REDIS_URL`, `ACCESS_TOKEN_SECRET`, `REFRESH_TOKEN_SECRET`, `JWT_ISSUER`, `JWT_AUDIENCE`, `OPENROUTER_API_KEY`, `BREVO_API_KEY`, `EMAIL_FROM_ADDRESS`, `APP_URL`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_ENDPOINT`, `LLAMAINDEX_API_KEY`, `LLAMAINDEX_WEBHOOK_SECRET`, `FIRECRAWL_API_KEY`
 
 Generate secrets with:
 
