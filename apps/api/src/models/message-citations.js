@@ -35,7 +35,7 @@ export const findByMessageId = (messageId) =>
 export const findByConversationId = (conversationId) =>
   // Relies on controller-level soft-delete check before this is called.
   db(TABLE)
-    .select(COLUMNS)
+    .select(COLUMNS.map((col) => `${TABLE}.${col}`))
     .join("messages", "messages.id", `${TABLE}.message_id`)
     .where("messages.conversation_id", conversationId)
     .orderBy(`${TABLE}.created_at`, "asc")

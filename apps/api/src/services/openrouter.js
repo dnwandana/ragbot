@@ -81,3 +81,43 @@ export const chatCompletion = async (messages, options = {}) => {
   if (!res.ok) throw new Error(`OpenRouter chat error: ${res.status}`)
   return res.json()
 }
+
+/**
+ * Send a streaming chat completion request via OpenRouter and return the raw
+ * SSE response body for incremental consumption.
+ *
+ * @param {Array<{ role: string, content: string }>} messages - Chat messages.
+ * @param {Object} [options]
+ * @param {string} [options.model] - Chat model ID; defaults to DEFAULT_CHAT_MODEL env var.
+ * @param {number} [options.temperature=0.7] - Sampling temperature.
+ * @param {number} [options.max_tokens=4096] - Maximum tokens in the response.
+ * @param {Object[]} [options.tools] - Tool definitions for function calling.
+ * @param {string|Object} [options.tool_choice] - Tool choice strategy.
+ * @returns {Promise<ReadableStream>} The response body stream of OpenRouter SSE chunks.
+ * @throws {Error} If the OpenRouter API returns a non-2xx status.
+ * @throws {DOMException} `TimeoutError` if no response/data arrives within OPENROUTER_STREAM_TIMEOUT_MS.
+ */
+export const chatCompletionStream = async (messages, options = {}) => {
+  const {
+    model = process.env.DEFAULT_CHAT_MODEL,
+    temperature = 0.7,
+    max_tokens = 4096,
+    tools,
+    tool_choice,
+  } = options
+  const body = { model, messages, temperature, max_tokens, stream: true }
+  if (tools) body.tools = tools
+  if (tool_choice) body.tool_choice = tool_choice
+
+  const res = await fetch(`${BASE}/chat/completions`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(Number(process.env.OPENROUTER_STREAM_TIMEOUT_MS)),
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`OpenRouter stream error ${res.status}: ${text}`)
+  }
+  return res.body
+}

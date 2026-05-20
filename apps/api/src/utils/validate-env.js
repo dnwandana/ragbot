@@ -29,6 +29,7 @@ const envSchema = joi
     OPENROUTER_API_KEY: joi.string().required(),
     DEFAULT_EMBEDDINGS_MODEL: joi.string().default("openai/text-embedding-3-small"),
     DEFAULT_CHAT_MODEL: joi.string().default("openai/gpt-4.1"),
+    OPENROUTER_STREAM_TIMEOUT_MS: joi.number().default(60000),
 
     // Email
     BREVO_API_KEY: joi.string().required(),
