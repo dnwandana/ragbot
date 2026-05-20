@@ -1,8 +1,7 @@
-import Brevo from "@getbrevo/brevo"
+import { BrevoClient } from "@getbrevo/brevo"
 import { render } from "../emails/render.js"
 
-const apiInstance = new Brevo.TransactionalEmailsApi()
-apiInstance.setApiKey(Brevo.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_API_KEY)
+const brevo = new BrevoClient({ apiKey: process.env.BREVO_API_KEY })
 
 const sender = {
   name: process.env.EMAIL_FROM_NAME,
@@ -21,9 +20,7 @@ const sender = {
  * @returns {Promise<Object>} Brevo API response.
  */
 const send = ({ to, subject, html }) =>
-  apiInstance.sendTransacEmail(
-    new Brevo.SendSmtpEmail({ sender, to: [to], subject, htmlContent: html }),
-  )
+  brevo.transactionalEmails.sendTransacEmail({ sender, to: [to], subject, htmlContent: html })
 
 /**
  * Sends an email verification link to a newly registered user.
