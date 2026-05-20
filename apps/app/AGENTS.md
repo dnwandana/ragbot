@@ -50,6 +50,7 @@ Vue 3 SPA built with Vite, using a Pinia store + composables pattern for state m
 | `/invitations`     | MyInvitations  | `views/invitations/MyInvitationsView.vue` | `requiresAuth`  | Working |
 | `/:pathMatch(.*)*` | —              | redirect to `/workspaces`                 | —               | Stale   |
 | `/workspaces/:workspaceId/agents` | AgentsList | `views/agents/AgentsListView.vue` | `requiresAuth` | Working |
+| `/workspaces/:workspaceId/conversations` | ConversationsList | `views/conversations/ConversationsListView.vue` | `requiresAuth` | Working |
 
 **Stale routes**: `/` and catch-all redirect to `/workspaces`.
 
@@ -88,6 +89,7 @@ Custom fetch-based client (NOT Axios). Key behaviors:
 | `useMembersStore`     | `stores/members.js`     | `orgMembers`, `projectMembers`, `loading`      | `fetchOrgMembers`, `fetchProjectMembers`, role update/remove | Working (references org/project API) |
 | `useInvitationsStore` | `stores/invitations.js` | `orgInvitations`, `myInvitations`, `loading`   | `fetchOrgInvitations`, `fetchMyInvitations`, invite/accept/decline/revoke | Working |
 | `useAgentsStore`      | `stores/agents.js`      | `agents`, `loading`                            | `fetchAgents`, `createAgent`, `updateAgent`, `deleteAgent` | Working |
+| `useConversationsStore` | `stores/conversations.js` | `conversations`, `currentConversation`, `pagination`, `loading` | `fetchConversations`, `fetchConversation`, `createConversation`, `updateConversation`, `deleteConversation` | Working |
 
 **Note**: Roles, members, and invitations stores still reference org/project API paths. They need to be updated to workspace API paths when F3 (workspaces + RBAC) is implemented.
 
@@ -101,6 +103,7 @@ Custom fetch-based client (NOT Axios). Key behaviors:
 | `useInvitations` | `composables/useInvitations.js` | `orgInvitations`, `myInvitations`, `loading`, `pendingCount`, invite modal state, invite/accept/decline    |
 | `usePermissions` | `composables/usePermissions.js` | `userPermissions`, `can(permission)`, `canAny(permissions[])`, `loadPermissions(orgId, userId)`, `clearPermissions` |
 | `useAgents`      | `composables/useAgents.js`      | `agents`, `loading`, modal state, CRUD wrappers                            |
+| `useConversations` | `composables/useConversations.js` | `conversations`, `pagination`, `loading`, modal state, create/delete handlers |
 
 ## Component Catalog
 
@@ -123,6 +126,7 @@ Custom fetch-based client (NOT Axios). Key behaviors:
 | permissions | `api/permissions.js` | `getPermissions`                                                                                     |
 | invitations | `api/invitations.js` | `inviteToOrg`, `inviteToProject`, list/accept/decline/revoke                                         |
 | agents      | `api/agents.js`      | `listAgents`, `getAgent`, `createAgent`, `updateAgent`, `deleteAgent`                                |
+| conversations | `api/conversations.js` | `listConversations`, `getConversation`, `createConversation`, `updateConversation`, `deleteConversation` |
 
 ## Utility Files
 

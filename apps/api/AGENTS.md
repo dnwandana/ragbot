@@ -179,17 +179,20 @@ Search input is sanitized via `escapeIlike()` from `src/utils/sanitize.js` — e
 | ------ | ------------------ | ---------------------------- | ---------- |
 | GET    | `/api/permissions` | `permissions.getPermissions` | —          |
 
+### Workspace-scoped (requireAccessToken + resolveWorkspace)
+
+| Method | Path                                                               | Controller                               | Permission            |
+| ------ | ------------------------------------------------------------------ | ---------------------------------------- | --------------------- |
+| POST   | `/api/workspaces/:workspace_id/conversations`                      | `conversations.createConversation`       | `conversation:create` |
+| GET    | `/api/workspaces/:workspace_id/conversations`                      | `conversations.listConversations`        | `conversation:read`   |
+| GET    | `/api/workspaces/:workspace_id/conversations/:conversation_id`     | `conversations.getConversation`          | `conversation:read`   |
+| PATCH  | `/api/workspaces/:workspace_id/conversations/:conversation_id`     | `conversations.updateConversation`       | `conversation:update` |
+| DELETE | `/api/workspaces/:workspace_id/conversations/:conversation_id`     | `conversations.deleteConversation`       | `conversation:delete` |
+| POST   | `/api/workspaces/:workspace_id/datasets/:dataset_id/conversations` | `datasets.createConversationFromDataset` | `conversation:create` |
+
 ### Planned Endpoints (not yet implemented)
 
 ```
-# F6 — Conversations
-POST   /api/workspaces/:workspace_id/conversations
-GET    /api/workspaces/:workspace_id/conversations
-GET    /api/workspaces/:workspace_id/conversations/:conversation_id
-PUT    /api/workspaces/:workspace_id/conversations/:conversation_id
-DELETE /api/workspaces/:workspace_id/conversations/:conversation_id
-POST   /api/workspaces/:workspace_id/conversations/:conversation_id/datasets
-
 # F7 — Chat (ReAct + SSE)
 POST   /api/workspaces/:workspace_id/conversations/:conversation_id/messages
 GET    /api/workspaces/:workspace_id/conversations/:conversation_id/messages
@@ -197,14 +200,18 @@ GET    /api/workspaces/:workspace_id/conversations/:conversation_id/messages
 
 ## Model Catalog
 
-| File                | Exports                                                                                          |
-| ------------------- | ------------------------------------------------------------------------------------------------ |
-| `users.js`          | `create`, `findOne`, `findOneWithPassword`, `update`, `softDelete`                               |
-| `email-tokens.js`   | `hashToken`, `create`, `findActiveByHash`, `markUsed`, `deleteExpired`, `deleteByUser`           |
-| `refresh-tokens.js` | `hashToken`, `create`, `findActiveByHash`, `revokeById`, `revokeAllForUser`, `purgeOld`          |
-| `roles.js`          | `create`, `findOne`, `findMany`, `update`, `remove`, `findPermissionsByRoleId`, `setPermissions` |
-| `permissions.js`    | `findAll`, `findOne`, `findByIds`                                                                |
-| `agents.js`         | `create`, `findOne`, `findSystemAgent`, `count`, `findManyPaginated`, `update`, `softDelete`     |
+| File                       | Exports                                                                                          |
+| -------------------------- | ------------------------------------------------------------------------------------------------ |
+| `users.js`                 | `create`, `findOne`, `findOneWithPassword`, `update`, `softDelete`                               |
+| `email-tokens.js`          | `hashToken`, `create`, `findActiveByHash`, `markUsed`, `deleteExpired`, `deleteByUser`           |
+| `refresh-tokens.js`        | `hashToken`, `create`, `findActiveByHash`, `revokeById`, `revokeAllForUser`, `purgeOld`          |
+| `roles.js`                 | `create`, `findOne`, `findMany`, `update`, `remove`, `findPermissionsByRoleId`, `setPermissions` |
+| `permissions.js`           | `findAll`, `findOne`, `findByIds`                                                                |
+| `agents.js`                | `create`, `findOne`, `findSystemAgent`, `count`, `findManyPaginated`, `update`, `softDelete`     |
+| `conversations.js`         | `create`, `findOne`, `count`, `findManyPaginated`, `update`, `softDelete`                        |
+| `conversation-datasets.js` | `create`, `findByConversationId`, `findDatasetIds`, `remove`, `removeByConversationId`           |
+| `messages.js`              | `create`, `findOne`, `findByConversationId`, `findVisibleByConversationId`                       |
+| `message-citations.js`     | `bulkInsert`, `findByMessageId`, `findByConversationId`                                          |
 
 ## Controller Catalog
 
@@ -214,6 +221,8 @@ GET    /api/workspaces/:workspace_id/conversations/:conversation_id/messages
 | `permissions.js`    | `getPermissions`                                                                                                                    |
 | `roles.js`          | `createRole`, `getRoles`, `getRole`, `updateRole`, `deleteRole`                                                                     |
 | `agents.js`         | `createAgent`, `listAgents`, `getAgent`, `updateAgent`, `deleteAgent`                                                               |
+| `conversations.js`  | `createConversation`, `listConversations`, `getConversation`, `updateConversation`, `deleteConversation`                            |
+| `datasets.js`       | `createDataset`, `listDatasets`, `getDataset`, `updateDataset`, `deleteDataset`, `createConversationFromDataset`                    |
 
 ## Middleware Catalog
 
@@ -297,7 +306,7 @@ Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_E
   - `cleanAllTables()` — truncates all 15 tables in dependency order
   - `seedPermissions()` — seeds 30 RAG permissions
 - **Current test status**:
-  - Passing (105): health (5), http-error (3), pagination (9), request-id (4), sanitize (6), redis (5), auth (10), workspaces (32), webhooks (5), datasets (14), agents (12)
+  - Passing (114): health (5), http-error (3), pagination (9), request-id (4), sanitize (6), redis (5), auth (10), workspaces (32), webhooks (5), datasets (14), agents (12), conversations (9)
   - Skipped (6): permissions tests (imports need rewriting)
   - No Redis required for local test runs (queue module mocked via `tests/setup.js`)
 

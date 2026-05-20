@@ -45,9 +45,9 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 - Workspace CRUD + RBAC + member management (F3)
 - Datasets + file upload (LlamaIndex) + URL scraping (Firecrawl) + BullMQ processing pipeline (F4)
 - Agent management — CRUD with system agent protection (F5)
+- Conversation CRUD + dataset linking + dataset shortcut endpoint (F6)
 
 **Planned but not wired:**
-- Conversation CRUD + dataset linking (F6)
 - Chat with ReAct loop + SSE streaming (F7)
 - Audit logging middleware (schema exists, no middleware yet)
 
@@ -61,13 +61,14 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 - HTTP client with automatic token refresh and 401 retry queue
 - Vue Router with auth guards
 - Agent views (AgentsListView, AgentFormModal), store, composable, and API module
+- Conversation views (ConversationsListView), store, composable, and API module (F6)
 
 **Referenced but deleted (router/stores point to non-existent files):**
 - Org/project/todo views, stores, composables, and API modules were removed in the schema migration. These need to be replaced with workspace/dataset/agent/conversation equivalents when the corresponding API features are built.
 
 ### Tests
 
-**Passing (105 tests):** health (5), auth (10), workspaces (32), webhooks (5), agents (12), redis (5), http-error (3), pagination (9), request-id (4), sanitize (6)
+**Passing (114 tests):** health (5), auth (10), workspaces (32), webhooks (5), agents (12), conversations (9), datasets (14), redis (5), http-error (3), pagination (9), request-id (4), sanitize (6)
 **Skipped (6):** permissions.test.js (imports need rewriting)
 **No Redis required locally:** queue module mocked via `tests/setup.js`
 

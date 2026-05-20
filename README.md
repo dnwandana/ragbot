@@ -207,7 +207,7 @@ Tokens are set by the server on signin/refresh and never exposed to JavaScript. 
 | F3      | Workspaces + RBAC + members              | **Complete**    |
 | F4      | Datasets + file upload + RAG pipeline    | **Complete**    |
 | F5      | Agent management                         | **Complete**    |
-| F6      | Conversations (CRUD + dataset linking)   | Planned         |
+| F6      | Conversations (CRUD + dataset linking)   | **Complete**    |
 | F7      | Chat (ReAct loop + SSE streaming)        | Planned         |
 
 Detailed plans live in `plans/` and design specs in `docs/superpowers/specs/`.
@@ -226,7 +226,7 @@ cp apps/api/.env.example apps/api/.env.test
 # Update PORT (e.g. 3001), LOG_LEVEL=error, LOG_TO_FILE=false
 ```
 
-The test suite uses real PostgreSQL (no mocks). Vitest runs migrations once before the session, and `cleanAllTables()` truncates between tests. Auth tests mock the Brevo email service; queue tests mock BullMQ so no Redis is required locally. Currently passing: 79 tests (health, auth, workspaces, webhooks, http-error, pagination, request-id, sanitize, redis), 6 skipped (permissions — need rewriting).
+The test suite uses real PostgreSQL (no mocks). Vitest runs migrations once before the session, and `cleanAllTables()` truncates between tests. Auth tests mock the Brevo email service; queue tests mock BullMQ so no Redis is required locally. Currently passing: 114 tests (health, auth, workspaces, webhooks, datasets, agents, conversations, http-error, pagination, request-id, sanitize, redis), 6 skipped (permissions — need rewriting).
 
 ## Deployment
 
