@@ -1,157 +1,121 @@
 <script setup>
-/**
- * MyInvitationsView — Displays the current user's received invitations in a table.
- *
- * Features:
- *   - Fetches the user's invitations on mount
- *   - Skeleton loading state while data is being fetched
- *   - Empty state when there are no invitations
- *   - Table with columns: Organization, Project, Status (color-coded Tag), Expires, Actions
- *   - Accept and Decline actions for pending invitations
- *   - Popconfirm on Decline to prevent accidental rejection
- */
-
-import { h, onMounted } from "vue"
-import { Table, Button, Tag, Typography, Space, Empty, Skeleton, Popconfirm } from "ant-design-vue"
+import { onMounted } from "vue"
 import { useInvitations } from "@/composables/useInvitations"
 
 const { myInvitations, loading, fetchMyInvitations, handleAccept, handleDecline } = useInvitations()
 
-/**
- * Map invitation status strings to Ant Design Tag color names.
- * Used in the Status column's customRender to visually differentiate states.
- * @param {string} status - The invitation status (pending, accepted, declined)
- * @returns {string} Ant Design Tag color
- */
-function getStatusColor(status) {
-  if (status === "pending") {
-    return "blue"
-  }
-  if (status === "accepted") {
-    return "green"
-  }
-  if (status === "declined") {
-    return "red"
-  }
-  return "default"
+onMounted(fetchMyInvitations)
+
+/** @param {string} name */
+function wsEmoji(name) {
+  const codepoint = (name || "W").toUpperCase().charCodeAt(0)
+  const emojis = ["🏢","🚀","💼","🌐","🔬","📡","🏗️","🌿"]
+  return emojis[codepoint % emojis.length]
 }
 
-/**
- * Format an ISO date string into a user-friendly locale representation.
- * @param {string} dateString - ISO 8601 date string
- * @returns {string} Formatted date string
- */
-function formatDate(dateString) {
-  if (!dateString) {
-    return "-"
-  }
-  return new Date(dateString).toLocaleString()
-}
-
-/** Table column definitions for the invitations table */
-const columns = [
-  {
-    title: "Organization",
-    dataIndex: "org_id",
-    key: "org_id",
-  },
-  {
-    title: "Project",
-    dataIndex: "project_id",
-    key: "project_id",
-    /**
-     * Render the project ID if present, otherwise show a dash
-     * to indicate this is an org-level invitation.
-     */
-    customRender: ({ text }) => {
-      if (text) {
-        return text
-      }
-      return "-"
-    },
-  },
-  {
-    title: "Status",
-    dataIndex: "status",
-    key: "status",
-    width: 120,
-    /**
-     * Render a color-coded Tag based on the invitation status.
-     * Uses getStatusColor to map status to the appropriate Tag color.
-     */
-    customRender: ({ text }) => {
-      return h(Tag, { color: getStatusColor(text) }, () => text)
-    },
-  },
-  {
-    title: "Expires",
-    dataIndex: "expires_at",
-    key: "expires_at",
-    width: 200,
-    customRender: ({ text }) => formatDate(text),
-  },
-  {
-    title: "Actions",
-    key: "actions",
-    width: 200,
-  },
-]
-
-// Fetch the current user's invitations on mount
-onMounted(() => {
-  fetchMyInvitations()
-})
+const pendingInvitations = (invs) => invs.filter((i) => i.status === "pending")
+const otherInvitations = (invs) => invs.filter((i) => i.status !== "pending")
 </script>
 
 <template>
-  <div class="my-invitations">
-    <!-- Page title -->
-    <Typography.Title :level="4" style="margin-bottom: 24px">My Invitations</Typography.Title>
+  <div class="page">
+    <!-- Page head -->
+    <div class="page-head">
+      <div>
+        <div class="page-title">My Invitations</div>
+        <div class="page-sub">Workspaces that have invited you to join.</div>
+      </div>
+    </div>
 
-    <!-- Loading skeleton shown while fetching and no invitations are cached yet -->
-    <Skeleton v-if="loading && myInvitations.length === 0" active :paragraph="{ rows: 3 }" />
+    <!-- Loading -->
+    <a-skeleton v-if="loading && !myInvitations.length" active :paragraph="{ rows: 3 }" />
 
-    <!-- Empty state when loading is complete but there are no invitations -->
-    <Empty
-      v-else-if="!loading && myInvitations.length === 0"
-      description="No pending invitations"
-    />
+    <!-- Empty state -->
+    <div v-else-if="!myInvitations.length" class="empty-state">
+      <div class="empty-icon">✉️</div>
+      <div class="empty-title">No pending invitations</div>
+      <p class="empty-text">When someone invites you to a workspace, it will appear here.</p>
+    </div>
 
-    <!-- Invitations table -->
-    <Table
-      v-else
-      :columns="columns"
-      :data-source="myInvitations"
-      :row-key="(record) => record.id"
-      :loading="loading"
-      :pagination="false"
-    >
-      <!--
-        Actions column: Accept and Decline buttons are only shown for
-        invitations with a "pending" status. Decline uses a Popconfirm
-        to guard against accidental rejection.
-      -->
-      <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'actions'">
-          <Space v-if="record.status === 'pending'">
-            <Button type="primary" size="small" @click="handleAccept(record.id)"> Accept </Button>
-            <Popconfirm
-              title="Are you sure you want to decline this invitation?"
-              ok-text="Yes"
-              cancel-text="No"
-              @confirm="handleDecline(record.id)"
+    <div v-else class="inv-sections">
+      <!-- Pending invitations -->
+      <template v-if="pendingInvitations(myInvitations).length">
+        <div class="section-label">Pending</div>
+        <div v-for="inv in pendingInvitations(myInvitations)" :key="inv.id" class="inv-card">
+          <div class="inv-ws-icon">{{ wsEmoji(inv.workspace_name || inv.org_id) }}</div>
+          <div class="inv-body">
+            <div class="inv-ws-name">{{ inv.workspace_name || inv.org_id }}</div>
+            <div class="inv-details">
+              <span v-if="inv.expires_at">Expires {{ new Date(inv.expires_at).toLocaleDateString() }}</span>
+            </div>
+          </div>
+          <div class="inv-actions">
+            <button class="btn-brand" @click="handleAccept(inv.id)">Accept</button>
+            <a-popconfirm
+              title="Decline this invitation?"
+              ok-text="Decline"
+              cancel-text="Cancel"
+              @confirm="handleDecline(inv.id)"
             >
-              <Button danger size="small">Decline</Button>
-            </Popconfirm>
-          </Space>
-        </template>
+              <button class="btn-danger-sm">Decline</button>
+            </a-popconfirm>
+          </div>
+        </div>
       </template>
-    </Table>
+
+      <!-- Accepted / other -->
+      <template v-if="otherInvitations(myInvitations).length">
+        <div class="section-label" style="margin-top:24px">Previous</div>
+        <div v-for="inv in otherInvitations(myInvitations)" :key="inv.id" class="inv-card inv-card--muted">
+          <div class="inv-ws-icon">{{ wsEmoji(inv.workspace_name || inv.org_id) }}</div>
+          <div class="inv-body">
+            <div class="inv-ws-name">{{ inv.workspace_name || inv.org_id }}</div>
+            <div class="inv-details">Status: {{ inv.status }}</div>
+          </div>
+          <span class="chip" :class="inv.status === 'accepted' ? 'chip--ok' : 'chip--ghost'">
+            <span class="status-dot" />
+            {{ inv.status }}
+          </span>
+        </div>
+      </template>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.my-invitations {
-  width: 100%;
+.page { padding: 20px 24px; }
+.page-head { margin-bottom: 20px; }
+.page-title { font-size: var(--t-lg); font-weight: 600; letter-spacing: -0.015em; color: var(--ink); }
+.page-sub { font-size: var(--t-sm); color: var(--ink-3); margin-top: 2px; }
+
+.section-label { font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-4); margin-bottom: 8px; }
+.inv-sections { display: flex; flex-direction: column; gap: 8px; }
+
+.inv-card {
+  display: flex; align-items: center; gap: 16px;
+  padding: 16px 18px; background: var(--surface);
+  border: 1px solid var(--line); border-radius: var(--r);
+  box-shadow: var(--shadow-1);
 }
+.inv-card--muted { opacity: 0.7; }
+.inv-ws-icon { font-size: 28px; flex-shrink: 0; }
+.inv-body { flex: 1; min-width: 0; }
+.inv-ws-name { font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 3px; }
+.inv-details { font-size: 12.5px; color: var(--ink-3); }
+.inv-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+.btn-brand { display: inline-flex; align-items: center; padding: 7px 14px; background: var(--brand); color: #fff; border: none; border-radius: var(--r-sm); font-size: 13px; font-weight: 500; cursor: pointer; }
+.btn-brand:hover { background: var(--brand-2); }
+.btn-danger-sm { display: inline-flex; align-items: center; padding: 7px 14px; font-size: 13px; background: transparent; color: var(--err); border: 1px solid var(--err-border); border-radius: var(--r-sm); cursor: pointer; font-weight: 500; }
+.btn-danger-sm:hover { background: var(--err-bg); }
+
+.chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; text-transform: capitalize; }
+.chip--ok { background: var(--ok-bg); color: var(--ok); border: 1px solid var(--ok-border); }
+.chip--ghost { background: var(--bg-2); color: var(--ink-4); border: 1px solid var(--line); }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+.empty-state { text-align: center; padding: 60px 24px; }
+.empty-icon { font-size: 40px; margin-bottom: 14px; }
+.empty-title { font-size: 15px; font-weight: 600; color: var(--ink); margin-bottom: 6px; }
+.empty-text { font-size: 13px; color: var(--ink-3); max-width: 340px; margin: 0 auto; }
 </style>

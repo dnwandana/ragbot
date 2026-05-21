@@ -1,19 +1,7 @@
-/**
- * Invitations store - manages organization and personal invitation state
- */
-
 import { defineStore } from "pinia"
 import { ref, computed } from "vue"
 import { message } from "ant-design-vue"
-import {
-  inviteToOrg as apiInviteToOrg,
-  inviteToProject as apiInviteToProject,
-  listOrgInvitations as apiListOrgInvitations,
-  listMyInvitations as apiListMyInvitations,
-  acceptInvitation as apiAcceptInvitation,
-  declineInvitation as apiDeclineInvitation,
-  revokeInvitation as apiRevokeInvitation,
-} from "@/api/invitations"
+import { acceptInvitation as apiAcceptInvitation } from "@/api/invitations"
 
 export const useInvitationsStore = defineStore("invitations", () => {
   // State
@@ -21,180 +9,120 @@ export const useInvitationsStore = defineStore("invitations", () => {
   const myInvitations = ref([])
   const loading = ref(false)
 
-  // Getters
-
   /**
-   * Count of the current user's pending invitations
-   * Used for badge/notification display in the UI
+   * Count of the current user's pending invitations.
+   * Used for badge/notification display in the UI.
    * @returns {number} Number of invitations with "pending" status
    */
   const pendingCount = computed(() => {
     return myInvitations.value.filter((i) => i.status === "pending").length
   })
 
-  // Actions
-
   /**
-   * Fetch all invitations for an organization (admin view)
-   * @param {string} orgId - Organization UUID
-   * @returns {Promise<Object>} API response data
+   * Fetch all invitations for a workspace (admin view).
+   * Not yet supported by the backend — clears the list.
+   * @param {string} workspaceId - Workspace UUID
+   * @returns {Promise<void>}
    */
-  async function fetchOrgInvitations(orgId) {
-    loading.value = true
-    try {
-      const response = await apiListOrgInvitations(orgId)
-      orgInvitations.value = response.data.data
-      return response.data
-    } catch {
-      orgInvitations.value = []
-    } finally {
-      loading.value = false
-    }
+  async function fetchOrgInvitations(workspaceId) {
+    void workspaceId
+    orgInvitations.value = []
   }
 
   /**
-   * Fetch all pending invitations for the currently authenticated user
-   * @returns {Promise<Object>} API response data
+   * Fetch all pending invitations for the currently authenticated user.
+   * Not yet supported by the backend — clears the list.
+   * @returns {Promise<void>}
    */
   async function fetchMyInvitations() {
-    loading.value = true
-    try {
-      const response = await apiListMyInvitations()
-      myInvitations.value = response.data.data
-      return response.data
-    } catch {
-      myInvitations.value = []
-    } finally {
-      loading.value = false
-    }
+    myInvitations.value = []
   }
 
   /**
-   * Invite a user to an organization
-   * Refreshes the org invitations list after a successful invite
-   * @param {string} orgId - Organization UUID
+   * Invite a user to a workspace.
+   * Workspace-level invites are sent via the members API (useMembersStore.inviteMember).
+   * This stub exists for composable compatibility only.
+   * @param {string} workspaceId - Workspace UUID
    * @param {Object} data - Invitation data
+   * @param {string} data.email - Email address of the invitee
    * @param {string} data.role_id - Role UUID to assign to the invited user
-   * @param {string} [data.username] - Username of the user to invite
-   * @param {string} [data.email] - Email of the user to invite
-   * @returns {Promise<Object>} API response data
+   * @returns {Promise<void>}
    */
-  async function inviteToOrg(orgId, data) {
-    loading.value = true
-    try {
-      const response = await apiInviteToOrg(orgId, data)
-      message.success("Invitation sent successfully!")
-      // Refresh the org invitations list to include the new invitation
-      await fetchOrgInvitations(orgId)
-      return response.data
-    } catch {
-      // Axios interceptor handles error display
-    } finally {
-      loading.value = false
-    }
+  async function inviteToOrg(workspaceId, data) {
+    void workspaceId
+    void data
   }
 
   /**
-   * Invite a user to a project within an organization
-   * Refreshes the org invitations list after a successful invite
-   * @param {string} orgId - Organization UUID that owns the project
+   * Invite a user to a project within a workspace.
+   * Project-level invites are not supported in the current workspace model.
+   * This stub exists for composable compatibility only.
+   * @param {string} workspaceId - Workspace UUID
    * @param {string} projectId - Project UUID
    * @param {Object} data - Invitation data
+   * @param {string} data.email - Email address of the invitee
    * @param {string} data.role_id - Role UUID to assign to the invited user
-   * @param {string} [data.username] - Username of the user to invite
-   * @param {string} [data.email] - Email of the user to invite
-   * @returns {Promise<Object>} API response data
+   * @returns {Promise<void>}
    */
-  async function inviteToProject(orgId, projectId, data) {
-    loading.value = true
-    try {
-      const response = await apiInviteToProject(orgId, projectId, data)
-      message.success("Invitation sent successfully!")
-      // Refresh org invitations since project invitations appear there too
-      await fetchOrgInvitations(orgId)
-      return response.data
-    } catch {
-      // Axios interceptor handles error display
-    } finally {
-      loading.value = false
-    }
+  async function inviteToProject(workspaceId, projectId, data) {
+    void workspaceId
+    void projectId
+    void data
   }
 
   /**
-   * Accept a pending invitation
-   * Refreshes the user's invitations list after acceptance
-   * @param {string} invitationId - Invitation UUID to accept
+   * Accept a pending workspace invitation using a compound token from the invitation email.
+   * Refreshes the user's invitations list after acceptance.
+   * @param {string} token - Compound invitation token (memberId:rawToken)
    * @returns {Promise<Object>} API response data
    */
-  async function acceptInvitation(invitationId) {
+  async function acceptInvitation(token) {
     loading.value = true
     try {
-      const response = await apiAcceptInvitation(invitationId)
+      const response = await apiAcceptInvitation(token)
       message.success("Invitation accepted!")
-      // Refresh the user's invitations to update the status
       await fetchMyInvitations()
       return response.data
     } catch {
-      // Axios interceptor handles error display
+      // HTTP client handles error display
     } finally {
       loading.value = false
     }
   }
 
   /**
-   * Decline a pending invitation
-   * Refreshes the user's invitations list after decline
+   * Decline a pending invitation.
+   * Not yet supported by the backend — no-op stub.
    * @param {string} invitationId - Invitation UUID to decline
-   * @returns {Promise<Object>} API response data
+   * @returns {Promise<void>}
    */
   async function declineInvitation(invitationId) {
-    loading.value = true
-    try {
-      const response = await apiDeclineInvitation(invitationId)
-      message.success("Invitation declined")
-      // Refresh the user's invitations to update the status
-      await fetchMyInvitations()
-      return response.data
-    } catch {
-      // Axios interceptor handles error display
-    } finally {
-      loading.value = false
-    }
+    void invitationId
   }
 
   /**
-   * Revoke an invitation from an organization (admin action)
-   * Refreshes the org invitations list after revocation
-   * @param {string} orgId - Organization UUID
+   * Revoke an invitation from a workspace (admin action).
+   * Not yet supported by the backend — no-op stub.
+   * @param {string} workspaceId - Workspace UUID
    * @param {string} invitationId - Invitation UUID to revoke
-   * @returns {Promise<Object>} API response data
+   * @returns {Promise<void>}
    */
-  async function revokeInvitation(orgId, invitationId) {
-    loading.value = true
-    try {
-      const response = await apiRevokeInvitation(orgId, invitationId)
-      message.success("Invitation revoked")
-      // Refresh the org invitations list to remove the revoked invitation
-      await fetchOrgInvitations(orgId)
-      return response.data
-    } catch {
-      // Axios interceptor handles error display
-    } finally {
-      loading.value = false
-    }
+  async function revokeInvitation(workspaceId, invitationId) {
+    void workspaceId
+    void invitationId
   }
 
   /**
-   * Clear organization invitations state
-   * Used when navigating away from an org context to avoid stale data
+   * Clear organization invitations state.
+   * Used when navigating away from a workspace context to avoid stale data.
    */
   function clearOrgInvitations() {
     orgInvitations.value = []
   }
 
   /**
-   * Clear the current user's invitations state
-   * Used when logging out to avoid stale data
+   * Clear the current user's invitations state.
+   * Used when logging out to avoid stale data.
    */
   function clearMyInvitations() {
     myInvitations.value = []

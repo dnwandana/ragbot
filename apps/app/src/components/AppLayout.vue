@@ -1,188 +1,145 @@
 <script setup>
-import { computed, ref, onMounted } from "vue"
-import { useRouter, useRoute } from "vue-router"
-import { Layout, Button, Space, Typography, Badge, Select } from "ant-design-vue"
-import { BellOutlined, LogoutOutlined, UserOutlined } from "@ant-design/icons-vue"
+import { ref, onMounted, onUnmounted } from "vue"
 import { useAuthStore } from "@/stores/auth"
-import { useWorkspacesStore } from "@/stores/workspaces"
 import { useInvitations } from "@/composables/useInvitations"
 import AppSidebar from "@/components/AppSidebar.vue"
 
-const router = useRouter()
-const route = useRoute()
 const authStore = useAuthStore()
-const workspacesStore = useWorkspacesStore()
-const { pendingCount, fetchMyInvitations } = useInvitations()
+const { fetchMyInvitations } = useInvitations()
+const isMobileDrawerOpen = ref(false)
 
-// Sidebar collapse state
-const collapsed = ref(false)
-
-// Computed
-const currentUser = computed(() => authStore.currentUser)
-
-// Workspace selector
-const workspaceOptions = computed(() =>
-  workspacesStore.workspaces.map((ws) => ({ value: ws.id, label: ws.name })),
-)
-
-const currentWorkspaceId = computed(() => route.params.workspaceId || null)
-
-// Only show value in selector when it has a matching option (avoids UUID flash on direct URL nav)
-const selectedWorkspaceId = computed(() => {
-  if (!currentWorkspaceId.value) return null
-  return workspaceOptions.value.some((o) => o.value === currentWorkspaceId.value)
-    ? currentWorkspaceId.value
-    : null
-})
-
-/**
- * Handle workspace selection change.
- * Navigates to the selected workspace's settings page or back to workspaces list.
- * @param {string|null} wsId - The selected workspace ID, or null if cleared.
- */
-function onWorkspaceChange(wsId) {
-  if (wsId) {
-    router.push(`/workspaces/${wsId}/settings`)
-  } else {
-    router.push("/workspaces")
-  }
+function onResize() {
+  if (window.innerWidth >= 768) isMobileDrawerOpen.value = false
 }
 
-// Fetch workspaces list on mount for the workspace selector
 onMounted(() => {
-  if (authStore.isAuthenticated) {
-    workspacesStore.fetchWorkspaces()
-    fetchMyInvitations()
-  }
+  window.addEventListener("resize", onResize)
+  if (authStore.isAuthenticated) fetchMyInvitations()
 })
-
-// Handle logout
-function handleLogout() {
-  authStore.logout()
-  router.push("/login")
-}
-
-// Navigation helper
-function navigateTo(path) {
-  router.push(path)
-}
+onUnmounted(() => window.removeEventListener("resize", onResize))
 </script>
 
 <template>
-  <Layout style="min-height: 100vh">
-    <!-- Header -->
-    <Layout.Header
-      style="display: flex; align-items: center; justify-content: space-between; padding: 0 24px"
-    >
-      <!-- Left side: Logo + Workspace selector -->
-      <div style="display: flex; align-items: center; gap: 12px">
-        <Typography.Title
-          :level="4"
-          style="color: white; margin: 0; cursor: pointer; white-space: nowrap"
-          @click="navigateTo('/workspaces')"
-        >
-          RAG Chatbot
-        </Typography.Title>
+  <div class="app-shell">
+    <!-- Sidebar: desktop -->
+    <aside class="app-sidebar">
+      <AppSidebar />
+    </aside>
 
-        <!-- Workspace selector — always visible -->
-        <Select
-          :value="selectedWorkspaceId"
-          :options="workspaceOptions"
-          placeholder="Select workspace"
-          style="min-width: 180px"
-          :bordered="false"
-          allow-clear
-          @change="onWorkspaceChange"
-          class="header-select"
-        />
+    <!-- Mobile top bar -->
+    <header class="app-topbar">
+      <button class="topbar-menu" @click="isMobileDrawerOpen = true" aria-label="Open menu">
+        <svg width="16" height="12" viewBox="0 0 16 12" fill="none">
+          <path d="M1 1h14M1 6h14M1 11h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <div class="topbar-brand">
+        <div class="logo-mark-sm">
+          <div class="logo-dot-sm" />
+        </div>
+        RAGbot
       </div>
+    </header>
 
-      <!-- Right side: Invitations + User + Logout -->
-      <Space :size="16">
-        <!-- Invitations badge — shows pending count -->
-        <Badge :count="pendingCount" :offset="[-5, 5]">
-          <Button type="text" @click="navigateTo('/invitations')" style="color: white">
-            <template #icon><BellOutlined /></template>
-          </Button>
-        </Badge>
+    <!-- Mobile drawer overlay -->
+    <Transition name="overlay">
+      <div v-if="isMobileDrawerOpen" class="drawer-overlay" @click="isMobileDrawerOpen = false" />
+    </Transition>
 
-        <!-- User info -->
-        <Space>
-          <UserOutlined style="color: white" />
-          <Typography.Text style="color: white">
-            {{ currentUser?.full_name }}
-          </Typography.Text>
-        </Space>
+    <!-- Mobile drawer -->
+    <Transition name="drawer">
+      <aside v-if="isMobileDrawerOpen" class="app-drawer">
+        <AppSidebar @close="isMobileDrawerOpen = false" />
+      </aside>
+    </Transition>
 
-        <!-- Logout -->
-        <Button type="text" @click="handleLogout" style="color: white">
-          <template #icon>
-            <LogoutOutlined />
-          </template>
-          Logout
-        </Button>
-      </Space>
-    </Layout.Header>
-
-    <!-- Body: Sidebar + Content -->
-    <Layout>
-      <!-- Sidebar -->
-      <Layout.Sider
-        v-model:collapsed="collapsed"
-        collapsible
-        :width="200"
-        :collapsed-width="64"
-        theme="light"
-        style="background: #fff"
-      >
-        <AppSidebar />
-      </Layout.Sider>
-
-      <!-- Content + Footer -->
-      <Layout>
-        <Layout.Content style="padding: 24px; background: #f5f5f5">
-          <div
-            style="
-              background: white;
-              padding: 24px;
-              min-height: calc(100vh - 64px - 70px - 48px);
-              border-radius: 8px;
-            "
-          >
-            <slot></slot>
-          </div>
-        </Layout.Content>
-
-        <Layout.Footer style="text-align: center">
-          RAG Chatbot ©{{ new Date().getFullYear() }}
-        </Layout.Footer>
-      </Layout>
-    </Layout>
-  </Layout>
+    <!-- Page content -->
+    <main class="app-main">
+      <slot />
+    </main>
+  </div>
 </template>
 
 <style scoped>
-/* Style the header selects to match the dark theme */
-:deep(.header-select .ant-select-selector) {
-  background: transparent !important;
-  color: white !important;
-  border-color: rgba(255, 255, 255, 0.3) !important;
+.app-shell {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: 100vh;
+  background: var(--bg);
 }
 
-:deep(.header-select .ant-select-selection-item) {
-  color: white !important;
+.app-sidebar {
+  position: sticky; top: 0;
+  height: 100vh; overflow-y: auto;
+  background: var(--bg-2);
 }
 
-:deep(.header-select .ant-select-selection-placeholder) {
-  color: rgba(255, 255, 255, 0.5) !important;
+.app-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
 }
 
-:deep(.header-select .ant-select-arrow) {
-  color: rgba(255, 255, 255, 0.5) !important;
+/* Mobile top bar */
+.app-topbar {
+  display: none;
+  position: fixed; top: 0; left: 0; right: 0;
+  height: var(--topbar-height);
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  align-items: center; gap: 10px;
+  padding: 0 16px;
+  z-index: 40; box-shadow: var(--shadow-1);
+}
+.topbar-menu {
+  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px;
+  border: none; background: none; cursor: pointer;
+  color: var(--ink-3); border-radius: var(--r-sm);
+}
+.topbar-menu:hover { background: var(--bg-2); }
+.topbar-brand {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 14px; font-weight: 600; color: var(--ink);
+}
+.logo-mark-sm {
+  width: 20px; height: 20px;
+  background: var(--ink); border-radius: 5px;
+  position: relative;
+}
+.logo-dot-sm {
+  position: absolute; width: 8px; height: 8px;
+  background: var(--brand); border-radius: 50%;
+  top: 3px; left: 3px;
 }
 
-:deep(.header-select .ant-select-clear) {
-  background: transparent !important;
-  color: rgba(255, 255, 255, 0.5) !important;
+/* Drawer */
+.drawer-overlay {
+  position: fixed; inset: 0;
+  background: rgba(24,18,12,0.4);
+  z-index: 60;
+}
+.app-drawer {
+  position: fixed; top: 0; left: 0; bottom: 0;
+  width: 240px;
+  background: var(--bg-2);
+  border-right: 1px solid var(--line);
+  z-index: 70; overflow-y: auto;
+  box-shadow: var(--shadow-3);
+}
+
+/* Transitions */
+.overlay-enter-active, .overlay-leave-active { transition: opacity 0.2s ease; }
+.overlay-enter-from, .overlay-leave-to { opacity: 0; }
+.drawer-enter-active, .drawer-leave-active { transition: transform 0.25s var(--ease); }
+.drawer-enter-from, .drawer-leave-to { transform: translateX(-100%); }
+
+@media (max-width: 767px) {
+  .app-shell { grid-template-columns: 1fr; }
+  .app-sidebar { display: none; }
+  .app-topbar { display: flex; }
+  .app-main { padding-top: var(--topbar-height); }
 }
 </style>

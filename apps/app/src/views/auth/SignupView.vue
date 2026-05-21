@@ -1,45 +1,61 @@
+<script setup>
+import AuthShell from "@/components/AuthShell.vue"
+import { useAuth } from "@/composables/useAuth"
+
+const { formState, error, loading, emailRules, passwordRules, confirmRules, fullNameRules, handleSignup } = useAuth()
+</script>
+
 <template>
-  <div class="auth-container">
-    <a-card title="Create Account" style="width: 400px; margin: 80px auto">
-      <a-alert v-if="error" type="error" :message="error" style="margin-bottom: 16px" />
-      <a-form @finish="handleSignup" layout="vertical">
-        <a-form-item label="Full Name" name="full_name" :rules="fullNameRules">
+  <AuthShell>
+    <div class="auth-card">
+      <div class="auth-title">Create your account</div>
+      <div class="auth-subtitle">Start analysing documents in minutes.</div>
+
+      <a-form :model="formState" layout="vertical" @finish="handleSignup">
+        <a-form-item name="full_name" :rules="fullNameRules">
+          <template #label><span class="field-label">Full name</span></template>
           <a-input v-model:value="formState.full_name" placeholder="Jane Doe" />
         </a-form-item>
-        <a-form-item label="Email" name="email" :rules="emailRules">
+        <a-form-item name="email" :rules="emailRules">
+          <template #label><span class="field-label">Work email</span></template>
           <a-input v-model:value="formState.email" type="email" placeholder="you@company.com" />
         </a-form-item>
-        <a-form-item label="Password" name="password" :rules="passwordRules">
+        <a-form-item name="password" :rules="passwordRules">
+          <template #label><span class="field-label">Password</span></template>
           <a-input-password v-model:value="formState.password" placeholder="Min 8 characters" />
         </a-form-item>
-        <a-form-item label="Confirm Password" name="confirmation_password" :rules="confirmRules">
-          <a-input-password
-            v-model:value="formState.confirmation_password"
-            placeholder="Re-enter password"
-          />
+        <a-form-item name="confirmation_password" :rules="confirmRules">
+          <template #label><span class="field-label">Confirm password</span></template>
+          <a-input-password v-model:value="formState.confirmation_password" placeholder="Re-enter password" />
         </a-form-item>
-        <a-button type="primary" html-type="submit" :loading="loading" block
-          >Create Account</a-button
-        >
+
+        <div v-if="error" class="form-error">{{ error }}</div>
+
+        <button type="submit" class="btn-brand" :disabled="loading">
+          {{ loading ? "Creating account…" : "Create account →" }}
+        </button>
       </a-form>
-      <div style="text-align: center; margin-top: 16px">
-        Already have an account? <router-link to="/login">Sign in</router-link>
+
+      <div class="auth-footer">
+        Already have an account? <router-link to="/login">Sign in →</router-link>
       </div>
-    </a-card>
-  </div>
+    </div>
+  </AuthShell>
 </template>
 
-<script setup>
-import { useAuth } from "../../composables/useAuth.js"
-
-const {
-  formState,
-  error,
-  loading,
-  emailRules,
-  passwordRules,
-  confirmRules,
-  fullNameRules,
-  handleSignup,
-} = useAuth()
-</script>
+<style scoped>
+.auth-card { width: 100%; max-width: 380px; }
+.auth-title { font-size: 22px; font-weight: 600; letter-spacing: -0.015em; color: var(--ink); margin-bottom: 4px; }
+.auth-subtitle { font-size: 13.5px; color: var(--ink-3); margin-bottom: 28px; }
+.field-label { font-size: 12.5px; font-weight: 500; color: var(--ink); }
+.form-error { font-size: 13px; color: var(--err); background: var(--err-bg); border: 1px solid var(--err-border); border-radius: var(--r-sm); padding: 10px 12px; margin-bottom: 14px; }
+.btn-brand { width: 100%; padding: 10px 16px; margin-top: 4px; margin-bottom: 20px; background: var(--brand); color: #fff; border: none; border-radius: var(--r-sm); font-size: 14px; font-weight: 500; cursor: pointer; }
+.btn-brand:hover:not(:disabled) { background: var(--brand-2); }
+.btn-brand:disabled { opacity: 0.6; cursor: not-allowed; }
+.auth-footer { font-size: 13px; color: var(--ink-3); text-align: center; }
+.auth-footer a { color: var(--ink); font-weight: 500; text-decoration: none; }
+.auth-footer a:hover { color: var(--brand); }
+:deep(.ant-input), :deep(.ant-input-affix-wrapper) { background: var(--surface); border-color: var(--line-2); border-radius: var(--r-sm); color: var(--ink); }
+:deep(.ant-input:focus), :deep(.ant-input-affix-wrapper-focused) { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(255,107,53,0.12); }
+:deep(.ant-form-item-label > label) { color: var(--ink); font-size: 12.5px; font-weight: 500; }
+</style>
