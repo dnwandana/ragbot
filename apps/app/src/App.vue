@@ -5,9 +5,9 @@ import AppLayout from "@/components/AppLayout.vue"
 
 const route = useRoute()
 
-// Check if current route is an auth page
 const isAuthPage = computed(() => {
-  return route.path === "/login" || route.path === "/signup"
+  const authPaths = ["/login", "/signup", "/verify-email", "/forgot-password", "/reset-password"]
+  return authPaths.includes(route.path)
 })
 </script>
 

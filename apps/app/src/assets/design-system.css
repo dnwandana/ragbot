@@ -1,0 +1,126 @@
+/* ============================================================
+   RAGbot Design System — replaces design-tokens.css
+   Import once in main.js before any component styles.
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Light mode tokens ── */
+:root {
+  /* Backgrounds */
+  --bg: #FAFAF7;
+  --bg-2: #F4F1EA;
+  --surface: #FFFFFF;
+
+  /* Ink */
+  --ink: #18120C;
+  --ink-2: #3A2F23;
+  --ink-3: #6F6356;
+  --ink-4: #9C9081;
+
+  /* Brand */
+  --brand: #FF6B35;
+  --brand-2: #E25323;
+  --brand-3: #B83A10;
+  --brand-tint: #FFF1E8;
+
+  /* Semantic */
+  --ok: #117A4A;    --ok-bg: #ECFDF5;   --ok-border: rgba(17,122,74,0.2);
+  --warn: #C47B00;  --warn-bg: #FFFBEB; --warn-border: rgba(196,123,0,0.2);
+  --err: #C0291F;   --err-bg: #FEF2F2;  --err-border: rgba(192,41,31,0.2);
+
+  /* Structure */
+  --line: rgba(24,18,12,0.10);
+  --line-2: rgba(24,18,12,0.16);
+
+  /* Shadows */
+  --shadow-1: 0 1px 2px rgba(24,18,12,0.05);
+  --shadow-2: 0 2px 8px rgba(24,18,12,0.08), 0 1px 2px rgba(24,18,12,0.04);
+  --shadow-3: 0 4px 20px rgba(24,18,12,0.10), 0 1px 4px rgba(24,18,12,0.06);
+
+  /* Radius */
+  --r-sm: 6px;
+  --r: 8px;
+  --r-lg: 12px;
+
+  /* Motion */
+  --ease: cubic-bezier(0.16,1,0.3,1);
+  --dur: 180ms;
+
+  /* Typography scale */
+  --t-xs: 11.5px;
+  --t-sm: 12.5px;
+  --t-base: 13.5px;
+  --t-md: 15px;
+  --t-lg: 18px;
+  --t-xl: 22px;
+
+  /* ── Legacy aliases: map old token names → new values ──
+     Keeps unrebuilt components working during rollout.
+     Remove these once every component is migrated.         */
+  --color-accent:         var(--brand);
+  --color-accent-hover:   var(--brand-2);
+  --color-accent-light:   var(--brand-tint);
+  --color-accent-border:  rgba(255,107,53,0.25);
+  --color-accent-text:    var(--brand);
+  --color-bg:             var(--bg);
+  --color-surface:        var(--surface);
+  --color-border:         var(--line-2);
+  --color-border-light:   var(--line);
+  --color-text-primary:   var(--ink);
+  --color-text-secondary: var(--ink-3);
+  --color-text-muted:     var(--ink-4);
+  --color-success:        var(--ok);
+  --color-success-bg:     var(--ok-bg);
+  --color-success-border: var(--ok-border);
+  --color-warning:        var(--warn);
+  --color-warning-bg:     var(--warn-bg);
+  --color-warning-border: var(--warn-border);
+  --color-error:          var(--err);
+  --color-error-bg:       var(--err-bg);
+  --color-error-border:   var(--err-border);
+  --sidebar-width:        240px;
+  --radius:               var(--r);
+  --radius-sm:            var(--r-sm);
+  --radius-lg:            var(--r-lg);
+  --shadow-sm:            var(--shadow-1);
+  --shadow-md:            var(--shadow-2);
+  --shadow-lg:            var(--shadow-3);
+  --font-family:          'Geist', 'Inter', system-ui, sans-serif;
+  --text-xs:              var(--t-xs);
+  --text-sm:              var(--t-sm);
+  --text-base:            var(--t-base);
+  --text-md:              var(--t-md);
+  --text-lg:              var(--t-lg);
+  --text-xl:              var(--t-xl);
+  --topbar-height:        48px;
+}
+
+/* ── Dark mode overrides ── */
+[data-theme="dark"] {
+  --bg: #0F0C09;
+  --bg-2: #1A1510;
+  --surface: #221C15;
+  --ink: #F0EBE3;
+  --ink-2: #C8BEB4;
+  --ink-3: #8A7D6E;
+  --ink-4: #5A4F44;
+  --brand-tint: #2A1A0E;
+  --line: rgba(240,235,227,0.08);
+  --line-2: rgba(240,235,227,0.14);
+  --shadow-1: 0 1px 2px rgba(0,0,0,0.4);
+  --shadow-2: 0 2px 8px rgba(0,0,0,0.5);
+  --shadow-3: 0 4px 20px rgba(0,0,0,0.6);
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-size: var(--t-base);
+}
