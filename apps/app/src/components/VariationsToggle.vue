@@ -33,16 +33,22 @@ const emit = defineEmits(["update:modelValue"])
 }
 .vt-btn {
   padding: 5px 12px;
-  font-size: 12.5px; font-weight: 500;
+  font-size: 12.5px;
+  font-weight: 500;
   color: var(--ink-3);
-  background: transparent; border: none;
-  border-radius: 4px; cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
   transition: color var(--dur) var(--ease);
 }
-.vt-btn:hover { color: var(--ink); }
+.vt-btn:hover {
+  color: var(--ink);
+}
 .vt-btn--active {
   background: var(--surface);
-  color: var(--ink); font-weight: 600;
+  color: var(--ink);
+  font-weight: 600;
   box-shadow: var(--shadow-1);
 }
 </style>

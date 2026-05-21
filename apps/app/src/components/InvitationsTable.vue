@@ -156,21 +156,104 @@ const columns = computed(() => {
 </template>
 
 <style scoped>
-.invites-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow-1); }
-.toolbar { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-.chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 20px; font-size: 11.5px; font-weight: 500; }
-.chip--warn { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-border); }
-.chip--err { background: var(--err-bg); color: var(--err); border: 1px solid var(--err-border); }
-.chip--ghost { background: var(--bg-2); color: var(--ink-4); border: 1px solid var(--line); }
-.status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.email-cell { font-size: 13px; font-weight: 500; color: var(--ink); }
-.muted { font-size: 12.5px; color: var(--ink-4); }
-.row-actions { display: flex; gap: 6px; justify-content: flex-end; }
-.btn-sm { padding: 4px 10px; font-size: 12px; background: var(--surface); color: var(--ink-2); border: 1px solid var(--line-2); border-radius: var(--r-sm); cursor: pointer; }
-.btn-sm:hover { border-color: var(--brand); color: var(--brand); }
-.btn-danger-sm { padding: 4px 10px; font-size: 12px; background: transparent; color: var(--err); border: 1px solid var(--err-border); border-radius: var(--r-sm); cursor: pointer; }
-.btn-danger-sm:hover { background: var(--err-bg); }
-:deep(.ant-table-thead > tr > th) { background: var(--bg-2); font-size: 11.5px; font-weight: 600; color: var(--ink-4); text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--line); }
-:deep(.ant-table-tbody > tr > td) { border-bottom: 1px solid var(--line); padding: 10px 16px; }
-:deep(.ant-table-tbody > tr:hover > td) { background: var(--bg) !important; }
+.invites-wrap {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  overflow: hidden;
+  box-shadow: var(--shadow-1);
+}
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11.5px;
+  font-weight: 500;
+}
+.chip--warn {
+  background: var(--warn-bg);
+  color: var(--warn);
+  border: 1px solid var(--warn-border);
+}
+.chip--err {
+  background: var(--err-bg);
+  color: var(--err);
+  border: 1px solid var(--err-border);
+}
+.chip--ghost {
+  background: var(--bg-2);
+  color: var(--ink-4);
+  border: 1px solid var(--line);
+}
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.email-cell {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.muted {
+  font-size: 12.5px;
+  color: var(--ink-4);
+}
+.row-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 12px;
+  background: var(--surface);
+  color: var(--ink-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.btn-sm:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+.btn-danger-sm {
+  padding: 4px 10px;
+  font-size: 12px;
+  background: transparent;
+  color: var(--err);
+  border: 1px solid var(--err-border);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.btn-danger-sm:hover {
+  background: var(--err-bg);
+}
+:deep(.ant-table-thead > tr > th) {
+  background: var(--bg-2);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-4);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--line);
+}
+:deep(.ant-table-tbody > tr > td) {
+  border-bottom: 1px solid var(--line);
+  padding: 10px 16px;
+}
+:deep(.ant-table-tbody > tr:hover > td) {
+  background: var(--bg) !important;
+}
 </style>

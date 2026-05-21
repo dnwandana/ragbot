@@ -73,9 +73,7 @@
   "paths": {
     "/api/auth/signup": {
       "post": {
-        "tags": [
-          "Authentication"
-        ],
+        "tags": ["Authentication"],
         "summary": "Create user account",
         "description": "Register a new user. Sends a verification email — account cannot sign in until email is verified. Rate limited (10 req/15 min).",
         "operationId": "signup",
@@ -137,9 +135,7 @@
     },
     "/api/auth/verify-email": {
       "post": {
-        "tags": [
-          "Authentication"
-        ],
+        "tags": ["Authentication"],
         "summary": "Verify email address",
         "description": "Verifies the user's email using the token sent by email.",
         "operationId": "verifyEmail",
@@ -182,9 +178,7 @@
     },
     "/api/auth/resend-verification": {
       "post": {
-        "tags": [
-          "Authentication"
-        ],
+        "tags": ["Authentication"],
         "summary": "Resend verification email",
         "description": "Resends the email verification link. Always returns 200 regardless of whether the email exists — enumeration-safe.",
         "operationId": "resendVerification",
@@ -227,9 +221,7 @@
     },
     "/api/auth/signin": {
       "post": {
-        "tags": [
-          "Authentication"
-        ],
+        "tags": ["Authentication"],
         "summary": "Sign in",
         "description": "Authenticates user with email and password. Sets httpOnly access_token and refresh_token cookies on success. Account is locked for 15 minutes after 5 consecutive failed attempts. Rate limited.",
         "operationId": "signin",
@@ -292,9 +284,7 @@
     },
     "/api/auth/forgot-password": {
       "post": {
-        "tags": [
-          "Authentication"
-        ],
+        "tags": ["Authentication"],
         "summary": "Request password reset",
         "description": "Sends a password reset email. Always returns 200 regardless of whether the email exists — enumeration-safe.",
         "operationId": "forgotPassword",
@@ -337,9 +327,7 @@
     },
     "/api/auth/reset-password": {
       "post": {
-        "tags": [
-          "Authentication"
-        ],
+        "tags": ["Authentication"],
         "summary": "Reset password",
         "description": "Resets the user's password using the token from the reset email.",
         "operationId": "resetPassword",
@@ -382,9 +370,7 @@
     },
     "/api/auth/me": {
       "get": {
-        "tags": [
-          "Authentication"
-        ],
+        "tags": ["Authentication"],
         "summary": "Get current user",
         "description": "Returns the authenticated user's profile.",
         "operationId": "getMe",
@@ -429,9 +415,7 @@
     },
     "/api/auth/refresh": {
       "post": {
-        "tags": [
-          "Authentication"
-        ],
+        "tags": ["Authentication"],
         "summary": "Refresh tokens",
         "description": "Rotates the token pair — revokes the old refresh token and issues a new access_token and refresh_token. Requires the refresh_token cookie.",
         "operationId": "refreshTokens",
@@ -474,9 +458,7 @@
     },
     "/api/auth/logout": {
       "post": {
-        "tags": [
-          "Authentication"
-        ],
+        "tags": ["Authentication"],
         "summary": "Logout",
         "description": "Revokes the refresh token and clears auth cookies. Idempotent — succeeds even if the token is already revoked.",
         "operationId": "logout",
@@ -519,9 +501,7 @@
     },
     "/api/permissions": {
       "get": {
-        "tags": [
-          "Permissions"
-        ],
+        "tags": ["Permissions"],
         "summary": "List all permissions",
         "description": "Returns all 30 available permissions that can be assigned to roles. Read-only reference endpoint.",
         "operationId": "listPermissions",
@@ -569,9 +549,7 @@
     },
     "/api/workspaces": {
       "get": {
-        "tags": [
-          "Workspaces"
-        ],
+        "tags": ["Workspaces"],
         "summary": "List user's workspaces",
         "description": "Returns all workspaces the authenticated user belongs to, with their role in each.",
         "operationId": "listWorkspaces",
@@ -617,9 +595,7 @@
         }
       },
       "post": {
-        "tags": [
-          "Workspaces"
-        ],
+        "tags": ["Workspaces"],
         "summary": "Create workspace",
         "description": "Creates a new workspace. The authenticated user becomes the owner with all 30 permissions. A system agent is automatically created.",
         "operationId": "createWorkspace",
@@ -677,9 +653,7 @@
     },
     "/api/workspaces/{workspace_id}": {
       "get": {
-        "tags": [
-          "Workspaces"
-        ],
+        "tags": ["Workspaces"],
         "summary": "Get workspace",
         "description": "**Permission required**: `workspace:read`",
         "operationId": "getWorkspace",
@@ -733,9 +707,7 @@
         }
       },
       "put": {
-        "tags": [
-          "Workspaces"
-        ],
+        "tags": ["Workspaces"],
         "summary": "Update workspace",
         "description": "**Permission required**: `workspace:update`",
         "operationId": "updateWorkspace",
@@ -802,9 +774,7 @@
         }
       },
       "delete": {
-        "tags": [
-          "Workspaces"
-        ],
+        "tags": ["Workspaces"],
         "summary": "Delete workspace",
         "description": "**Permission required**: `workspace:delete`. Soft-deletes the workspace.",
         "operationId": "deleteWorkspace",
@@ -852,9 +822,7 @@
     },
     "/api/workspaces/{workspace_id}/members": {
       "get": {
-        "tags": [
-          "Members"
-        ],
+        "tags": ["Members"],
         "summary": "List workspace members",
         "description": "**Permission required**: `member:read`. Includes active members and pending invitations.",
         "operationId": "listMembers",
@@ -913,9 +881,7 @@
     },
     "/api/workspaces/{workspace_id}/members/invite": {
       "post": {
-        "tags": [
-          "Members"
-        ],
+        "tags": ["Members"],
         "summary": "Invite member",
         "description": "**Permission required**: `member:invite`. Sends an invitation email. If the email has no account, creates a pending invitation — `user_id` will be null until they accept.",
         "operationId": "inviteMember",
@@ -984,9 +950,7 @@
     },
     "/api/workspaces/{workspace_id}/members/{member_id}": {
       "get": {
-        "tags": [
-          "Members"
-        ],
+        "tags": ["Members"],
         "summary": "Get member",
         "description": "**Permission required**: `member:read`",
         "operationId": "getMember",
@@ -1043,9 +1007,7 @@
         }
       },
       "delete": {
-        "tags": [
-          "Members"
-        ],
+        "tags": ["Members"],
         "summary": "Remove member",
         "description": "**Permission required**: `member:remove`. Soft-deletes the membership.",
         "operationId": "removeMember",
@@ -1096,9 +1058,7 @@
     },
     "/api/workspaces/{workspace_id}/members/{member_id}/role": {
       "put": {
-        "tags": [
-          "Members"
-        ],
+        "tags": ["Members"],
         "summary": "Change member role",
         "description": "**Permission required**: `member:manage_role`",
         "operationId": "changeMemberRole",
@@ -1170,9 +1130,7 @@
     },
     "/api/workspaces/{workspace_id}/roles": {
       "get": {
-        "tags": [
-          "Roles"
-        ],
+        "tags": ["Roles"],
         "summary": "List roles",
         "description": "**Permission required**: `role:read`. Returns system and custom roles.",
         "operationId": "listRoles",
@@ -1229,9 +1187,7 @@
         }
       },
       "post": {
-        "tags": [
-          "Roles"
-        ],
+        "tags": ["Roles"],
         "summary": "Create custom role",
         "description": "**Permission required**: `role:create`",
         "operationId": "createRole",
@@ -1300,9 +1256,7 @@
     },
     "/api/workspaces/{workspace_id}/roles/{role_id}": {
       "get": {
-        "tags": [
-          "Roles"
-        ],
+        "tags": ["Roles"],
         "summary": "Get role with permissions",
         "description": "**Permission required**: `role:read`",
         "operationId": "getRole",
@@ -1359,9 +1313,7 @@
         }
       },
       "put": {
-        "tags": [
-          "Roles"
-        ],
+        "tags": ["Roles"],
         "summary": "Update role",
         "description": "**Permission required**: `role:update`. System roles (is_system: true) cannot be modified.",
         "operationId": "updateRole",
@@ -1431,9 +1383,7 @@
         }
       },
       "delete": {
-        "tags": [
-          "Roles"
-        ],
+        "tags": ["Roles"],
         "summary": "Delete custom role",
         "description": "**Permission required**: `role:delete`. System roles cannot be deleted.",
         "operationId": "deleteRole",
@@ -1484,9 +1434,7 @@
     },
     "/api/invitations/{token}": {
       "get": {
-        "tags": [
-          "Members"
-        ],
+        "tags": ["Members"],
         "summary": "Preview invitation",
         "description": "Returns invitation details without authentication — used to show workspace name and role before accepting.",
         "operationId": "previewInvitation",
@@ -1541,9 +1489,7 @@
     },
     "/api/invitations/accept": {
       "post": {
-        "tags": [
-          "Members"
-        ],
+        "tags": ["Members"],
         "summary": "Accept invitation",
         "description": "Accepts a workspace invitation for the authenticated user.",
         "operationId": "acceptInvitation",
@@ -1566,9 +1512,7 @@
                     "description": "Invitation token from the email link"
                   }
                 },
-                "required": [
-                  "token"
-                ]
+                "required": ["token"]
               }
             }
           }
@@ -1607,9 +1551,7 @@
     },
     "/api/workspaces/{workspace_id}/datasets": {
       "get": {
-        "tags": [
-          "Datasets"
-        ],
+        "tags": ["Datasets"],
         "summary": "List datasets",
         "description": "**Permission required**: `dataset:read`. Paginated.",
         "operationId": "listDatasets",
@@ -1666,10 +1608,7 @@
                           "$ref": "#/components/schemas/Pagination"
                         }
                       },
-                      "required": [
-                        "data",
-                        "pagination"
-                      ]
+                      "required": ["data", "pagination"]
                     }
                   ]
                 }
@@ -1688,9 +1627,7 @@
         }
       },
       "post": {
-        "tags": [
-          "Datasets"
-        ],
+        "tags": ["Datasets"],
         "summary": "Create dataset",
         "description": "**Permission required**: `dataset:create`",
         "operationId": "createDataset",
@@ -1759,9 +1696,7 @@
     },
     "/api/workspaces/{workspace_id}/datasets/{dataset_id}": {
       "get": {
-        "tags": [
-          "Datasets"
-        ],
+        "tags": ["Datasets"],
         "summary": "Get dataset",
         "description": "**Permission required**: `dataset:read`",
         "operationId": "getDataset",
@@ -1818,9 +1753,7 @@
         }
       },
       "put": {
-        "tags": [
-          "Datasets"
-        ],
+        "tags": ["Datasets"],
         "summary": "Update dataset",
         "description": "**Permission required**: `dataset:update`",
         "operationId": "updateDataset",
@@ -1890,9 +1823,7 @@
         }
       },
       "delete": {
-        "tags": [
-          "Datasets"
-        ],
+        "tags": ["Datasets"],
         "summary": "Delete dataset",
         "description": "**Permission required**: `dataset:delete`. Soft-deletes the dataset and all its files.",
         "operationId": "deleteDataset",
@@ -1943,9 +1874,7 @@
     },
     "/api/workspaces/{workspace_id}/datasets/{dataset_id}/conversations": {
       "post": {
-        "tags": [
-          "Conversations"
-        ],
+        "tags": ["Conversations"],
         "summary": "Create conversation from dataset",
         "description": "**Permission required**: `conversation:create`. Creates a new conversation pre-linked to this dataset. Shortcut for POST /conversations with dataset_ids pre-filled.",
         "operationId": "createConversationFromDataset",
@@ -2017,9 +1946,7 @@
     },
     "/api/workspaces/{workspace_id}/datasets/{dataset_id}/files/upload": {
       "post": {
-        "tags": [
-          "Files"
-        ],
+        "tags": ["Files"],
         "summary": "Upload file",
         "description": "**Permission required**: `file:upload`. Uploads a file to LlamaIndex for parsing. Processing is async — poll file status to track progress.",
         "operationId": "uploadFile",
@@ -2049,9 +1976,7 @@
                     "description": "File to upload (PDF, DOCX, TXT, etc.)"
                   }
                 },
-                "required": [
-                  "file"
-                ]
+                "required": ["file"]
               }
             }
           }
@@ -2101,9 +2026,7 @@
     },
     "/api/workspaces/{workspace_id}/datasets/{dataset_id}/files/scrape-url": {
       "post": {
-        "tags": [
-          "Files"
-        ],
+        "tags": ["Files"],
         "summary": "Scrape URL",
         "description": "**Permission required**: `file:upload`. Fetches URL content via Firecrawl and adds it as a dataset file. Processing is async.",
         "operationId": "scrapeUrl",
@@ -2175,9 +2098,7 @@
     },
     "/api/workspaces/{workspace_id}/datasets/{dataset_id}/files": {
       "get": {
-        "tags": [
-          "Files"
-        ],
+        "tags": ["Files"],
         "summary": "List files",
         "description": "**Permission required**: `file:read`. Paginated. Does NOT include signed_url — use GET /files/{file_id} to get download URL.",
         "operationId": "listFiles",
@@ -2234,10 +2155,7 @@
                           "$ref": "#/components/schemas/Pagination"
                         }
                       },
-                      "required": [
-                        "data",
-                        "pagination"
-                      ]
+                      "required": ["data", "pagination"]
                     }
                   ]
                 }
@@ -2258,9 +2176,7 @@
     },
     "/api/workspaces/{workspace_id}/datasets/{dataset_id}/files/{file_id}": {
       "get": {
-        "tags": [
-          "Files"
-        ],
+        "tags": ["Files"],
         "summary": "Get file",
         "description": "**Permission required**: `file:read`. Includes a pre-signed download URL (`signed_url`). Not available on the list endpoint.",
         "operationId": "getFile",
@@ -2320,9 +2236,7 @@
         }
       },
       "put": {
-        "tags": [
-          "Files"
-        ],
+        "tags": ["Files"],
         "summary": "Update file",
         "description": "**Permission required**: `file:update`. Currently only supports renaming.",
         "operationId": "updateFile",
@@ -2395,9 +2309,7 @@
         }
       },
       "delete": {
-        "tags": [
-          "Files"
-        ],
+        "tags": ["Files"],
         "summary": "Delete file",
         "description": "**Permission required**: `file:delete`.",
         "operationId": "deleteFile",
@@ -2451,9 +2363,7 @@
     },
     "/api/workspaces/{workspace_id}/datasets/{dataset_id}/files/{file_id}/reprocess": {
       "post": {
-        "tags": [
-          "Files"
-        ],
+        "tags": ["Files"],
         "summary": "Reprocess file",
         "description": "**Permission required**: `file:reprocess`. Re-queues the file for processing. Idempotent — safe to call on already-processing files.",
         "operationId": "reprocessFile",
@@ -2510,9 +2420,7 @@
     },
     "/api/workspaces/{workspace_id}/agents": {
       "get": {
-        "tags": [
-          "Agents"
-        ],
+        "tags": ["Agents"],
         "summary": "List agents",
         "description": "**Permission required**: `agent:read`. Paginated. Includes the system agent.",
         "operationId": "listAgents",
@@ -2566,10 +2474,7 @@
                           "$ref": "#/components/schemas/Pagination"
                         }
                       },
-                      "required": [
-                        "data",
-                        "pagination"
-                      ]
+                      "required": ["data", "pagination"]
                     }
                   ]
                 }
@@ -2588,9 +2493,7 @@
         }
       },
       "post": {
-        "tags": [
-          "Agents"
-        ],
+        "tags": ["Agents"],
         "summary": "Create agent",
         "description": "**Permission required**: `agent:create`",
         "operationId": "createAgent",
@@ -2659,9 +2562,7 @@
     },
     "/api/workspaces/{workspace_id}/agents/{agent_id}": {
       "get": {
-        "tags": [
-          "Agents"
-        ],
+        "tags": ["Agents"],
         "summary": "Get agent",
         "description": "**Permission required**: `agent:read`",
         "operationId": "getAgent",
@@ -2718,9 +2619,7 @@
         }
       },
       "put": {
-        "tags": [
-          "Agents"
-        ],
+        "tags": ["Agents"],
         "summary": "Update agent",
         "description": "**Permission required**: `agent:update`. The system agent's name cannot be changed — returns 403.",
         "operationId": "updateAgent",
@@ -2790,9 +2689,7 @@
         }
       },
       "delete": {
-        "tags": [
-          "Agents"
-        ],
+        "tags": ["Agents"],
         "summary": "Delete agent",
         "description": "**Permission required**: `agent:delete`. The system agent cannot be deleted — returns 403. Agents in use by conversations cannot be deleted (FK RESTRICT).",
         "operationId": "deleteAgent",
@@ -2843,9 +2740,7 @@
     },
     "/api/workspaces/{workspace_id}/conversations": {
       "get": {
-        "tags": [
-          "Conversations"
-        ],
+        "tags": ["Conversations"],
         "summary": "List conversations",
         "description": "**Permission required**: `conversation:read`. Returns only the authenticated user's own conversations — other workspace members' conversations are not visible even with this permission. This is intentional privacy-by-design.",
         "operationId": "listConversations",
@@ -2908,9 +2803,7 @@
         }
       },
       "post": {
-        "tags": [
-          "Conversations"
-        ],
+        "tags": ["Conversations"],
         "summary": "Create conversation",
         "description": "**Permission required**: `conversation:create`",
         "operationId": "createConversation",
@@ -2979,9 +2872,7 @@
     },
     "/api/workspaces/{workspace_id}/conversations/{conversation_id}": {
       "get": {
-        "tags": [
-          "Conversations"
-        ],
+        "tags": ["Conversations"],
         "summary": "Get conversation",
         "description": "**Permission required**: `conversation:read`. Returns full message and citation history. Returns 404 if the conversation belongs to another user — this is intentional, not a bug.",
         "operationId": "getConversation",
@@ -3038,9 +2929,7 @@
         }
       },
       "patch": {
-        "tags": [
-          "Conversations"
-        ],
+        "tags": ["Conversations"],
         "summary": "Update conversation",
         "description": "**Permission required**: `conversation:update`. Only the conversation owner can update it.",
         "operationId": "updateConversation",
@@ -3110,9 +2999,7 @@
         }
       },
       "delete": {
-        "tags": [
-          "Conversations"
-        ],
+        "tags": ["Conversations"],
         "summary": "Delete conversation",
         "description": "**Permission required**: `conversation:delete`. Only the conversation owner can delete it.",
         "operationId": "deleteConversation",
@@ -3163,9 +3050,7 @@
     },
     "/api/workspaces/{workspace_id}/conversations/{conversation_id}/messages": {
       "post": {
-        "tags": [
-          "Chat"
-        ],
+        "tags": ["Chat"],
         "summary": "Send message",
         "description": "**Permission required**: `conversation:chat`.\n\nRuns a ReAct loop with RAG search over linked datasets. Response mode is controlled by the `Accept` header:\n\n- `Accept: application/json` — synchronous response, returns full event sequence after loop completes\n- `Accept: text/event-stream` — streaming SSE response, events arrive in real time\n\nSee `SseStream` schema for event types and payloads. Auto-titles the conversation on the first message.",
         "operationId": "sendMessage",
@@ -3242,9 +3127,7 @@
     },
     "/api/workspaces/{workspace_id}/audit-logs": {
       "get": {
-        "tags": [
-          "Audit Logs"
-        ],
+        "tags": ["Audit Logs"],
         "summary": "List audit logs",
         "description": "**Permission required**: `audit:read`. Append-only log of all workspace actions. Paginated.",
         "operationId": "listAuditLogs",
@@ -3295,10 +3178,7 @@
                           "$ref": "#/components/schemas/Pagination"
                         }
                       },
-                      "required": [
-                        "data",
-                        "pagination"
-                      ]
+                      "required": ["data", "pagination"]
                     }
                   ]
                 }
@@ -3319,9 +3199,7 @@
     },
     "/api/webhooks/llamaindex/callback": {
       "post": {
-        "tags": [
-          "Webhooks"
-        ],
+        "tags": ["Webhooks"],
         "summary": "LlamaIndex processing callback",
         "description": "Called by LlamaIndex when async file parsing completes or fails. Requires `X-Webhook-Secret` header matching `LLAMAINDEX_WEBHOOK_SECRET` env var. Triggers BullMQ job for embedding pipeline on `parse.success`. Unknown event types are silently ignored (returns 200).",
         "operationId": "llamaIndexCallback",
@@ -3352,17 +3230,10 @@
                   },
                   "event_type": {
                     "type": "string",
-                    "enum": [
-                      "parse.success",
-                      "parse.error",
-                      "parse.running"
-                    ]
+                    "enum": ["parse.success", "parse.error", "parse.running"]
                   }
                 },
-                "required": [
-                  "job_id",
-                  "event_type"
-                ]
+                "required": ["job_id", "event_type"]
               }
             }
           }
@@ -3398,9 +3269,7 @@
     },
     "/health": {
       "get": {
-        "tags": [
-          "Health"
-        ],
+        "tags": ["Health"],
         "summary": "Health check",
         "description": "Returns service health status. Mounted before rate limiting so load balancers are not throttled. Returns 200 when healthy, 503 when DB unreachable.",
         "operationId": "healthCheck",
@@ -3420,18 +3289,14 @@
                   "properties": {
                     "message": {
                       "type": "string",
-                      "enum": [
-                        "healthy"
-                      ]
+                      "enum": ["healthy"]
                     },
                     "data": {
                       "type": "object",
                       "properties": {
                         "status": {
                           "type": "string",
-                          "enum": [
-                            "healthy"
-                          ]
+                          "enum": ["healthy"]
                         },
                         "timestamp": {
                           "type": "string",
@@ -3443,17 +3308,10 @@
                         },
                         "database": {
                           "type": "string",
-                          "enum": [
-                            "ok"
-                          ]
+                          "enum": ["ok"]
                         }
                       },
-                      "required": [
-                        "status",
-                        "timestamp",
-                        "uptime",
-                        "database"
-                      ]
+                      "required": ["status", "timestamp", "uptime", "database"]
                     }
                   }
                 },
@@ -3483,18 +3341,14 @@
                   "properties": {
                     "message": {
                       "type": "string",
-                      "enum": [
-                        "unhealthy"
-                      ]
+                      "enum": ["unhealthy"]
                     },
                     "data": {
                       "type": "object",
                       "properties": {
                         "status": {
                           "type": "string",
-                          "enum": [
-                            "unhealthy"
-                          ]
+                          "enum": ["unhealthy"]
                         },
                         "timestamp": {
                           "type": "string",
@@ -3505,17 +3359,10 @@
                         },
                         "database": {
                           "type": "string",
-                          "enum": [
-                            "error"
-                          ]
+                          "enum": ["error"]
                         }
                       },
-                      "required": [
-                        "status",
-                        "timestamp",
-                        "uptime",
-                        "database"
-                      ]
+                      "required": ["status", "timestamp", "uptime", "database"]
                     }
                   }
                 }
@@ -3656,10 +3503,7 @@
         "description": "Sort direction",
         "schema": {
           "type": "string",
-          "enum": [
-            "asc",
-            "desc"
-          ],
+          "enum": ["asc", "desc"],
           "default": "desc"
         }
       },
@@ -3797,9 +3641,7 @@
             "nullable": true
           }
         },
-        "required": [
-          "message"
-        ]
+        "required": ["message"]
       },
       "ErrorResponse": {
         "type": "object",
@@ -3813,9 +3655,7 @@
             "example": null
           }
         },
-        "required": [
-          "message"
-        ]
+        "required": ["message"]
       },
       "Pagination": {
         "type": "object",
@@ -3837,12 +3677,7 @@
             "minimum": 0
           }
         },
-        "required": [
-          "page",
-          "limit",
-          "total",
-          "pages"
-        ]
+        "required": ["page", "limit", "total", "pages"]
       },
       "SignupRequest": {
         "type": "object",
@@ -3869,11 +3704,7 @@
             "maxLength": 100
           }
         },
-        "required": [
-          "email",
-          "password",
-          "confirmation_password"
-        ]
+        "required": ["email", "password", "confirmation_password"]
       },
       "SigninRequest": {
         "type": "object",
@@ -3888,10 +3719,7 @@
             "maxLength": 72
           }
         },
-        "required": [
-          "email",
-          "password"
-        ]
+        "required": ["email", "password"]
       },
       "VerifyEmailRequest": {
         "type": "object",
@@ -3903,9 +3731,7 @@
             "description": "64-character hex token from verification email"
           }
         },
-        "required": [
-          "token"
-        ]
+        "required": ["token"]
       },
       "ForgotPasswordRequest": {
         "type": "object",
@@ -3915,9 +3741,7 @@
             "format": "email"
           }
         },
-        "required": [
-          "email"
-        ]
+        "required": ["email"]
       },
       "ResetPasswordRequest": {
         "type": "object",
@@ -3939,11 +3763,7 @@
             "maxLength": 72
           }
         },
-        "required": [
-          "token",
-          "password",
-          "confirmation_password"
-        ]
+        "required": ["token", "password", "confirmation_password"]
       },
       "ResendVerificationRequest": {
         "type": "object",
@@ -3953,9 +3773,7 @@
             "format": "email"
           }
         },
-        "required": [
-          "email"
-        ]
+        "required": ["email"]
       },
       "UserBasic": {
         "type": "object",
@@ -3973,11 +3791,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "email",
-          "full_name"
-        ]
+        "required": ["id", "email", "full_name"]
       },
       "UserDetail": {
         "allOf": [
@@ -4008,12 +3822,7 @@
                 "format": "date-time"
               }
             },
-            "required": [
-              "email_verified",
-              "settings",
-              "created_at",
-              "updated_at"
-            ]
+            "required": ["email_verified", "settings", "created_at", "updated_at"]
           }
         ]
       },
@@ -4036,12 +3845,7 @@
             "format": "date-time"
           }
         },
-        "required": [
-          "id",
-          "name",
-          "created_at",
-          "updated_at"
-        ]
+        "required": ["id", "name", "created_at", "updated_at"]
       },
       "WorkspaceWithRole": {
         "allOf": [
@@ -4061,10 +3865,7 @@
                 "description": "e.g. owner, admin, editor, viewer"
               }
             },
-            "required": [
-              "role_id",
-              "role_name"
-            ]
+            "required": ["role_id", "role_name"]
           }
         ]
       },
@@ -4076,9 +3877,7 @@
             "description": "Must be unique"
           }
         },
-        "required": [
-          "name"
-        ]
+        "required": ["name"]
       },
       "UpdateWorkspaceRequest": {
         "type": "object",
@@ -4087,9 +3886,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "name"
-        ]
+        "required": ["name"]
       },
       "WorkspaceMember": {
         "type": "object",
@@ -4126,11 +3923,7 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "active",
-              "invited",
-              "suspended"
-            ]
+            "enum": ["active", "invited", "suspended"]
           },
           "joined_at": {
             "type": "string",
@@ -4142,14 +3935,7 @@
             "format": "date-time"
           }
         },
-        "required": [
-          "id",
-          "workspace_id",
-          "role_id",
-          "role_name",
-          "status",
-          "created_at"
-        ]
+        "required": ["id", "workspace_id", "role_id", "role_name", "status", "created_at"]
       },
       "InviteMemberRequest": {
         "type": "object",
@@ -4163,10 +3949,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "email",
-          "role_id"
-        ]
+        "required": ["email", "role_id"]
       },
       "ChangeMemberRoleRequest": {
         "type": "object",
@@ -4176,9 +3959,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "role_id"
-        ]
+        "required": ["role_id"]
       },
       "InvitationPreview": {
         "type": "object",
@@ -4194,20 +3975,14 @@
                 "type": "string"
               }
             },
-            "required": [
-              "name"
-            ]
+            "required": ["name"]
           },
           "invited_by": {
             "type": "string",
             "description": "Inviter's full name or email"
           }
         },
-        "required": [
-          "workspace_name",
-          "role",
-          "invited_by"
-        ]
+        "required": ["workspace_name", "role", "invited_by"]
       },
       "Permission": {
         "type": "object",
@@ -4233,12 +4008,7 @@
             "nullable": true
           }
         },
-        "required": [
-          "id",
-          "name",
-          "resource",
-          "action"
-        ]
+        "required": ["id", "name", "resource", "action"]
       },
       "Role": {
         "type": "object",
@@ -4271,14 +4041,7 @@
             "format": "date-time"
           }
         },
-        "required": [
-          "id",
-          "workspace_id",
-          "name",
-          "is_system",
-          "created_at",
-          "updated_at"
-        ]
+        "required": ["id", "workspace_id", "name", "is_system", "created_at", "updated_at"]
       },
       "RoleWithPermissions": {
         "allOf": [
@@ -4295,9 +4058,7 @@
                 }
               }
             },
-            "required": [
-              "permissions"
-            ]
+            "required": ["permissions"]
           }
         ]
       },
@@ -4319,10 +4080,7 @@
             "description": "Array of permission UUIDs to assign to the role"
           }
         },
-        "required": [
-          "name",
-          "permissions"
-        ]
+        "required": ["name", "permissions"]
       },
       "UpdateRoleRequest": {
         "type": "object",
@@ -4341,10 +4099,7 @@
             }
           }
         },
-        "required": [
-          "name",
-          "permissions"
-        ]
+        "required": ["name", "permissions"]
       },
       "Dataset": {
         "type": "object",
@@ -4419,9 +4174,7 @@
             "minimum": 0
           }
         },
-        "required": [
-          "name"
-        ]
+        "required": ["name"]
       },
       "UpdateDatasetRequest": {
         "type": "object",
@@ -4433,9 +4186,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "name"
-        ]
+        "required": ["name"]
       },
       "FileMetadata": {
         "type": "object",
@@ -4448,9 +4199,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "llamaindex_job_id"
-            ]
+            "required": ["llamaindex_job_id"]
           },
           {
             "title": "URL scrape",
@@ -4460,9 +4209,7 @@
                 "format": "uri"
               }
             },
-            "required": [
-              "source_url"
-            ]
+            "required": ["source_url"]
           }
         ]
       },
@@ -4504,14 +4251,7 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "pending",
-              "queued",
-              "processing",
-              "completed",
-              "failed",
-              "cancelled"
-            ]
+            "enum": ["pending", "queued", "processing", "completed", "failed", "cancelled"]
           },
           "error_message": {
             "type": "string",
@@ -4561,9 +4301,7 @@
                 "description": "Pre-signed download URL"
               }
             },
-            "required": [
-              "signed_url"
-            ]
+            "required": ["signed_url"]
           }
         ]
       },
@@ -4575,9 +4313,7 @@
             "format": "uri"
           }
         },
-        "required": [
-          "url"
-        ]
+        "required": ["url"]
       },
       "UpdateFileRequest": {
         "type": "object",
@@ -4612,9 +4348,7 @@
             "default": 4096
           }
         },
-        "required": [
-          "model"
-        ]
+        "required": ["model"]
       },
       "Agent": {
         "type": "object",
@@ -4685,9 +4419,7 @@
             "$ref": "#/components/schemas/ModelConfig"
           }
         },
-        "required": [
-          "name"
-        ]
+        "required": ["name"]
       },
       "UpdateAgentRequest": {
         "type": "object",
@@ -4705,9 +4437,7 @@
             "$ref": "#/components/schemas/ModelConfig"
           }
         },
-        "required": [
-          "name"
-        ]
+        "required": ["name"]
       },
       "Message": {
         "type": "object",
@@ -4722,21 +4452,11 @@
           },
           "role": {
             "type": "string",
-            "enum": [
-              "user",
-              "assistant",
-              "system",
-              "tool"
-            ]
+            "enum": ["user", "assistant", "system", "tool"]
           },
           "step_type": {
             "type": "string",
-            "enum": [
-              "input",
-              "thought",
-              "observation",
-              "final_answer"
-            ],
+            "enum": ["input", "thought", "observation", "final_answer"],
             "description": "Only input and final_answer are returned in conversation detail; thought and observation are internal ReAct steps"
           },
           "content": {
@@ -4764,13 +4484,7 @@
             "format": "date-time"
           }
         },
-        "required": [
-          "id",
-          "conversation_id",
-          "role",
-          "step_type",
-          "created_at"
-        ]
+        "required": ["id", "conversation_id", "role", "step_type", "created_at"]
       },
       "MessageCitation": {
         "type": "object",
@@ -4904,10 +4618,7 @@
                 }
               }
             },
-            "required": [
-              "messages",
-              "citations"
-            ]
+            "required": ["messages", "citations"]
           }
         ]
       },
@@ -4947,9 +4658,7 @@
             "description": "The user's message"
           }
         },
-        "required": [
-          "content"
-        ]
+        "required": ["content"]
       },
       "ChatEvent": {
         "type": "object",
@@ -4957,22 +4666,13 @@
         "properties": {
           "event": {
             "type": "string",
-            "enum": [
-              "token",
-              "thought",
-              "observation",
-              "citation",
-              "done"
-            ]
+            "enum": ["token", "thought", "observation", "citation", "done"]
           },
           "data": {
             "type": "object"
           }
         },
-        "required": [
-          "event",
-          "data"
-        ]
+        "required": ["event", "data"]
       },
       "ChatResponse": {
         "type": "object",
@@ -4990,10 +4690,7 @@
             }
           }
         },
-        "required": [
-          "message_id",
-          "events"
-        ]
+        "required": ["message_id", "events"]
       },
       "SseStream": {
         "type": "string",
