@@ -40,7 +40,7 @@ export function createConversation(workspaceId, data) {
  * @returns {Promise<Object>}
  */
 export function updateConversation(workspaceId, id, data) {
-  return request.patch(`${base(workspaceId)}/${id}`, data)
+  return request.put(`${base(workspaceId)}/${id}`, data)
 }
 
 /**

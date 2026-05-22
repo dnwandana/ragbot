@@ -166,7 +166,7 @@ describe("PATCH /api/workspaces/:id/conversations/:conversation_id", () => {
     const res = await (
       await request()
     )
-      .patch(`/api/workspaces/${ws.id}/conversations/${convId}`)
+      .put(`/api/workspaces/${ws.id}/conversations/${convId}`)
       .set(await getAuthHeaders(user.id))
       .send({ title: "Updated Title" })
 
@@ -257,7 +257,7 @@ describe("cross-user authorization", () => {
     const [getRes, patchRes, delRes] = await Promise.all([
       (await request()).get(`/api/workspaces/${ws.id}/conversations/${convId}`).set(headers),
       (await request())
-        .patch(`/api/workspaces/${ws.id}/conversations/${convId}`)
+        .put(`/api/workspaces/${ws.id}/conversations/${convId}`)
         .set(headers)
         .send({ title: "X" }),
       (await request()).delete(`/api/workspaces/${ws.id}/conversations/${convId}`).set(headers),

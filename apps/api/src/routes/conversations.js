@@ -13,7 +13,7 @@ router
 router
   .route("/:conversation_id")
   .get(requirePermission("conversation:read"), conversations.getConversation)
-  .patch(requirePermission("conversation:update"), conversations.updateConversation)
+  .put(requirePermission("conversation:update"), conversations.updateConversation)
   .delete(requirePermission("conversation:delete"), conversations.deleteConversation)
 
 router.post("/:conversation_id/messages", requirePermission("conversation:chat"), chat.sendMessage)
