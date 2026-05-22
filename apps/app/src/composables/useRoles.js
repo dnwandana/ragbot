@@ -52,18 +52,18 @@ export function useRoles() {
   /**
    * Handle form submission for creating or updating a role
    * Determines the correct store action based on whether we are editing or creating
-   * @param {string} orgId - Organization UUID
+   * @param {string} workspaceId - Workspace UUID
    * @param {Object} formData - Role form data
    * @param {string} formData.name - Role name
    * @param {string} [formData.description] - Optional role description
    * @param {string[]} formData.permissions - Array of permission UUIDs to assign
    * @returns {Promise<void>}
    */
-  async function handleSubmit(orgId, formData) {
+  async function handleSubmit(workspaceId, formData) {
     if (isEditing.value) {
-      await rolesStore.updateRole(orgId, editingRole.value.id, formData)
+      await rolesStore.updateRole(workspaceId, editingRole.value.id, formData)
     } else {
-      await rolesStore.createRole(orgId, formData)
+      await rolesStore.createRole(workspaceId, formData)
     }
     closeModal()
   }

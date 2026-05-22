@@ -5,7 +5,7 @@ import { acceptInvitation as apiAcceptInvitation } from "@/api/invitations"
 
 export const useInvitationsStore = defineStore("invitations", () => {
   // State
-  const orgInvitations = ref([])
+  const workspaceInvitations = ref([])
   const myInvitations = ref([])
   const loading = ref(false)
 
@@ -17,17 +17,6 @@ export const useInvitationsStore = defineStore("invitations", () => {
   const pendingCount = computed(() => {
     return myInvitations.value.filter((i) => i.status === "pending").length
   })
-
-  /**
-   * Fetch all invitations for a workspace (admin view).
-   * Not yet supported by the backend — clears the list.
-   * @param {string} workspaceId - Workspace UUID
-   * @returns {Promise<void>}
-   */
-  async function fetchOrgInvitations(workspaceId) {
-    void workspaceId
-    orgInvitations.value = []
-  }
 
   /**
    * Fetch all pending invitations for the currently authenticated user.
@@ -48,25 +37,8 @@ export const useInvitationsStore = defineStore("invitations", () => {
    * @param {string} data.role_id - Role UUID to assign to the invited user
    * @returns {Promise<void>}
    */
-  async function inviteToOrg(workspaceId, data) {
+  async function inviteToWorkspace(workspaceId, data) {
     void workspaceId
-    void data
-  }
-
-  /**
-   * Invite a user to a project within a workspace.
-   * Project-level invites are not supported in the current workspace model.
-   * This stub exists for composable compatibility only.
-   * @param {string} workspaceId - Workspace UUID
-   * @param {string} projectId - Project UUID
-   * @param {Object} data - Invitation data
-   * @param {string} data.email - Email address of the invitee
-   * @param {string} data.role_id - Role UUID to assign to the invited user
-   * @returns {Promise<void>}
-   */
-  async function inviteToProject(workspaceId, projectId, data) {
-    void workspaceId
-    void projectId
     void data
   }
 
@@ -91,33 +63,11 @@ export const useInvitationsStore = defineStore("invitations", () => {
   }
 
   /**
-   * Decline a pending invitation.
-   * Not yet supported by the backend — no-op stub.
-   * @param {string} invitationId - Invitation UUID to decline
-   * @returns {Promise<void>}
-   */
-  async function declineInvitation(invitationId) {
-    void invitationId
-  }
-
-  /**
-   * Revoke an invitation from a workspace (admin action).
-   * Not yet supported by the backend — no-op stub.
-   * @param {string} workspaceId - Workspace UUID
-   * @param {string} invitationId - Invitation UUID to revoke
-   * @returns {Promise<void>}
-   */
-  async function revokeInvitation(workspaceId, invitationId) {
-    void workspaceId
-    void invitationId
-  }
-
-  /**
    * Clear organization invitations state.
    * Used when navigating away from a workspace context to avoid stale data.
    */
   function clearOrgInvitations() {
-    orgInvitations.value = []
+    workspaceInvitations.value = []
   }
 
   /**
@@ -130,19 +80,15 @@ export const useInvitationsStore = defineStore("invitations", () => {
 
   return {
     // State
-    orgInvitations,
+    workspaceInvitations,
     myInvitations,
     loading,
     // Getters
     pendingCount,
     // Actions
-    fetchOrgInvitations,
     fetchMyInvitations,
-    inviteToOrg,
-    inviteToProject,
+    inviteToWorkspace,
     acceptInvitation,
-    declineInvitation,
-    revokeInvitation,
     clearOrgInvitations,
     clearMyInvitations,
   }

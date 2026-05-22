@@ -37,6 +37,8 @@ export const useDatasetsStore = defineStore("datasets", () => {
 
   async function deleteDataset(workspaceId, id) {
     await datasetsApi.deleteDataset(workspaceId, id)
+    datasets.value = datasets.value.filter((d) => d.id !== id)
+    if (currentDataset.value?.id === id) currentDataset.value = null
   }
 
   return {

@@ -11,6 +11,7 @@ import {
 export const useWorkspacesStore = defineStore("workspaces", () => {
   const workspaces = ref([])
   const currentWorkspace = ref(null)
+  const currentPermissions = ref([])
   const loading = ref(false)
 
   /**
@@ -38,9 +39,12 @@ export const useWorkspacesStore = defineStore("workspaces", () => {
     loading.value = true
     try {
       const res = await apiGetWorkspace(workspaceId)
-      currentWorkspace.value = res.data.data
+      const data = res.data.data
+      currentWorkspace.value = data
+      currentPermissions.value = data.permissions ?? []
     } catch {
       currentWorkspace.value = null
+      currentPermissions.value = []
     } finally {
       loading.value = false
     }
@@ -78,12 +82,16 @@ export const useWorkspacesStore = defineStore("workspaces", () => {
   async function deleteWorkspace(workspaceId) {
     await apiDeleteWorkspace(workspaceId)
     await fetchWorkspaces()
-    if (currentWorkspace.value?.id === workspaceId) currentWorkspace.value = null
+    if (currentWorkspace.value?.id === workspaceId) {
+      currentWorkspace.value = null
+      currentPermissions.value = []
+    }
   }
 
   return {
     workspaces,
     currentWorkspace,
+    currentPermissions,
     loading,
     fetchWorkspaces,
     fetchWorkspaceById,
