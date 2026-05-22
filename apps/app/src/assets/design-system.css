@@ -74,16 +74,13 @@ body {
   /* ── Legacy aliases: map old token names → new values ──
      Keeps unrebuilt components working during rollout.
      Remove these once every component is migrated.         */
-  --color-accent: var(--brand);
   --color-accent-hover: var(--brand-2);
   --color-accent-light: var(--brand-tint);
   --color-accent-border: rgba(255, 107, 53, 0.25);
   --color-accent-text: var(--brand);
   --color-bg: var(--bg);
   --color-surface: var(--surface);
-  --color-border: var(--line-2);
   --color-border-light: var(--line);
-  --color-text-primary: var(--ink);
   --color-text-secondary: var(--ink-3);
   --color-text-muted: var(--ink-4);
   --color-success: var(--ok);

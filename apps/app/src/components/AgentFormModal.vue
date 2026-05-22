@@ -124,12 +124,12 @@ function onFinish() {
 :deep(.ant-modal-header) {
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   padding: 20px 24px 16px;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--line);
 }
 :deep(.ant-modal-title) {
   font-size: var(--text-md);
   font-weight: 700;
-  color: var(--color-text-primary);
+  color: var(--ink);
 }
 :deep(.ant-modal-body) {
   padding: 20px 24px 24px;
@@ -144,19 +144,19 @@ function onFinish() {
 :deep(.ant-select-selector),
 :deep(.ant-input-number) {
   background: var(--color-bg) !important;
-  border-color: var(--color-border) !important;
+  border-color: var(--line) !important;
   border-radius: var(--radius-sm) !important;
   font-size: var(--text-base) !important;
 }
 :deep(.ant-input:focus),
 :deep(.ant-input-focused),
 :deep(.ant-select-focused .ant-select-selector) {
-  border-color: var(--color-accent) !important;
+  border-color: var(--brand) !important;
   box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.1) !important;
 }
 :deep(.ant-btn-primary) {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
+  background: var(--brand);
+  border-color: var(--brand);
   border-radius: var(--radius-sm);
   height: 40px;
   font-weight: 600;
