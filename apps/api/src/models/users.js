@@ -73,3 +73,31 @@ export const incrementFailedAttempts = (userId) =>
     .where({ id: userId })
     .update({ failed_login_attempts: db.raw("failed_login_attempts + 1") })
     .returning("failed_login_attempts")
+
+/**
+ * Locks a user account until the given timestamp.
+ * Resets failed_login_attempts to 0 at the same time.
+ *
+ * @param {string} userId - UUID of the user.
+ * @param {Date} lockedUntil - Timestamp until which the account is locked.
+ * @returns {Promise<number>} Number of affected rows.
+ */
+export const lockAccount = (userId, lockedUntil) =>
+  db(TABLE)
+    .where({ id: userId })
+    .update({ failed_login_attempts: 0, locked_until: lockedUntil, updated_at: new Date() })
+
+/**
+ * Resets login failure state after a successful signin.
+ * Clears failed_login_attempts and locked_until, sets last_login_at to now.
+ *
+ * @param {string} userId - UUID of the user.
+ * @returns {Promise<number>} Number of affected rows.
+ */
+export const resetLoginState = (userId) =>
+  db(TABLE).where({ id: userId }).update({
+    failed_login_attempts: 0,
+    locked_until: null,
+    last_login_at: new Date(),
+    updated_at: new Date(),
+  })

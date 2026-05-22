@@ -10,8 +10,6 @@ import * as userModel from "../models/users.js"
 import * as refreshTokenModel from "../models/refresh-tokens.js"
 import * as emailTokenModel from "../models/email-tokens.js"
 import * as emailService from "../services/email.js"
-import db from "../config/database.js"
-
 const MAX_FAILED_ATTEMPTS = 5
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000
 
@@ -276,12 +274,7 @@ export const signin = async (req, res, next) => {
       if (user) {
         const [updated] = await userModel.incrementFailedAttempts(user.id)
         if (updated.failed_login_attempts >= MAX_FAILED_ATTEMPTS) {
-          await db("users")
-            .where({ id: user.id })
-            .update({
-              failed_login_attempts: 0,
-              locked_until: new Date(Date.now() + LOCKOUT_DURATION_MS),
-            })
+          await userModel.lockAccount(user.id, new Date(Date.now() + LOCKOUT_DURATION_MS))
         }
       }
       throw new HttpError(HTTP_STATUS_CODE.UNAUTHORIZED, "Invalid credentials")
@@ -292,12 +285,7 @@ export const signin = async (req, res, next) => {
     }
 
     // Successful login — reset lockout fields
-    await db("users").where({ id: user.id }).update({
-      failed_login_attempts: 0,
-      locked_until: null,
-      last_login_at: new Date(),
-      updated_at: new Date(),
-    })
+    await userModel.resetLoginState(user.id)
 
     await issueTokenPair(res, user.id)
 
