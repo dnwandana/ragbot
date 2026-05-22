@@ -5,6 +5,27 @@ import logger from "../utils/logger.js"
 import * as refreshTokenModel from "../models/refresh-tokens.js"
 
 /**
+ * Translates JWT verification errors into appropriate HTTP responses.
+ * Called from the catch blocks of requireAccessToken and requireRefreshToken.
+ *
+ * @param {Error} error - The caught error.
+ * @param {Object} req - Express request object (for log context).
+ * @param {Function} next - Express next middleware function.
+ * @param {string} logPrefix - Prefix for warning log messages.
+ */
+const handleJwtError = (error, req, next, logPrefix) => {
+  if (error.name === "JsonWebTokenError") {
+    logger.warn(`${logPrefix}: Invalid token`, { method: req.method, url: req.url, ip: req.ip })
+    return next(new HttpError(HTTP_STATUS_CODE.UNAUTHORIZED, "Invalid token"))
+  }
+  if (error.name === "TokenExpiredError") {
+    logger.warn(`${logPrefix}: Token expired`, { method: req.method, url: req.url, ip: req.ip })
+    return next(new HttpError(HTTP_STATUS_CODE.UNAUTHORIZED, "Token expired"))
+  }
+  return next(error)
+}
+
+/**
  * Express middleware to require a valid access token for protected routes.
  *
  * Validates the access token from httpOnly cookie and sets the user in the request object.
@@ -46,30 +67,7 @@ export const requireAccessToken = (req, res, next) => {
 
     next()
   } catch (error) {
-    if (error.name === "JsonWebTokenError") {
-      logger.warn("Authentication failed: Invalid token", {
-        method: req.method,
-        url: req.url,
-        ip: req.ip,
-      })
-      return next(new HttpError(HTTP_STATUS_CODE.UNAUTHORIZED, "Invalid token"))
-    }
-    if (error.name === "TokenExpiredError") {
-      logger.warn("Authentication failed: Token expired", {
-        method: req.method,
-        url: req.url,
-        ip: req.ip,
-      })
-      return next(new HttpError(HTTP_STATUS_CODE.UNAUTHORIZED, "Token expired"))
-    }
-    logger.error("Authentication error", {
-      error: error.message,
-      stack: error.stack,
-      method: req.method,
-      url: req.url,
-      ip: req.ip,
-    })
-    return next(error)
+    return handleJwtError(error, req, next, "Authentication failed")
   }
 }
 
@@ -123,29 +121,6 @@ export const requireRefreshToken = async (req, res, next) => {
 
     next()
   } catch (error) {
-    if (error.name === "JsonWebTokenError") {
-      logger.warn("Refresh token authentication failed: Invalid token", {
-        method: req.method,
-        url: req.url,
-        ip: req.ip,
-      })
-      return next(new HttpError(HTTP_STATUS_CODE.UNAUTHORIZED, "Invalid token"))
-    }
-    if (error.name === "TokenExpiredError") {
-      logger.warn("Refresh token authentication failed: Token expired", {
-        method: req.method,
-        url: req.url,
-        ip: req.ip,
-      })
-      return next(new HttpError(HTTP_STATUS_CODE.UNAUTHORIZED, "Token expired"))
-    }
-    logger.error("Refresh token authentication error", {
-      error: error.message,
-      stack: error.stack,
-      method: req.method,
-      url: req.url,
-      ip: req.ip,
-    })
-    return next(error)
+    return handleJwtError(error, req, next, "Refresh token authentication failed")
   }
 }

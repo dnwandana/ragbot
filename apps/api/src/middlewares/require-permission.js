@@ -5,7 +5,7 @@ import { HTTP_STATUS_CODE } from "../utils/constant.js"
  * Higher-order middleware factory that checks whether the authenticated user
  * has a specific permission.
  *
- * Must be used after resolveOrg (and optionally resolveProject), which populate
+ * Must be used after resolveWorkspace, which populates
  * `req.permissions` with the user's permission name strings.
  *
  * @param {string} permission - The permission name to check (e.g., "todos:create")

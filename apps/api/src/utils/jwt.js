@@ -1,5 +1,5 @@
-import jwt from "jsonwebtoken"
 import crypto from "node:crypto"
+import jwt from "jsonwebtoken"
 
 /**
  * Generates a signed JSON Web Token for a given user.

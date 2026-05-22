@@ -25,11 +25,7 @@ const requestLogger = (req, res, next) => {
     userAgent: req.get("user-agent"),
   })
 
-  // Capture the original end function
-  const originalEnd = res.end
-
-  // Override res.end to log response details
-  res.end = function (...args) {
+  res.on("finish", () => {
     const duration = Date.now() - startTime
 
     logger.http("Outgoing response", {
@@ -39,10 +35,7 @@ const requestLogger = (req, res, next) => {
       status: res.statusCode,
       duration: `${duration}ms`,
     })
-
-    // Call the original end function
-    originalEnd.apply(this, args)
-  }
+  })
 
   next()
 }
