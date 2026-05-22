@@ -1,5 +1,6 @@
 import { message } from "ant-design-vue"
 import { clearUserData } from "./storage"
+import router from "@/router"
 
 // ---------------------------------------------------------------------------
 // Config
@@ -84,7 +85,7 @@ async function handleRefresh(originalOptions) {
   } catch (error) {
     processQueue(error)
     clearUserData()
-    window.location.href = "/login"
+    router.push("/login")
     throw error
   } finally {
     isRefreshing = false
@@ -195,6 +196,10 @@ export const request = {
 
   put(url, body) {
     return send("PUT", url, { body })
+  },
+
+  patch(url, body) {
+    return send("PATCH", url, { body })
   },
 
   del(url, params) {

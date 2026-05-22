@@ -8,7 +8,12 @@ const USER_DATA_KEY = "user_data"
 // User data management
 export function getUserData() {
   const data = localStorage.getItem(USER_DATA_KEY)
-  return data ? JSON.parse(data) : null
+  if (!data) return null
+  try {
+    return JSON.parse(data)
+  } catch {
+    return null
+  }
 }
 
 export function setUserData(user) {
