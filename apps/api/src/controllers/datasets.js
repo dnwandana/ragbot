@@ -180,9 +180,11 @@ export const deleteDataset = async (req, res, next) => {
     })
     if (!dataset) throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "Dataset not found")
 
-    await chunkModel.deleteByDatasetId(dataset.id)
-    await datasetFileModel.softDeleteByDataset(dataset.id)
-    await datasetModel.softDelete(dataset.id)
+    await db.transaction(async (trx) => {
+      await chunkModel.deleteByDatasetId(dataset.id, trx)
+      await datasetFileModel.softDeleteByDataset(dataset.id, trx)
+      await datasetModel.softDelete(dataset.id, trx)
+    })
 
     await logAuditEvent({
       workspace_id: req.workspace.id,

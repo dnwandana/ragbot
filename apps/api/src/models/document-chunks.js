@@ -47,9 +47,15 @@ export const countByDatasetFileId = (datasetFileId) =>
  * Uses a subquery to avoid loading file IDs into memory.
  *
  * @param {string} datasetId - UUID of the parent dataset
+ * @param {import('knex').Knex.Transaction} [trx] - Optional Knex transaction
  * @returns {Promise<number>} Number of rows deleted
  */
-export const deleteByDatasetId = (datasetId) =>
-  db("document_chunks")
-    .whereIn("dataset_file_id", db("dataset_files").select("id").where({ dataset_id: datasetId }))
+export const deleteByDatasetId = (datasetId, trx) => {
+  const qb = trx ?? db
+  return qb("document_chunks")
+    .whereIn(
+      "dataset_file_id",
+      (trx ?? db)("dataset_files").select("id").where({ dataset_id: datasetId }),
+    )
     .delete()
+}

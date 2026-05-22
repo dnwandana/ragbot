@@ -84,10 +84,13 @@ export const update = (conditions, data) =>
   db.update(data).table(TABLE).where(conditions).whereNull("deleted_at").returning(COLUMNS)
 
 /**
- * Soft-delete a dataset by setting deleted_at to the current timestamp.
+ * Soft-delete a dataset by setting deleted_at.
  *
- * @param {string} id - UUID of the dataset to delete
+ * @param {string} id - Dataset UUID
+ * @param {import('knex').Knex.Transaction} [trx] - Optional Knex transaction
  * @returns {Promise<number>} Number of rows affected
  */
-export const softDelete = (id) =>
-  db(TABLE).where({ id }).whereNull("deleted_at").update({ deleted_at: new Date() })
+export const softDelete = (id, trx) => {
+  const qb = trx ?? db
+  return qb(TABLE).where({ id }).whereNull("deleted_at").update({ deleted_at: new Date() })
+}

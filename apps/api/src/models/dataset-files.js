@@ -109,10 +109,13 @@ export const softDelete = (id) =>
  * Soft-delete all active dataset files for a dataset by setting deleted_at.
  *
  * @param {string} datasetId - UUID of the parent dataset
+ * @param {import('knex').Knex.Transaction} [trx] - Optional Knex transaction
  * @returns {Promise<number>} Number of rows affected
  */
-export const softDeleteByDataset = (datasetId) =>
-  db(TABLE)
+export const softDeleteByDataset = (datasetId, trx) => {
+  const qb = trx ?? db
+  return qb(TABLE)
     .where({ dataset_id: datasetId })
     .whereNull("deleted_at")
     .update({ deleted_at: new Date() })
+}
