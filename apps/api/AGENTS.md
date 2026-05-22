@@ -197,7 +197,7 @@ The chat feature uses a server-side ReAct (Reason-Act-Observe) loop with dual-mo
 | POST   | `/api/workspaces/:workspace_id/conversations`                           | `conversations.createConversation`       | `conversation:create` |
 | GET    | `/api/workspaces/:workspace_id/conversations`                           | `conversations.listConversations`        | `conversation:read`   |
 | GET    | `/api/workspaces/:workspace_id/conversations/:conversation_id`          | `conversations.getConversation`          | `conversation:read`   |
-| PATCH  | `/api/workspaces/:workspace_id/conversations/:conversation_id`          | `conversations.updateConversation`       | `conversation:update` |
+| PUT    | `/api/workspaces/:workspace_id/conversations/:conversation_id`          | `conversations.updateConversation`       | `conversation:update` |
 | DELETE | `/api/workspaces/:workspace_id/conversations/:conversation_id`          | `conversations.deleteConversation`       | `conversation:delete` |
 | POST   | `/api/workspaces/:workspace_id/datasets/:dataset_id/conversations`      | `datasets.createConversationFromDataset` | `conversation:create` |
 | POST   | `/api/workspaces/:workspace_id/conversations/:conversation_id/messages` | `chat.sendMessage`                       | `conversation:chat`   |
@@ -228,6 +228,7 @@ The chat feature uses a server-side ReAct (Reason-Act-Observe) loop with dual-mo
 | `conversations.js`  | `createConversation`, `listConversations`, `getConversation`, `updateConversation`, `deleteConversation`                            |
 | `datasets.js`       | `createDataset`, `listDatasets`, `getDataset`, `updateDataset`, `deleteDataset`, `createConversationFromDataset`                    |
 | `chat.js`           | `sendMessage`                                                                                                                       |
+| `members.js`        | `listMembers`, `getMember`, `inviteMember`, `changeRole`, `removeMember`, `acceptInvitation`, `previewInvitation`                   |
 
 ## Middleware Catalog
 
@@ -319,8 +320,8 @@ Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_E
   - `cleanAllTables()` — truncates all 15 tables in dependency order
   - `seedPermissions()` — seeds 30 RAG permissions
 - **Current test status**:
-  - Passing (121): health (5), http-error (3), pagination (9), request-id (4), sanitize (6), redis (5), auth (10), workspaces (32), webhooks (5), datasets (14), agents (12), conversations (9), chat (7)
-  - Skipped (6): permissions tests (imports need rewriting)
+  - Passing (138): health (5), http-error (3), pagination (9), request-id (4), sanitize (6), redis (5), auth (10), workspaces (32), webhooks (5), datasets (14), agents (12), conversations (9), chat (7), permissions (13)
+  - Skipped (0)
   - No Redis required for local test runs (queue module mocked via `tests/setup.js`)
 
 ## Adding a New Resource

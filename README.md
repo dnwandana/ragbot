@@ -180,7 +180,7 @@ Append `:api` or `:app` to target a single workspace (e.g. `pnpm test:api`).
 | POST   | `/api/workspaces`                                 | Create workspace                |
 | GET    | `/api/workspaces`                                 | List user's workspaces          |
 | GET    | `/api/workspaces/:id`                             | Get workspace detail            |
-| PATCH  | `/api/workspaces/:id`                             | Update workspace                |
+| PUT    | `/api/workspaces/:id`                             | Update workspace                |
 | DELETE | `/api/workspaces/:id`                             | Delete workspace                |
 | POST   | `/api/workspaces/:id/roles`                       | Create role                     |
 | GET    | `/api/workspaces/:id/roles`                       | List roles                      |
@@ -235,7 +235,7 @@ cp apps/api/.env.example apps/api/.env.test
 # Update PORT (e.g. 3001), LOG_LEVEL=error, LOG_TO_FILE=false
 ```
 
-The test suite uses real PostgreSQL (no mocks). Vitest runs migrations once before the session, and `cleanAllTables()` truncates between tests. Auth tests mock the Brevo email service; queue tests mock BullMQ so no Redis is required locally. Currently passing: 119 tests (health, auth, workspaces, webhooks, datasets, agents, conversations, chat, http-error, pagination, request-id, sanitize, redis), 6 skipped (permissions — need rewriting).
+The test suite uses real PostgreSQL (no mocks). Vitest runs migrations once before the session, and `cleanAllTables()` truncates between tests. Auth tests mock the Brevo email service; queue tests mock BullMQ so no Redis is required locally. Currently passing: 138 tests (health, auth, workspaces, webhooks, datasets, agents, conversations, chat, http-error, pagination, request-id, sanitize, redis, permissions), 0 skipped.
 
 ## Deployment
 

@@ -86,14 +86,12 @@ Custom fetch-based client (NOT Axios). Key behaviors:
 | Store                   | File                      | State                                                                                    | Key Actions                                                                                                           | Status                               |
 | ----------------------- | ------------------------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
 | `useAuthStore`          | `stores/auth.js`          | `user`, `loading`                                                                        | `initAuth`, `signup`, `signin`, `logout`                                                                              | Working                              |
-| `useRolesStore`         | `stores/roles.js`         | `roles`, `currentRole`, `allPermissions`, `userPermissions`, `loading`                   | `fetchRoles`, `fetchRoleById`, `createRole`, `updateRole`, `deleteRole`, `fetchAllPermissions`, `loadUserPermissions` | Working (references org API paths)   |
-| `useMembersStore`       | `stores/members.js`       | `orgMembers`, `projectMembers`, `loading`                                                | `fetchOrgMembers`, `fetchProjectMembers`, role update/remove                                                          | Working (references org/project API) |
-| `useInvitationsStore`   | `stores/invitations.js`   | `orgInvitations`, `myInvitations`, `loading`                                             | `fetchOrgInvitations`, `fetchMyInvitations`, invite/accept/decline/revoke                                             | Working                              |
+| `useRolesStore`         | `stores/roles.js`         | `roles`, `currentRole`, `allPermissions`, `loading`                                      | `fetchRoles`, `fetchRoleById`, `createRole`, `updateRole`, `deleteRole`, `fetchAllPermissions`                        | Working                              |
+| `useMembersStore`       | `stores/members.js`       | `members`, `loading`                                                                     | `fetchMembers`, role update/remove                                                                                    | Working                              |
+| `useInvitationsStore`   | `stores/invitations.js`   | `myInvitations`, `loading`                                                               | `fetchMyInvitations`, `inviteToWorkspace`, `acceptInvitation`                                                         | Working                              |
 | `useAgentsStore`        | `stores/agents.js`        | `agents`, `loading`                                                                      | `fetchAgents`, `createAgent`, `updateAgent`, `deleteAgent`                                                            | Working                              |
 | `useConversationsStore` | `stores/conversations.js` | `conversations`, `currentConversation`, `pagination`, `loading`                          | `fetchConversations`, `fetchConversation`, `createConversation`, `updateConversation`, `deleteConversation`           | Working                              |
 | `useChatStore`          | `stores/chat.js`          | `isStreaming`, `currentContent`, `thoughts`, `observations`, `pendingCitations`, `error` | `reset`                                                                                                               | Working                              |
-
-**Note**: Roles, members, and invitations stores still reference org/project API paths. They need to be updated to workspace API paths when F3 (workspaces + RBAC) is implemented.
 
 ## Composable Catalog
 
@@ -101,9 +99,9 @@ Custom fetch-based client (NOT Axios). Key behaviors:
 | ------------------ | --------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | `useAuth`          | `composables/useAuth.js`          | `formState`, `error`, `loading`, `isAuthenticated`, `currentUser`, validation rules, action handlers                |
 | `useRoles`         | `composables/useRoles.js`         | `roles`, `currentRole`, `allPermissions`, `loading`, modal state, CRUD wrappers                                     |
-| `useMembers`       | `composables/useMembers.js`       | `orgMembers`, `projectMembers`, `loading`, role-change modal state, fetch/change/remove handlers                    |
-| `useInvitations`   | `composables/useInvitations.js`   | `orgInvitations`, `myInvitations`, `loading`, `pendingCount`, invite modal state, invite/accept/decline             |
-| `usePermissions`   | `composables/usePermissions.js`   | `userPermissions`, `can(permission)`, `canAny(permissions[])`, `loadPermissions(orgId, userId)`, `clearPermissions` |
+| `useMembers`       | `composables/useMembers.js`       | `members`, `loading`, role-change modal state, fetch/change/remove handlers                                         |
+| `useInvitations`   | `composables/useInvitations.js`   | `myInvitations`, `loading`, `pendingCount`, invite modal state, invite/accept/decline                               |
+| `usePermissions`   | `composables/usePermissions.js`   | `can(permission)`, `canAny(permissions[])` — reads `currentPermissions` from `useWorkspacesStore` |
 | `useAgents`        | `composables/useAgents.js`        | `agents`, `loading`, modal state, CRUD wrappers                                                                     |
 | `useConversations` | `composables/useConversations.js` | `conversations`, `pagination`, `loading`, modal state, create/delete handlers                                       |
 | `useChat`          | `composables/useChat.js`          | `sendMessage`, `abort`. Probes `GET /auth/me` through the HTTP client before opening the raw-fetch SSE stream so a stale access token is refreshed first |
@@ -127,8 +125,9 @@ Custom fetch-based client (NOT Axios). Key behaviors:
 | auth          | `api/auth.js`          | `signup`, `verifyEmail`, `resendVerification`, `signin`, `forgotPassword`, `resetPassword`, `getMe`, `logout` |
 | roles         | `api/roles.js`         | `getRoles`, `getRole`, `createRole`, `updateRole`, `deleteRole`                                               |
 | permissions   | `api/permissions.js`   | `getPermissions`                                                                                              |
-| invitations   | `api/invitations.js`   | `inviteToOrg`, `inviteToProject`, list/accept/decline/revoke                                                  |
+| invitations   | `api/invitations.js`   | `acceptInvitation`                                                                                            |
 | agents        | `api/agents.js`        | `listAgents`, `getAgent`, `createAgent`, `updateAgent`, `deleteAgent`                                         |
+| datasetFiles  | `api/datasetFiles.js`  | `listFiles`, `uploadFile`, `scrapeUrl`, `deleteFile`, `reprocessFile`                                         |
 | conversations | `api/conversations.js` | `listConversations`, `getConversation`, `createConversation`, `updateConversation`, `deleteConversation`      |
 | chat          | `api/chat.js`          | `sendMessage`                                                                                                 |
 
@@ -138,6 +137,7 @@ Custom fetch-based client (NOT Axios). Key behaviors:
 | ------------------ | ---------------------------------------------------------------------------------------------- |
 | `utils/http.js`    | `baseURL` (const), `HttpError` (class), `request` object (`send`, `get`, `post`, `put`, `del`) |
 | `utils/storage.js` | `getUserData`, `setUserData`, `clearUserData`                                                  |
+| `utils/time.js`    | `relativeTime(dateStr)` — formats a date string as relative time ("Just now", "Xm ago", etc.) |
 
 ## Environment Configuration
 

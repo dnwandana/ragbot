@@ -206,7 +206,7 @@ Authentication uses **httpOnly cookies** set by the server. Tokens are never exp
 | POST   | `/api/workspaces`     | Create workspace       | Access Token | —                |
 | GET    | `/api/workspaces`     | List user's workspaces | Access Token | —                |
 | GET    | `/api/workspaces/:id` | Get workspace          | Access Token | workspace:read   |
-| PATCH  | `/api/workspaces/:id` | Update workspace       | Access Token | workspace:update |
+| PUT    | `/api/workspaces/:id` | Update workspace       | Access Token | workspace:update |
 | DELETE | `/api/workspaces/:id` | Delete workspace       | Access Token | workspace:delete |
 
 ### Roles
@@ -216,7 +216,7 @@ Authentication uses **httpOnly cookies** set by the server. Tokens are never exp
 | POST   | `/api/workspaces/:id/roles`      | Create role | role:create |
 | GET    | `/api/workspaces/:id/roles`      | List roles  | role:read   |
 | GET    | `/api/workspaces/:id/roles/:rid` | Get role    | role:read   |
-| PATCH  | `/api/workspaces/:id/roles/:rid` | Update role | role:update |
+| PUT    | `/api/workspaces/:id/roles/:rid` | Update role | role:update |
 | DELETE | `/api/workspaces/:id/roles/:rid` | Delete role | role:delete |
 
 ### Members
@@ -235,7 +235,7 @@ Authentication uses **httpOnly cookies** set by the server. Tokens are never exp
 | POST   | `/api/workspaces/:id/datasets`      | Create dataset | dataset:create |
 | GET    | `/api/workspaces/:id/datasets`      | List datasets  | dataset:read   |
 | GET    | `/api/workspaces/:id/datasets/:did` | Get dataset    | dataset:read   |
-| PATCH  | `/api/workspaces/:id/datasets/:did` | Update dataset | dataset:update |
+| PUT    | `/api/workspaces/:id/datasets/:did` | Update dataset | dataset:update |
 | DELETE | `/api/workspaces/:id/datasets/:did` | Delete dataset | dataset:delete |
 
 ### Dataset Files
@@ -245,7 +245,7 @@ Authentication uses **httpOnly cookies** set by the server. Tokens are never exp
 | POST   | `/api/workspaces/:id/datasets/:did/files/upload`         | Upload file    | file:upload    |
 | POST   | `/api/workspaces/:id/datasets/:did/files/scrape`         | Scrape URL     | file:upload    |
 | GET    | `/api/workspaces/:id/datasets/:did/files`                | List files     | file:read      |
-| PATCH  | `/api/workspaces/:id/datasets/:did/files/:fid`           | Update file    | file:update    |
+| PUT    | `/api/workspaces/:id/datasets/:did/files/:fid`           | Update file    | file:update    |
 | DELETE | `/api/workspaces/:id/datasets/:did/files/:fid`           | Delete file    | file:delete    |
 | POST   | `/api/workspaces/:id/datasets/:did/files/:fid/reprocess` | Reprocess file | file:reprocess |
 
@@ -256,7 +256,7 @@ Authentication uses **httpOnly cookies** set by the server. Tokens are never exp
 | POST   | `/api/workspaces/:id/agents`      | Create agent | agent:create |
 | GET    | `/api/workspaces/:id/agents`      | List agents  | agent:read   |
 | GET    | `/api/workspaces/:id/agents/:aid` | Get agent    | agent:read   |
-| PATCH  | `/api/workspaces/:id/agents/:aid` | Update agent | agent:update |
+| PUT    | `/api/workspaces/:id/agents/:aid` | Update agent | agent:update |
 | DELETE | `/api/workspaces/:id/agents/:aid` | Delete agent | agent:delete |
 
 ### Conversations
@@ -266,7 +266,7 @@ Authentication uses **httpOnly cookies** set by the server. Tokens are never exp
 | POST   | `/api/workspaces/:id/conversations`      | Create conversation | conversation:create |
 | GET    | `/api/workspaces/:id/conversations`      | List conversations  | conversation:read   |
 | GET    | `/api/workspaces/:id/conversations/:cid` | Get conversation    | conversation:read   |
-| PATCH  | `/api/workspaces/:id/conversations/:cid` | Update conversation | conversation:update |
+| PUT    | `/api/workspaces/:id/conversations/:cid` | Update conversation | conversation:update |
 | DELETE | `/api/workspaces/:id/conversations/:cid` | Delete conversation | conversation:delete |
 
 ### Chat (SSE)

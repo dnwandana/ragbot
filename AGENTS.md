@@ -73,8 +73,8 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 
 ### Tests
 
-**Passing (121 tests):** health (5), auth (10), workspaces (32), webhooks (5), agents (12), conversations (9), datasets (14), chat (7), redis (5), http-error (3), pagination (9), request-id (4), sanitize (6)
-**Skipped (6):** permissions.test.js (imports need rewriting)
+**Passing (138 tests):** health (5), auth (10), workspaces (32), webhooks (5), agents (12), conversations (9), datasets (14), chat (7), redis (5), http-error (3), pagination (9), request-id (4), sanitize (6), permissions (13)
+**Skipped (0)**
 **No Redis required locally:** queue module mocked via `tests/setup.js`
 
 ### Database schema

@@ -112,9 +112,10 @@ src/
 │   ├── MembersTable.vue
 │   └── RoleFormModal.vue
 ├── router/        # Vue Router configuration with auth guards
-└── utils/         # Utilities (fetch-based HTTP client, localStorage)
+└── utils/         # Utilities (fetch-based HTTP client, localStorage, time helpers)
     ├── http.js
-    └── storage.js
+    ├── storage.js
+    └── time.js
 ```
 
 ### Layer Architecture
@@ -127,6 +128,8 @@ src/
 ### Chat with SSE Streaming
 
 The chat feature uses Server-Sent Events (SSE) for real-time streaming of AI responses. The native `fetch` API is used directly (rather than the project HTTP client) because the custom fetch wrapper does not expose the `ReadableStream` body needed to consume SSE frames.
+
+The SSE endpoint URL is built using the `baseURL` constant exported from `utils/http.js`, ensuring the correct API host from `VITE_API_BASE_URL` is always used rather than a hardcoded path.
 
 **Flow**: User sends message -> native fetch POST with `Accept: text/event-stream` -> server runs ReAct loop (embed -> search -> stream) -> client parses `token`/`thought`/`observation`/`citation`/`done` events -> reloads conversation from server on completion.
 
