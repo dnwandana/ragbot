@@ -228,7 +228,9 @@ export const getWorkspaces = async (req, res, next) => {
  */
 export const getWorkspace = async (req, res, next) => {
   try {
-    return res.json(apiResponse({ message: "OK", data: req.workspace }))
+    return res.json(
+      apiResponse({ message: "OK", data: { ...req.workspace, permissions: req.permissions } }),
+    )
   } catch (error) {
     return next(error)
   }

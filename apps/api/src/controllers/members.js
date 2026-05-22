@@ -371,3 +371,50 @@ export const acceptInvitation = async (req, res, next) => {
     return next(error)
   }
 }
+
+/**
+ * GET /invitations/:token — Return preview data for a compound invitation token.
+ *
+ * Allows unauthenticated callers to see which workspace they are joining before
+ * accepting. Token format: `memberId:rawToken` (colon-separated).
+ *
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next middleware function
+ * @returns {Promise<void>}
+ */
+export const previewInvitation = async (req, res, next) => {
+  try {
+    const colonIdx = req.params.token.indexOf(":")
+    if (colonIdx === -1) throw new HttpError(HTTP_STATUS_CODE.BAD_REQUEST, "Invalid token format")
+    const memberId = req.params.token.slice(0, colonIdx)
+    const rawPart = req.params.token.slice(colonIdx + 1)
+
+    const tokenHash = emailTokenModel.hashToken(rawPart)
+    const record = await emailTokenModel.findActiveByHash(tokenHash, "workspace_invitation")
+    if (!record) throw new HttpError(HTTP_STATUS_CODE.BAD_REQUEST, "Invalid or expired invitation")
+
+    const row = await db("workspace_members as wm")
+      .select("w.name as workspace_name", "r.name as role_name", "u.full_name as inviter_name")
+      .join("workspaces as w", "w.id", "wm.workspace_id")
+      .join("roles as r", "r.id", "wm.role_id")
+      .leftJoin("users as u", "u.id", "wm.invited_by")
+      .where({ "wm.id": memberId, "wm.status": "invited" })
+      .first()
+
+    if (!row) throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "Invitation not found")
+
+    return res.json(
+      apiResponse({
+        message: "OK",
+        data: {
+          workspace_name: row.workspace_name,
+          role: { name: row.role_name },
+          invited_by: row.inviter_name ?? "A team member",
+        },
+      }),
+    )
+  } catch (error) {
+    return next(error)
+  }
+}
