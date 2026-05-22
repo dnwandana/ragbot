@@ -243,6 +243,16 @@ export const updateFile = async (req, res, next) => {
     if (!file) throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "File not found")
 
     const [updated] = await datasetFileModel.update(file.id, { ...value, updated_at: new Date() })
+
+    await logAuditEvent({
+      workspace_id: req.workspace.id,
+      user_id: req.user.id,
+      entity_type: "dataset_file",
+      entity_id: file.id,
+      action: "updated",
+      context: { request_id: req.id },
+    })
+
     return res.json(apiResponse({ message: "OK", data: updated }))
   } catch (error) {
     return next(error)
