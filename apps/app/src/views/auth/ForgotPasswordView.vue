@@ -6,12 +6,16 @@ import { forgotPassword } from "@/api/auth"
 const email = ref("")
 const loading = ref(false)
 const sent = ref(false)
+const error = ref("")
 
 async function handleSubmit() {
   loading.value = true
+  error.value = ""
   try {
     await forgotPassword(email.value)
     sent.value = true
+  } catch (e) {
+    error.value = e.message || "Failed to send reset link."
   } finally {
     loading.value = false
   }
@@ -42,6 +46,8 @@ async function handleSubmit() {
             <template #label><span class="field-label">Work email</span></template>
             <a-input v-model:value="email" type="email" placeholder="you@company.com" />
           </a-form-item>
+
+          <div v-if="error" class="form-error">{{ error }}</div>
 
           <button type="submit" class="btn-brand" :disabled="loading">
             {{ loading ? "Sending…" : "Send reset link →" }}
@@ -92,6 +98,15 @@ async function handleSubmit() {
 }
 .back-link:hover {
   color: var(--brand-2);
+}
+.form-error {
+  font-size: 13px;
+  color: var(--err);
+  background: var(--err-bg);
+  border: 1px solid var(--err-border);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  margin-bottom: 14px;
 }
 .btn-brand {
   width: 100%;

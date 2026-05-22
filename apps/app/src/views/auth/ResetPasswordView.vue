@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from "vue"
+import { ref, onMounted } from "vue"
 import { useRoute, useRouter } from "vue-router"
 import AuthShell from "@/components/AuthShell.vue"
 import { resetPassword } from "@/api/auth"
@@ -7,14 +7,27 @@ import { resetPassword } from "@/api/auth"
 const route = useRoute()
 const router = useRouter()
 const password = ref("")
+const confirmPassword = ref("")
 const loading = ref(false)
 const error = ref("")
+const invalidLink = ref(false)
+
+onMounted(() => {
+  if (!route.query.token) {
+    invalidLink.value = true
+    error.value = "This reset link is invalid or has expired."
+  }
+})
 
 async function handleSubmit() {
   loading.value = true
   error.value = ""
   try {
-    await resetPassword({ token: route.query.token, password: password.value })
+    await resetPassword({
+      token: route.query.token,
+      password: password.value,
+      confirmation_password: confirmPassword.value,
+    })
     router.push("/login")
   } catch (e) {
     error.value = e.message || "Failed to reset password."
@@ -27,28 +40,54 @@ async function handleSubmit() {
 <template>
   <AuthShell>
     <div class="auth-card">
-      <div class="auth-title">Set new password</div>
-      <div class="auth-subtitle">Must be at least 8 characters.</div>
+      <template v-if="invalidLink">
+        <div class="auth-title">Link expired</div>
+        <div class="form-error">{{ error }}</div>
+        <div class="auth-footer">
+          <router-link to="/forgot-password">Request a new reset link</router-link>
+        </div>
+      </template>
 
-      <a-form layout="vertical" @finish="handleSubmit">
-        <a-form-item
-          name="password"
-          :rules="[{ required: true, min: 8, message: 'Password must be at least 8 characters' }]"
-        >
-          <template #label><span class="field-label">New password</span></template>
-          <a-input-password v-model:value="password" placeholder="Min 8 characters" />
-        </a-form-item>
+      <template v-else>
+        <div class="auth-title">Set new password</div>
+        <div class="auth-subtitle">Must be at least 8 characters.</div>
 
-        <div v-if="error" class="form-error">{{ error }}</div>
+        <a-form layout="vertical" @finish="handleSubmit">
+          <a-form-item
+            name="password"
+            :rules="[{ required: true, min: 8, message: 'Password must be at least 8 characters' }]"
+          >
+            <template #label><span class="field-label">New password</span></template>
+            <a-input-password v-model:value="password" placeholder="Min 8 characters" />
+          </a-form-item>
 
-        <button type="submit" class="btn-brand" :disabled="loading">
-          {{ loading ? "Resetting…" : "Reset password →" }}
-        </button>
-      </a-form>
+          <a-form-item
+            name="confirmPassword"
+            :rules="[
+              { required: true, message: 'Please confirm your password' },
+              {
+                validator: (_, value) =>
+                  value === password.value
+                    ? Promise.resolve()
+                    : Promise.reject('Passwords do not match'),
+              },
+            ]"
+          >
+            <template #label><span class="field-label">Confirm password</span></template>
+            <a-input-password v-model:value="confirmPassword" placeholder="Re-enter password" />
+          </a-form-item>
 
-      <div class="auth-footer">
-        <router-link to="/login">← Back to sign in</router-link>
-      </div>
+          <div v-if="error" class="form-error">{{ error }}</div>
+
+          <button type="submit" class="btn-brand" :disabled="loading">
+            {{ loading ? "Resetting…" : "Reset password →" }}
+          </button>
+        </a-form>
+
+        <div class="auth-footer">
+          <router-link to="/login">← Back to sign in</router-link>
+        </div>
+      </template>
     </div>
   </AuthShell>
 </template>

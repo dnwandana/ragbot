@@ -4,6 +4,7 @@ import { useRoute } from "vue-router"
 import { useConversations } from "@/composables/useConversations"
 import { useAgentsStore } from "@/stores/agents"
 import { useDatasetsStore } from "@/stores/datasets"
+import { relativeTime } from "@/utils/time"
 
 const route = useRoute()
 const workspaceId = route.params.workspaceId
@@ -45,17 +46,6 @@ function agentName(agentId) {
 }
 
 /** @param {string} dateStr */
-function relativeTime(dateStr) {
-  if (!dateStr) return ""
-  const diff = (Date.now() - new Date(dateStr)) / 1000
-  if (diff < 60) return "Just now"
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
-  const d = new Date(dateStr)
-  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-  if (diff < 604800) return days[d.getDay()]
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-}
 
 const grouped = computed(() => {
   const now = Date.now()

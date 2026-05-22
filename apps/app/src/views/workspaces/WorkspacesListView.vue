@@ -87,7 +87,7 @@ onMounted(fetchWorkspaces)
 .page-title {
   font-size: var(--text-xl);
   font-weight: 700;
-  color: var(--color-text-primary);
+  color: var(--ink);
   letter-spacing: -0.3px;
   margin: 0;
 }
@@ -98,7 +98,7 @@ onMounted(fetchWorkspaces)
 }
 
 .btn-primary {
-  background: var(--color-accent);
+  background: var(--brand);
   color: #fff;
   border: none;
   border-radius: var(--radius-sm);
@@ -119,7 +119,7 @@ onMounted(fetchWorkspaces)
 }
 .ws-card {
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 20px;
   cursor: pointer;
@@ -133,7 +133,7 @@ onMounted(fetchWorkspaces)
   border-color: var(--color-accent-border);
 }
 .ws-card--owner {
-  border-left: 3px solid var(--color-accent);
+  border-left: 3px solid var(--brand);
 }
 .ws-card__icon {
   font-size: 24px;
@@ -142,7 +142,7 @@ onMounted(fetchWorkspaces)
 .ws-card__name {
   font-size: var(--text-base);
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: var(--ink);
   margin-bottom: 4px;
 }
 .ws-card__meta {
@@ -159,7 +159,7 @@ onMounted(fetchWorkspaces)
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border: 1px dashed var(--color-border);
+  border: 1px dashed var(--line);
   background: transparent;
   min-height: 120px;
 }
@@ -182,7 +182,7 @@ onMounted(fetchWorkspaces)
 }
 .badge--accent {
   background: var(--color-accent-light);
-  color: var(--color-accent);
+  color: var(--brand);
   border: 1px solid var(--color-accent-border);
 }
 .badge--gray {
@@ -201,7 +201,7 @@ onMounted(fetchWorkspaces)
 .empty-title {
   font-size: var(--text-md);
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: var(--ink);
   margin-bottom: 8px;
 }
 .empty-text {

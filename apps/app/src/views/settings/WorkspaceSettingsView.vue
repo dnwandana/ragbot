@@ -25,23 +25,6 @@ const { isInviteModalVisible, openInviteModal, closeInviteModal } = useInvitatio
         <div class="page-sub">Manage who can use this workspace and what they can do.</div>
       </div>
       <div class="page-actions">
-        <button class="btn-outline">
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.7"
-          >
-            <path
-              d="M3 4h10M5 4V3h6v1M6 7v5M10 7v5M4 4l1 9h6l1-9"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-          Export CSV
-        </button>
         <button class="btn-brand" @click="openInviteModal">
           <svg
             width="12"

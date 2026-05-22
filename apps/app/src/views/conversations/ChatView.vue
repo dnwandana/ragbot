@@ -228,6 +228,7 @@ import { useRoute } from "vue-router"
 import { useConversationsStore } from "@/stores/conversations"
 import { useChatStore } from "@/stores/chat"
 import { useChat } from "@/composables/useChat"
+import { relativeTime } from "@/utils/time"
 
 const route = useRoute()
 const workspaceId = route.params.workspaceId
@@ -273,15 +274,6 @@ function relevanceLabel(score) {
 }
 
 /** @param {string} dateStr */
-function relativeTime(dateStr) {
-  if (!dateStr) return ""
-  const diff = (Date.now() - new Date(dateStr)) / 1000
-  if (diff < 60) return "Just now"
-  if (diff < 3600) return `${Math.floor(diff / 60)}m`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h`
-  const d = new Date(dateStr)
-  return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()]
-}
 
 function autoResize() {
   if (!inputEl.value) return
