@@ -156,6 +156,7 @@ export const inviteMember = async (req, res, next) => {
         toEmail: value.email,
         inviterName: inviter.full_name,
         workspaceName: req.workspace.name,
+        roleName: role.name,
         acceptUrl,
       })
     } catch (emailErr) {

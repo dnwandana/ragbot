@@ -5,99 +5,95 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Verify your email</title>
   </head>
-  <body
-    style="
-      margin: 0;
-      padding: 0;
-      background: #f8fafc;
-      font-family:
-        -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;,
-        sans-serif;
-    "
-  >
+  <body style="margin:0;padding:0;background:#F4F1EA;font-family:'Inter',ui-sans-serif,system-ui,sans-serif">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
       <tr>
-        <td align="center" style="padding: 40px 16px">
-          <table
-            role="presentation"
-            width="600"
-            cellspacing="0"
-            cellpadding="0"
-            style="
-              background: #ffffff;
-              border: 1px solid #cbd5e1;
-              border-radius: 10px;
-              overflow: hidden;
-            "
-          >
+        <td align="center" style="padding:40px 16px">
+          <table role="presentation" width="600" cellspacing="0" cellpadding="0"
+            style="background:#FFFFFF;border:1px solid rgba(24,18,12,0.10);border-radius:12px;overflow:hidden;box-shadow:0 1px 2px rgba(24,18,12,0.04),0 8px 32px -8px rgba(24,18,12,0.14)">
+
+            <!-- Brand header -->
             <tr>
-              <td style="background: #1e3a5f; padding: 28px 40px">
-                <span
-                  style="
-                    color: #ffffff;
-                    font-size: 18px;
-                    font-weight: 700;
-                    letter-spacing: -0.3px;
-                    font-family: &quot;Poppins&quot;, sans-serif;
-                  "
-                  >RAG Chatbot</span
-                >
+              <td style="padding:15px 32px;background:#FAFAF7;border-bottom:1px solid rgba(24,18,12,0.08)">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                  <tr>
+                    <td style="vertical-align:middle">
+                      <svg width="22" height="22" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle">
+                        <rect width="22" height="22" rx="6" fill="#18120C"/>
+                        <circle cx="7" cy="7" r="4" fill="#FF6B35"/>
+                        <circle cx="7" cy="7" r="2" fill="#FAFAF7"/>
+                      </svg>
+                      <span style="display:inline-block;vertical-align:middle;margin-left:9px;font-size:13px;font-weight:600;color:#18120C">RAGbot</span>
+                    </td>
+                    <td align="right" style="vertical-align:middle;font-family:'JetBrains Mono','Courier New',monospace;font-size:9px;color:#6F6356;text-transform:uppercase;letter-spacing:0.08em">ACCOUNT</td>
+                  </tr>
+                </table>
               </td>
             </tr>
+
+            <!-- Body -->
             <tr>
-              <td style="padding: 40px">
-                <h1
-                  style="
-                    margin: 0 0 6px;
-                    font-size: 20px;
-                    font-weight: 700;
-                    color: #0f172a;
-                    font-family: &quot;Poppins&quot;, sans-serif;
-                  "
-                >
-                  Hi {{full_name}},
-                </h1>
-                <p style="margin: 0 0 28px; font-size: 15px; line-height: 1.6; color: #64748b">
-                  Thanks for signing up. Please verify your email address to activate your account.
-                </p>
-                <table role="presentation" cellspacing="0" cellpadding="0">
+              <td style="padding:24px 32px 22px">
+
+                <!-- Eyebrow -->
+                <table role="presentation" cellspacing="0" cellpadding="0" style="margin-bottom:12px">
                   <tr>
-                    <td style="background: #1e3a5f; border-radius: 6px">
-                      <a
-                        href="{{verification_url}}"
-                        style="
-                          display: inline-block;
-                          padding: 12px 32px;
-                          color: #ffffff;
-                          font-size: 14px;
-                          font-weight: 600;
-                          text-decoration: none;
-                          font-family: &quot;Poppins&quot;, sans-serif;
-                        "
-                        >Verify Email</a
-                      >
+                    <td style="width:5px;vertical-align:middle;padding-right:7px">
+                      <div style="width:5px;height:5px;border-radius:50%;background:#FF6B35"></div>
+                    </td>
+                    <td style="font-family:'JetBrains Mono','Courier New',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#C24017">Verify email</td>
+                  </tr>
+                </table>
+
+                <!-- Heading -->
+                <h1 style="margin:0 0 10px;font-size:24px;font-weight:600;color:#18120C;line-height:1.2;letter-spacing:-0.018em;font-family:'Inter',ui-sans-serif,system-ui,sans-serif">One quick check, then you're in.</h1>
+
+                <!-- Body paragraph -->
+                <p style="margin:0 0 18px;font-size:13px;line-height:1.6;color:#3A2F23">
+                  Welcome to RAGbot, <strong style="color:#18120C">{{full_name}}</strong>. Confirm
+                  <span style="font-family:'JetBrains Mono','Courier New',monospace;font-size:11.5px;background:#F4F1EA;padding:1px 5px;border-radius:4px;border:1px solid rgba(24,18,12,0.10)">{{email}}</span>
+                  belongs to you and we'll finish setting up your account.
+                </p>
+
+                <!-- Button + expiry -->
+                <table role="presentation" cellspacing="0" cellpadding="0" style="margin-bottom:12px">
+                  <tr>
+                    <td style="background:#FF6B35;border-radius:8px;box-shadow:0 1px 0 rgba(0,0,0,0.06)">
+                      <a href="{{verification_url}}" style="display:inline-block;padding:10px 18px;color:#fff;font-size:13px;font-weight:500;text-decoration:none;font-family:'Inter',ui-sans-serif,system-ui,sans-serif;letter-spacing:-0.005em">Verify email address &#8594;</a>
+                    </td>
+                    <td style="padding-left:14px;font-family:'JetBrains Mono','Courier New',monospace;font-size:11px;color:#9C9081;white-space:nowrap">Expires in 24 hours</td>
+                  </tr>
+                </table>
+
+                <!-- Dashed fallback link -->
+                <div style="margin-bottom:12px;padding:12px;border:1px dashed rgba(24,18,12,0.18);border-radius:7px;line-height:1.5">
+                  <div style="margin-bottom:3px;font-size:11px;color:#3A2F23">Button not working? Paste this into your browser:</div>
+                  <div style="font-family:'JetBrains Mono','Courier New',monospace;font-size:10.5px;color:#FF6B35;word-break:break-all">{{verification_url}}</div>
+                </div>
+
+                <!-- Info alert (blue) -->
+                <table role="presentation" cellspacing="0" cellpadding="0" style="background:#DCEBFB;border:1px solid rgba(30,95,168,0.2);border-radius:7px;width:100%">
+                  <tr>
+                    <td style="padding:11px 0 11px 13px;width:23px;vertical-align:top">
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#1E5FA8" stroke-width="1.5" style="display:block;margin-top:1px"><circle cx="8" cy="8" r="6.25"/><path d="M8 5v3.5M8 11v0.1" stroke-linecap="round"/></svg>
+                    </td>
+                    <td style="padding:11px 13px 11px 9px;vertical-align:top">
+                      <div style="font-weight:600;margin-bottom:2px;font-size:11.5px;color:#0F3460">Didn't sign up?</div>
+                      <div style="font-size:11px;line-height:1.5;color:#0F3460">Without verification the account stays inactive and is removed after 7 days. No action needed.</div>
                     </td>
                   </tr>
                 </table>
-                <p style="margin: 28px 0 0; font-size: 13px; line-height: 1.6; color: #94a3b8">
-                  If the button doesn't work, copy this link into your browser:<br />
-                  <a href="{{verification_url}}" style="color: #2563eb; word-break: break-all"
-                    >{{verification_url}}</a
-                  >
-                </p>
-                <p style="margin: 20px 0 0; font-size: 13px; color: #94a3b8">
-                  This link expires in 24 hours. If you didn't create an account, you can safely
-                  ignore this email.
-                </p>
+
               </td>
             </tr>
+
+            <!-- Footer -->
             <tr>
-              <td style="padding: 20px 40px; background: #f8fafc; border-top: 1px solid #cbd5e1">
-                <p style="margin: 0; font-size: 12px; color: #94a3b8; text-align: center">
-                  &copy; {{year}} RAG Chatbot. All rights reserved.
-                </p>
+              <td style="padding:11px 32px;border-top:1px solid rgba(24,18,12,0.08);background:#FAFAF7;font-family:'JetBrains Mono','Courier New',monospace;font-size:10px;color:#6F6356">
+                &copy; {{year}} RAGbot. All rights reserved.
               </td>
             </tr>
+
           </table>
         </td>
       </tr>

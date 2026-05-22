@@ -34,9 +34,10 @@ const send = ({ to, subject, html }) =>
 export const sendVerificationEmail = ({ toEmail, fullName, verificationUrl }) =>
   send({
     to: { email: toEmail, name: fullName },
-    subject: "Verify your email — RAG Chatbot",
+    subject: "Verify your email — RAGbot",
     html: render("verify-email", {
       full_name: fullName,
+      email: toEmail,
       verification_url: verificationUrl,
       year: new Date().getFullYear(),
     }),
@@ -54,9 +55,8 @@ export const sendVerificationEmail = ({ toEmail, fullName, verificationUrl }) =>
 export const sendPasswordResetEmail = ({ toEmail, fullName, resetUrl }) =>
   send({
     to: { email: toEmail, name: fullName },
-    subject: "Reset your password — RAG Chatbot",
+    subject: "Reset your password — RAGbot",
     html: render("reset-password", {
-      full_name: fullName,
       reset_url: resetUrl,
       year: new Date().getFullYear(),
     }),
@@ -69,16 +69,19 @@ export const sendPasswordResetEmail = ({ toEmail, fullName, resetUrl }) =>
  * @param {string} params.toEmail - Recipient email address.
  * @param {string} params.inviterName - Name of the person sending the invitation.
  * @param {string} params.workspaceName - Name of the workspace.
+ * @param {string} params.roleName - Role name to display in the invitation email.
  * @param {string} params.acceptUrl - Full URL to accept the invitation.
  * @returns {Promise<Object>} Brevo API response.
  */
-export const sendInvitationEmail = ({ toEmail, inviterName, workspaceName, acceptUrl }) =>
+export const sendInvitationEmail = ({ toEmail, inviterName, workspaceName, roleName, acceptUrl }) =>
   send({
     to: { email: toEmail },
-    subject: `You're invited to join ${workspaceName} — RAG Chatbot`,
+    subject: `You're invited to join ${workspaceName} — RAGbot`,
     html: render("workspace-invitation", {
       inviter_name: inviterName,
       workspace_name: workspaceName,
+      workspace_initial: workspaceName.charAt(0).toUpperCase(),
+      role: roleName,
       accept_url: acceptUrl,
       year: new Date().getFullYear(),
     }),
