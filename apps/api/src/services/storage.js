@@ -15,7 +15,7 @@ const client = new S3Client({
   },
 })
 
-const BUCKET = () => process.env.S3_BUCKET
+const BUCKET = process.env.S3_BUCKET
 
 /**
  * Upload a file buffer to R2/S3 at the given key.
@@ -29,7 +29,7 @@ const BUCKET = () => process.env.S3_BUCKET
 export const uploadFile = async (key, buffer, contentType) => {
   await client.send(
     new PutObjectCommand({
-      Bucket: BUCKET(),
+      Bucket: BUCKET,
       Key: key,
       Body: buffer,
       ContentType: contentType,
@@ -46,7 +46,7 @@ export const uploadFile = async (key, buffer, contentType) => {
  * @throws {Error} If the S3 DeleteObject command fails
  */
 export const deleteFile = async (key) => {
-  await client.send(new DeleteObjectCommand({ Bucket: BUCKET(), Key: key }))
+  await client.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }))
 }
 
 /**
@@ -58,6 +58,6 @@ export const deleteFile = async (key) => {
  * @throws {Error} If URL signing fails
  */
 export const getSignedDownloadUrl = async (key, expiresIn = 3600) => {
-  const command = new GetObjectCommand({ Bucket: BUCKET(), Key: key })
+  const command = new GetObjectCommand({ Bucket: BUCKET, Key: key })
   return getSignedUrl(client, command, { expiresIn })
 }

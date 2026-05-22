@@ -89,6 +89,8 @@ export const purgeOld = (olderThan = new Date()) => {
   return db
     .del()
     .from(TABLE_NAME)
-    .where("revoked_at", "<", olderThan)
+    .where(function () {
+      this.whereNotNull("revoked_at").andWhere("revoked_at", "<", olderThan)
+    })
     .orWhere("expires_at", "<", olderThan)
 }

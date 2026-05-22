@@ -19,7 +19,10 @@ export const embedText = async (text, model = process.env.DEFAULT_EMBEDDINGS_MOD
     headers: headers(),
     body: JSON.stringify({ model, input: text }),
   })
-  if (!res.ok) throw new Error(`OpenRouter embeddings error: ${res.status}`)
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`OpenRouter embeddings error ${res.status}: ${text}`)
+  }
   const json = await res.json()
   return json.data[0].embedding
 }
@@ -41,7 +44,10 @@ export const embedBatch = async (texts, model = process.env.DEFAULT_EMBEDDINGS_M
       headers: headers(),
       body: JSON.stringify({ model, input: texts.slice(i, i + BATCH) }),
     })
-    if (!res.ok) throw new Error(`OpenRouter embeddings error: ${res.status}`)
+    if (!res.ok) {
+      const text = await res.text()
+      throw new Error(`OpenRouter embeddings error ${res.status}: ${text}`)
+    }
     const json = await res.json()
     results.push(...json.data.map((d) => d.embedding))
   }
@@ -78,7 +84,10 @@ export const chatCompletion = async (messages, options = {}) => {
     headers: headers(),
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(`OpenRouter chat error: ${res.status}`)
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`OpenRouter chat error ${res.status}: ${text}`)
+  }
   return res.json()
 }
 

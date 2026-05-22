@@ -1,4 +1,5 @@
 import { chatCompletion } from "./openrouter.js"
+import logger from "../utils/logger.js"
 
 /**
  * Generate a list of exploration questions for a document via OpenRouter chat completion.
@@ -29,7 +30,11 @@ export const generateQuestions = async (content, model = process.env.DEFAULT_CHA
     const text = result.choices[0].message.content.trim()
     const parsed = JSON.parse(text)
     return Array.isArray(parsed) ? parsed.slice(0, 10) : []
-  } catch {
+  } catch (error) {
+    logger.warn("Question generation failed", {
+      contentLength: content.length,
+      error: error.message,
+    })
     return []
   }
 }
