@@ -276,6 +276,9 @@
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
           "429": {
             "$ref": "#/components/responses/TooManyRequests"
           }
@@ -441,11 +444,37 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "email": {
+                              "type": "string",
+                              "format": "email"
+                            }
+                          },
+                          "required": ["id", "email"]
+                        }
+                      }
+                    }
+                  ]
                 },
                 "example": {
-                  "message": "Tokens refreshed",
-                  "data": null
+                  "message": "OK",
+                  "data": {
+                    "id": "uuid",
+                    "email": "user@example.com"
+                  }
                 }
               }
             }
@@ -686,7 +715,7 @@
                       "type": "object",
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/Workspace"
+                          "$ref": "#/components/schemas/WorkspaceWithPermissions"
                         }
                       }
                     }
@@ -1528,11 +1557,32 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "workspace_id": {
+                              "type": "string",
+                              "format": "uuid"
+                            }
+                          },
+                          "required": ["workspace_id"]
+                        }
+                      }
+                    }
+                  ]
                 },
                 "example": {
                   "message": "Invitation accepted",
-                  "data": null
+                  "data": {
+                    "workspace_id": "uuid"
+                  }
                 }
               }
             }
@@ -1891,16 +1941,6 @@
             "$ref": "#/components/parameters/DatasetIdParam"
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateConversationRequest"
-              }
-            }
-          }
-        },
         "responses": {
           "201": {
             "description": "Conversation created",
@@ -2125,6 +2165,9 @@
           },
           {
             "$ref": "#/components/parameters/SortOrderParam"
+          },
+          {
+            "$ref": "#/components/parameters/SearchParam"
           }
         ],
         "responses": {
@@ -2365,7 +2408,7 @@
       "post": {
         "tags": ["Files"],
         "summary": "Reprocess file",
-        "description": "**Permission required**: `file:reprocess`. Re-queues the file for processing. Idempotent — safe to call on already-processing files.",
+        "description": "**Permission required**: `file:reprocess`. Re-queues the file for the embedding pipeline. Only files with status `completed` or `failed` can be reprocessed — returns 400 for any other status.",
         "operationId": "reprocessFile",
         "security": [
           {
@@ -2444,6 +2487,9 @@
           },
           {
             "$ref": "#/components/parameters/SortOrderParam"
+          },
+          {
+            "$ref": "#/components/parameters/SearchParam"
           }
         ],
         "responses": {
@@ -2758,6 +2804,15 @@
           },
           {
             "$ref": "#/components/parameters/LimitParam"
+          },
+          {
+            "$ref": "#/components/parameters/SortByParam"
+          },
+          {
+            "$ref": "#/components/parameters/SortOrderParam"
+          },
+          {
+            "$ref": "#/components/parameters/SearchParam"
           }
         ],
         "responses": {
@@ -2928,7 +2983,7 @@
           }
         }
       },
-      "patch": {
+      "put": {
         "tags": ["Conversations"],
         "summary": "Update conversation",
         "description": "**Permission required**: `conversation:update`. Only the conversation owner can update it.",
@@ -3148,6 +3203,57 @@
           },
           {
             "$ref": "#/components/parameters/SortOrderParam"
+          },
+          {
+            "name": "entity_type",
+            "in": "query",
+            "description": "Filter by entity type",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "workspace",
+                "workspace_member",
+                "role",
+                "role_permission",
+                "dataset",
+                "dataset_file",
+                "agent",
+                "conversation",
+                "conversation_dataset"
+              ]
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "description": "Filter by action type",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "created",
+                "updated",
+                "deleted",
+                "invited",
+                "joined",
+                "suspended",
+                "role_changed",
+                "permission_granted",
+                "permission_revoked",
+                "uploaded",
+                "reprocessed",
+                "attached",
+                "detached"
+              ]
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "query",
+            "description": "Filter by the UUID of the user who performed the action",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "responses": {
@@ -3222,18 +3328,26 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "job_id": {
-                    "type": "string"
-                  },
-                  "status": {
-                    "type": "string"
-                  },
                   "event_type": {
                     "type": "string",
                     "enum": ["parse.success", "parse.error", "parse.running"]
+                  },
+                  "data": {
+                    "type": "object",
+                    "description": "LlamaIndex job payload",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "description": "LlamaIndex job ID"
+                      },
+                      "job_id": {
+                        "type": "string",
+                        "description": "Alias for id — LlamaIndex sends both"
+                      }
+                    }
                   }
                 },
-                "required": ["job_id", "event_type"]
+                "required": ["event_type", "data"]
               }
             }
           }
@@ -3704,7 +3818,7 @@
             "maxLength": 100
           }
         },
-        "required": ["email", "password", "confirmation_password"]
+        "required": ["email", "password", "confirmation_password", "full_name"]
       },
       "SigninRequest": {
         "type": "object",
@@ -3836,6 +3950,11 @@
           "name": {
             "type": "string"
           },
+          "settings": {
+            "type": "object",
+            "default": {},
+            "description": "Arbitrary workspace configuration (JSONB — empty object by default)"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time"
@@ -3845,7 +3964,7 @@
             "format": "date-time"
           }
         },
-        "required": ["id", "name", "created_at", "updated_at"]
+        "required": ["id", "name", "settings", "created_at", "updated_at"]
       },
       "WorkspaceWithRole": {
         "allOf": [
@@ -3869,24 +3988,49 @@
           }
         ]
       },
+      "WorkspaceWithPermissions": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Workspace"
+          },
+          {
+            "type": "object",
+            "description": "Returned by GET /workspaces/{workspace_id} — includes the authenticated user's resolved permission names for this workspace",
+            "properties": {
+              "permissions": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "e.g. [\"workspace:read\", \"dataset:create\", \"conversation:chat\"]"
+              }
+            },
+            "required": ["permissions"]
+          }
+        ]
+      },
       "CreateWorkspaceRequest": {
         "type": "object",
         "properties": {
           "name": {
             "type": "string",
             "description": "Must be unique"
+          },
+          "settings": {
+            "type": "object",
+            "description": "Optional initial workspace settings"
           }
         },
         "required": ["name"]
       },
       "UpdateWorkspaceRequest": {
         "type": "object",
+        "description": "All fields optional — at least one must be provided",
         "properties": {
           "name": {
             "type": "string"
           }
-        },
-        "required": ["name"]
+        }
       },
       "WorkspaceMember": {
         "type": "object",
@@ -4071,19 +4215,21 @@
           "description": {
             "type": "string"
           },
-          "permissions": {
+          "permission_ids": {
             "type": "array",
             "items": {
               "type": "string",
               "format": "uuid"
             },
-            "description": "Array of permission UUIDs to assign to the role"
+            "minItems": 1,
+            "description": "UUIDs of permissions to assign to the role. Minimum 1 required."
           }
         },
-        "required": ["name", "permissions"]
+        "required": ["name", "permission_ids"]
       },
       "UpdateRoleRequest": {
         "type": "object",
+        "description": "All fields optional — at least one must be provided. System roles cannot be renamed or have their permissions changed.",
         "properties": {
           "name": {
             "type": "string"
@@ -4091,15 +4237,15 @@
           "description": {
             "type": "string"
           },
-          "permissions": {
+          "permission_ids": {
             "type": "array",
             "items": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "minItems": 1
           }
-        },
-        "required": ["name", "permissions"]
+        }
       },
       "Dataset": {
         "type": "object",
@@ -4178,6 +4324,7 @@
       },
       "UpdateDatasetRequest": {
         "type": "object",
+        "description": "All fields optional — at least one must be provided. chunk_size, chunk_overlap, and embedding_model are immutable after creation and will be ignored if sent.",
         "properties": {
           "name": {
             "type": "string"
@@ -4185,8 +4332,7 @@
           "description": {
             "type": "string"
           }
-        },
-        "required": ["name"]
+        }
       },
       "FileMetadata": {
         "type": "object",
@@ -4298,10 +4444,10 @@
               "signed_url": {
                 "type": "string",
                 "format": "uri",
-                "description": "Pre-signed download URL"
+                "nullable": true,
+                "description": "Pre-signed R2 download URL (1-hour expiry). null when file has no storage_path — e.g. URL-scraped files before processing completes."
               }
-            },
-            "required": ["signed_url"]
+            }
           }
         ]
       },
@@ -4317,12 +4463,13 @@
       },
       "UpdateFileRequest": {
         "type": "object",
+        "description": "All fields optional — at least one must be provided",
         "properties": {
           "filename": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 255
           }
-        },
-        "required": ["filename"]
+        }
       },
       "ModelConfig": {
         "type": "object",
@@ -4413,16 +4560,19 @@
             "type": "string"
           },
           "system_prompt": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10000
           },
           "model_config": {
             "$ref": "#/components/schemas/ModelConfig"
           }
         },
-        "required": ["name"]
+        "required": ["name", "system_prompt"]
       },
       "UpdateAgentRequest": {
         "type": "object",
+        "description": "All fields optional — at least one must be provided. The system agent's name cannot be changed (returns 403 if attempted).",
         "properties": {
           "name": {
             "type": "string"
@@ -4436,8 +4586,7 @@
           "model_config": {
             "$ref": "#/components/schemas/ModelConfig"
           }
-        },
-        "required": ["name"]
+        }
       },
       "Message": {
         "type": "object",
