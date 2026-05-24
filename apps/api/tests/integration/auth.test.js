@@ -391,3 +391,33 @@ describe("POST /api/auth/logout", () => {
     expect(refreshRes.status).toBe(401)
   })
 })
+
+describe("signin token — downstream compatibility", () => {
+  it("cookies from real signin allow GET /api/workspaces", async () => {
+    // Create a verified user (email_verified defaults to true in createTestUser)
+    const user = await createTestUser({
+      email: "signin-token-check@example.com",
+      password: "Password123!",
+    })
+
+    // Sign in through the real endpoint — NOT getAuthHeaders()
+    const signinRes = await (await request()).post("/api/auth/signin").send({
+      email: user.email,
+      password: user.plainPassword,
+    })
+
+    expect(signinRes.status).toBe(200)
+
+    // Extract the Set-Cookie header issued by issueTokenPair
+    const cookies = signinRes.headers["set-cookie"]
+    expect(cookies.some((c) => c.startsWith("access_token="))).toBe(true)
+    expect(cookies.some((c) => c.startsWith("refresh_token="))).toBe(true)
+
+    // Use those cookies to hit a protected workspace route
+    const workspacesRes = await (await request()).get("/api/workspaces").set("Cookie", cookies)
+
+    // Must return 200 with an array (empty because no workspaces created yet)
+    expect(workspacesRes.status).toBe(200)
+    expect(Array.isArray(workspacesRes.body.data)).toBe(true)
+  })
+})

@@ -95,8 +95,8 @@ const generateEmailToken = () => crypto.randomBytes(32).toString("hex")
  * @param {string} userId - The user UUID to issue tokens for.
  */
 const issueTokenPair = async (res, userId) => {
-  const accessToken = generateAccessToken({ id: userId })
-  const refreshToken = generateRefreshToken({ id: userId })
+  const accessToken = generateAccessToken(userId)
+  const refreshToken = generateRefreshToken(userId)
   const tokenHash = refreshTokenModel.hashToken(refreshToken)
 
   await refreshTokenModel.create({
