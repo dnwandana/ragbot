@@ -22,7 +22,7 @@ const envSchema = joi
     LOG_TO_FILE: joi.boolean().default(true),
 
     CORS_ALLOWED_ORIGINS: joi.string().default("http://localhost:8080"),
-    RATE_LIMIT_AUTH_MAX: joi.number().max(50).default(10),
+    RATE_LIMIT_AUTH_MAX: joi.number().max(500).default(10),
     RATE_LIMIT_GENERAL_MAX: joi.number().default(100),
 
     // AI
