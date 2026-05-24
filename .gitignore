@@ -22,3 +22,8 @@ skills-lock.json
 
 # Docker deployment
 certs/
+
+# Visual brainstorm companion
+.superpowers/
+plans/
+Claude-*/
