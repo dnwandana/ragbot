@@ -1,5 +1,6 @@
 import { reactive, ref } from "vue"
 import { useRouter } from "vue-router"
+import { storeToRefs } from "pinia"
 import { useAuthStore } from "../stores/auth.js"
 
 /**
@@ -9,10 +10,12 @@ import { useAuthStore } from "../stores/auth.js"
  */
 export function useAuth() {
   const authStore = useAuthStore()
+  const { loading, isAuthenticated, currentUser } = storeToRefs(authStore)
   const router = useRouter()
 
   const formState = reactive({ email: "", password: "", confirmation_password: "", full_name: "" })
   const error = ref("")
+  const sent = ref(false)
 
   const emailRules = [
     { required: true, message: "Email is required" },
@@ -26,6 +29,15 @@ export function useAuth() {
   const fullNameRules = [
     { required: true, message: "Full name is required" },
     { max: 100, message: "Full name cannot exceed 100 characters" },
+  ]
+  const resetPasswordConfirmRules = [
+    { required: true, message: "Please confirm your password" },
+    {
+      validator: (_, value) =>
+        !value || value === formState.password
+          ? Promise.resolve()
+          : Promise.reject("Passwords do not match"),
+    },
   ]
 
   /** Signs in the user and redirects to the intended page. */
@@ -45,30 +57,64 @@ export function useAuth() {
     error.value = ""
     try {
       await authStore.signup(formState)
-      router.push({ name: "Login", query: { registered: "1" } })
+      router.push({ name: "VerifyEmail", query: { email: formState.email } })
     } catch (e) {
       error.value = e?.response?.data?.message || "Sign up failed"
     }
   }
 
+  /** Submits the forgot-password request and flips `sent` on success. */
+  async function handleForgotPassword() {
+    error.value = ""
+    try {
+      await authStore.forgotPassword(formState.email)
+      sent.value = true
+    } catch (e) {
+      error.value = e?.response?.data?.message || "Failed to send reset link."
+    }
+  }
+
+  /**
+   * Submits the password reset and redirects to login on success.
+   *
+   * @param {string} token - Raw reset token from the URL query string.
+   */
+  async function handleResetPassword(token) {
+    error.value = ""
+    try {
+      await authStore.resetPassword({
+        token,
+        password: formState.password,
+        confirmation_password: formState.confirmation_password,
+      })
+      router.push("/login")
+    } catch (e) {
+      error.value = e?.response?.data?.message || "Failed to reset password."
+    }
+  }
+
   /** Logs out the user and redirects to the login page. */
-  async function handleLogout() {
-    await authStore.logout()
+  function handleLogout() {
+    void authStore.logout()
     router.push("/login")
   }
 
   return {
     formState,
     error,
-    loading: authStore.loading,
-    isAuthenticated: authStore.isAuthenticated,
-    currentUser: authStore.currentUser,
+    loading,
+    isAuthenticated,
+    currentUser,
+    sent,
     emailRules,
     passwordRules,
     confirmRules,
     fullNameRules,
+    resetPasswordConfirmRules,
     handleSignin,
     handleSignup,
     handleLogout,
+    handleForgotPassword,
+    handleResetPassword,
   }
 }

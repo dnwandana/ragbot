@@ -63,13 +63,56 @@ export const useAuthStore = defineStore("auth", () => {
 
   /** Logs out the current user and clears local auth data. */
   async function logout() {
+    user.value = null
+    clearUserData()
     try {
       await authApi.logout()
-    } finally {
-      user.value = null
-      clearUserData()
+    } catch {
+      // local state already cleared; server-side token invalidation is best-effort
     }
   }
 
-  return { user, loading, isAuthenticated, currentUser, initAuth, signup, signin, logout }
+  /**
+   * Sends a password-reset email for the given address.
+   *
+   * @param {string} email - The account email address.
+   */
+  async function forgotPassword(email) {
+    loading.value = true
+    try {
+      await authApi.forgotPassword(email)
+    } finally {
+      loading.value = false
+    }
+  }
+
+  /**
+   * Resets the user's password using a token from the reset email.
+   *
+   * @param {Object} params
+   * @param {string} params.token - Raw reset token from the email link.
+   * @param {string} params.password - New password.
+   * @param {string} params.confirmation_password - Must match `password`.
+   */
+  async function resetPassword({ token, password, confirmation_password }) {
+    loading.value = true
+    try {
+      await authApi.resetPassword({ token, password, confirmation_password })
+    } finally {
+      loading.value = false
+    }
+  }
+
+  return {
+    user,
+    loading,
+    isAuthenticated,
+    currentUser,
+    initAuth,
+    signup,
+    signin,
+    logout,
+    forgotPassword,
+    resetPassword,
+  }
 })

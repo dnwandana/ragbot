@@ -46,7 +46,7 @@ function navigate(path) {
 }
 
 function handleLogout() {
-  authStore.logout()
+  void authStore.logout()
   router.push("/login")
 }
 </script>
