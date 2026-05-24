@@ -1,15 +1,12 @@
 <script setup>
 import { ref, onMounted } from "vue"
-import { useRoute, useRouter } from "vue-router"
+import { useRoute } from "vue-router"
 import AuthShell from "@/components/AuthShell.vue"
-import { resetPassword } from "@/api/auth"
+import { useAuth } from "@/composables/useAuth"
 
 const route = useRoute()
-const router = useRouter()
-const password = ref("")
-const confirmPassword = ref("")
-const loading = ref(false)
-const error = ref("")
+const { formState, error, loading, passwordRules, resetPasswordConfirmRules, handleResetPassword } =
+  useAuth()
 const invalidLink = ref(false)
 
 onMounted(() => {
@@ -18,23 +15,6 @@ onMounted(() => {
     error.value = "This reset link is invalid or has expired."
   }
 })
-
-async function handleSubmit() {
-  loading.value = true
-  error.value = ""
-  try {
-    await resetPassword({
-      token: route.query.token,
-      password: password.value,
-      confirmation_password: confirmPassword.value,
-    })
-    router.push("/login")
-  } catch (e) {
-    error.value = e.message || "Failed to reset password."
-  } finally {
-    loading.value = false
-  }
-}
 </script>
 
 <template>
@@ -52,29 +32,22 @@ async function handleSubmit() {
         <div class="auth-title">Set new password</div>
         <div class="auth-subtitle">Must be at least 8 characters.</div>
 
-        <a-form layout="vertical" @finish="handleSubmit">
-          <a-form-item
-            name="password"
-            :rules="[{ required: true, min: 8, message: 'Password must be at least 8 characters' }]"
-          >
+        <a-form
+          :model="formState"
+          layout="vertical"
+          @finish="() => handleResetPassword(route.query.token)"
+        >
+          <a-form-item name="password" :rules="passwordRules">
             <template #label><span class="field-label">New password</span></template>
-            <a-input-password v-model:value="password" placeholder="Min 8 characters" />
+            <a-input-password v-model:value="formState.password" placeholder="Min 8 characters" />
           </a-form-item>
 
-          <a-form-item
-            name="confirmPassword"
-            :rules="[
-              { required: true, message: 'Please confirm your password' },
-              {
-                validator: (_, value) =>
-                  value === password.value
-                    ? Promise.resolve()
-                    : Promise.reject('Passwords do not match'),
-              },
-            ]"
-          >
+          <a-form-item name="confirmation_password" :rules="resetPasswordConfirmRules">
             <template #label><span class="field-label">Confirm password</span></template>
-            <a-input-password v-model:value="confirmPassword" placeholder="Re-enter password" />
+            <a-input-password
+              v-model:value="formState.confirmation_password"
+              placeholder="Re-enter password"
+            />
           </a-form-item>
 
           <div v-if="error" class="form-error">{{ error }}</div>

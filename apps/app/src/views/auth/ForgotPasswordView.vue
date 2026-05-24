@@ -1,25 +1,8 @@
 <script setup>
-import { ref } from "vue"
 import AuthShell from "@/components/AuthShell.vue"
-import { forgotPassword } from "@/api/auth"
+import { useAuth } from "@/composables/useAuth"
 
-const email = ref("")
-const loading = ref(false)
-const sent = ref(false)
-const error = ref("")
-
-async function handleSubmit() {
-  loading.value = true
-  error.value = ""
-  try {
-    await forgotPassword(email.value)
-    sent.value = true
-  } catch (e) {
-    error.value = e.message || "Failed to send reset link."
-  } finally {
-    loading.value = false
-  }
-}
+const { formState, error, loading, sent, emailRules, handleForgotPassword } = useAuth()
 </script>
 
 <template>
@@ -38,13 +21,10 @@ async function handleSubmit() {
         <div class="auth-title">Reset your password</div>
         <div class="auth-subtitle">Enter your email and we'll send a reset link.</div>
 
-        <a-form layout="vertical" @finish="handleSubmit">
-          <a-form-item
-            name="email"
-            :rules="[{ required: true, type: 'email', message: 'Please enter a valid email' }]"
-          >
+        <a-form :model="formState" layout="vertical" @finish="handleForgotPassword">
+          <a-form-item name="email" :rules="emailRules">
             <template #label><span class="field-label">Work email</span></template>
-            <a-input v-model:value="email" type="email" placeholder="you@company.com" />
+            <a-input v-model:value="formState.email" type="email" placeholder="you@company.com" />
           </a-form-item>
 
           <div v-if="error" class="form-error">{{ error }}</div>
