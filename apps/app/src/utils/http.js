@@ -126,16 +126,17 @@ async function send(method, url, options = {}) {
   const timeoutId = setTimeout(() => controller.abort(), timeout)
 
   const headers = { ...customHeaders }
-  if (body) {
-    headers["Content-Type"] = "application/json"
-  }
 
   const fullURL = buildURL(url, params)
 
   try {
     const fetchOptions = { method, headers, signal: controller.signal }
     fetchOptions.credentials = "include"
-    if (method !== "GET" && body) {
+    if (body instanceof FormData) {
+      fetchOptions.body = body
+      // Do NOT set Content-Type — browser sets it automatically with the multipart boundary
+    } else if (body) {
+      headers["Content-Type"] = "application/json"
       fetchOptions.body = JSON.stringify(body)
     }
     const response = await fetch(fullURL, fetchOptions)
@@ -186,12 +187,25 @@ async function send(method, url, options = {}) {
 export const request = {
   send,
 
-  get(url, params) {
-    return send("GET", url, { params })
+  /**
+   * @param {string} url
+   * @param {{ params?: object, headers?: object, timeout?: number }} [options={}]
+   * @returns {Promise<{data: any, status: number}>}
+   * @throws {HttpError}
+   */
+  get(url, options = {}) {
+    return send("GET", url, options)
   },
 
-  post(url, body) {
-    return send("POST", url, { body })
+  /**
+   * @param {string} url
+   * @param {object|FormData} body
+   * @param {{ headers?: object, timeout?: number }} [options={}]
+   * @returns {Promise<{data: any, status: number}>}
+   * @throws {HttpError}
+   */
+  post(url, body, options = {}) {
+    return send("POST", url, { body, ...options })
   },
 
   put(url, body) {

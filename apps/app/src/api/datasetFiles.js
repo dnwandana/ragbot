@@ -7,9 +7,7 @@ export function listFiles(workspaceId, datasetId, params) {
 }
 
 export function uploadFile(workspaceId, datasetId, formData) {
-  return request.post(`${base(workspaceId, datasetId)}/upload`, formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  })
+  return request.post(`${base(workspaceId, datasetId)}/upload`, formData)
 }
 
 export function scrapeUrl(workspaceId, datasetId, url) {
