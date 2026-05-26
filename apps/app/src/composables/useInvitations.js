@@ -32,12 +32,16 @@ export function useInvitations() {
    * Handle sending an invitation to a workspace
    * Delegates to the invitations store, then closes the modal
    * @param {string} workspaceId - Workspace UUID
-   * @param {Object} data - Invitation data (e.g., { role_id, username, email })
+   * @param {Object} data - Invitation data (e.g., { role_id, email })
    * @returns {Promise<void>}
    */
   async function handleInvite(workspaceId, data) {
-    await invitationsStore.inviteToWorkspace(workspaceId, data)
-    closeInviteModal()
+    try {
+      await invitationsStore.inviteToWorkspace(workspaceId, data)
+      closeInviteModal()
+    } catch {
+      // HTTP client handles error display; modal stays open for retry
+    }
   }
 
   /**

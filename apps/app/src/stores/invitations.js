@@ -2,6 +2,7 @@ import { defineStore } from "pinia"
 import { ref, computed } from "vue"
 import { message } from "ant-design-vue"
 import { acceptInvitation as apiAcceptInvitation } from "@/api/invitations"
+import { inviteMember as apiInviteMember } from "@/api/members"
 
 export const useInvitationsStore = defineStore("invitations", () => {
   // State
@@ -28,9 +29,7 @@ export const useInvitationsStore = defineStore("invitations", () => {
   }
 
   /**
-   * Invite a user to a workspace.
-   * Workspace-level invites are sent via the members API (useMembersStore.inviteMember).
-   * This stub exists for composable compatibility only.
+   * Invite a user to a workspace by email.
    * @param {string} workspaceId - Workspace UUID
    * @param {Object} data - Invitation data
    * @param {string} data.email - Email address of the invitee
@@ -38,8 +37,13 @@ export const useInvitationsStore = defineStore("invitations", () => {
    * @returns {Promise<void>}
    */
   async function inviteToWorkspace(workspaceId, data) {
-    void workspaceId
-    void data
+    loading.value = true
+    try {
+      await apiInviteMember(workspaceId, data)
+      message.success("Invitation sent!")
+    } finally {
+      loading.value = false
+    }
   }
 
   /**

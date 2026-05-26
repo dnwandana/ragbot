@@ -19,7 +19,13 @@ const workspaceName = ref("")
 const isSavingName = ref(false)
 
 const { roles, fetchRoles } = useRoles(workspaceId)
-const { isInviteModalVisible, openInviteModal, closeInviteModal } = useInvitations(workspaceId)
+const {
+  isInviteModalVisible,
+  openInviteModal,
+  closeInviteModal,
+  handleInvite,
+  loading: isInviteLoading,
+} = useInvitations()
 
 onMounted(async () => {
   await workspacesStore.fetchWorkspaceById(workspaceId)
@@ -172,8 +178,9 @@ async function handleSaveName() {
     <InviteFormModal
       :visible="isInviteModalVisible"
       :roles="roles"
-      :workspace-id="workspaceId"
+      :loading="isInviteLoading"
       @close="closeInviteModal"
+      @submit="(payload) => handleInvite(workspaceId, payload)"
     />
   </div>
 </template>
