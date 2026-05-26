@@ -11,6 +11,7 @@ const datasetId = route.params.datasetId
 const datasetsStore = useDatasetsStore()
 const dataset = ref(null)
 const activeTab = ref("files")
+const scrapeUrlValue = ref("")
 
 const {
   files,
@@ -35,6 +36,11 @@ function statusVariant(status) {
   if (status === "failed") return "err"
   if (status === "processing" || status === "queued") return "brand"
   return "ghost"
+}
+
+async function handleScrapeSubmit() {
+  await handleScrape(scrapeUrlValue.value)
+  scrapeUrlValue.value = ""
 }
 
 const tableColumns = [
@@ -192,13 +198,19 @@ const tableColumns = [
       @cancel="isScrapeVisible = false"
       :footer="null"
     >
-      <a-form layout="vertical" @finish="({ url }) => handleScrape(url)">
+      <a-form :model="{ url: scrapeUrlValue }" layout="vertical" @finish="handleScrapeSubmit">
         <a-form-item
           label="URL"
           name="url"
-          :rules="[{ required: true, type: 'url', message: 'Please enter a valid URL' }]"
+          :rules="[
+            {
+              required: true,
+              pattern: /^https?:\/\/.+/,
+              message: 'Please enter a valid URL starting with http:// or https://',
+            },
+          ]"
         >
-          <a-input placeholder="https://example.com/page" />
+          <a-input v-model:value="scrapeUrlValue" placeholder="https://example.com/page" />
         </a-form-item>
         <button
           type="submit"
