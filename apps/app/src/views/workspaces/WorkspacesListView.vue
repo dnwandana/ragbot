@@ -25,7 +25,7 @@
         :key="ws.id"
         class="ws-card"
         :class="{ 'ws-card--owner': ws.role_name === 'Owner' }"
-        @click="$router.push(`/workspaces/${ws.id}`)"
+        @click="$router.push(`/workspaces/${ws.id}/datasets`)"
       >
         <div class="ws-card__icon">🏢</div>
         <div class="ws-card__name">{{ ws.name }}</div>

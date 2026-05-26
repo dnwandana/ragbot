@@ -106,19 +106,6 @@ const tableColumns = computed(() => [
           </svg>
           New dataset
         </button>
-        <button class="btn-brand" @click="openCreateModal">
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.2"
-          >
-            <path d="M8 3v10M3 8h10" stroke-linecap="round" />
-          </svg>
-          Upload file
-        </button>
       </div>
     </div>
 
@@ -130,7 +117,7 @@ const tableColumns = computed(() => [
       <div class="empty-icon">📚</div>
       <div class="empty-title">No datasets yet</div>
       <p class="empty-text">Upload documents or scrape URLs to build your first knowledge base.</p>
-      <button class="btn-brand" @click="openCreateModal">Create dataset</button>
+      <button class="btn-brand" @click="openCreateModal">New dataset</button>
     </div>
 
     <!-- CARDS view -->
