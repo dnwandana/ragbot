@@ -1,5 +1,6 @@
 <script setup>
-import { ref } from "vue"
+import { ref, onMounted } from "vue"
+import { message } from "ant-design-vue"
 import { useRoute } from "vue-router"
 import MembersTable from "@/components/MembersTable.vue"
 import InvitationsTable from "@/components/InvitationsTable.vue"
@@ -7,13 +8,36 @@ import RoleFormModal from "@/components/RoleFormModal.vue"
 import InviteFormModal from "@/components/InviteFormModal.vue"
 import { useRoles } from "@/composables/useRoles"
 import { useInvitations } from "@/composables/useInvitations"
+import { useWorkspacesStore } from "@/stores/workspaces"
 
 const route = useRoute()
 const workspaceId = route.params.workspaceId
-const activeTab = ref("members")
+const activeTab = ref("general")
 
-const { roles } = useRoles(workspaceId)
+const workspacesStore = useWorkspacesStore()
+const workspaceName = ref("")
+const isSavingName = ref(false)
+
+const { roles, fetchRoles } = useRoles(workspaceId)
 const { isInviteModalVisible, openInviteModal, closeInviteModal } = useInvitations(workspaceId)
+
+onMounted(async () => {
+  await workspacesStore.fetchWorkspaceById(workspaceId)
+  workspaceName.value = workspacesStore.currentWorkspace?.name ?? ""
+  fetchRoles(workspaceId)
+})
+
+async function handleSaveName() {
+  const trimmedName = workspaceName.value.trim()
+  if (!trimmedName) return
+  isSavingName.value = true
+  try {
+    await workspacesStore.updateWorkspace(workspaceId, { name: trimmedName })
+    message.success("Workspace name updated")
+  } finally {
+    isSavingName.value = false
+  }
+}
 </script>
 
 <template>
@@ -21,8 +45,8 @@ const { isInviteModalVisible, openInviteModal, closeInviteModal } = useInvitatio
     <!-- Page head -->
     <div class="page-head">
       <div>
-        <div class="page-title">Members &amp; access</div>
-        <div class="page-sub">Manage who can use this workspace and what they can do.</div>
+        <div class="page-title">Workspace settings</div>
+        <div class="page-sub">Manage your workspace configuration and access.</div>
       </div>
       <div class="page-actions">
         <button class="btn-brand" @click="openInviteModal">
@@ -45,6 +69,13 @@ const { isInviteModalVisible, openInviteModal, closeInviteModal } = useInvitatio
     <div class="tabs">
       <button
         class="tab"
+        :class="{ active: activeTab === 'general' }"
+        @click="activeTab = 'general'"
+      >
+        General
+      </button>
+      <button
+        class="tab"
         :class="{ active: activeTab === 'members' }"
         @click="activeTab = 'members'"
       >
@@ -60,6 +91,29 @@ const { isInviteModalVisible, openInviteModal, closeInviteModal } = useInvitatio
       <button class="tab" :class="{ active: activeTab === 'roles' }" @click="activeTab = 'roles'">
         Roles
       </button>
+    </div>
+
+    <!-- General tab -->
+    <div v-if="activeTab === 'general'" class="tab-panel">
+      <div class="settings-card">
+        <div class="settings-card__hd">
+          <div class="settings-card__title">Workspace name</div>
+          <div class="settings-card__sub">This is the display name for your workspace.</div>
+        </div>
+        <div class="settings-card__body">
+          <div class="name-row">
+            <a-input
+              v-model:value="workspaceName"
+              placeholder="Workspace name"
+              class="name-input"
+            />
+            <button class="btn-brand" :disabled="isSavingName" @click="handleSaveName">
+              {{ isSavingName ? "Saving…" : "Save changes" }}
+            </button>
+          </div>
+          <div class="settings-hint">Used across the platform to identify your workspace.</div>
+        </div>
+      </div>
     </div>
 
     <!-- Members tab -->
@@ -117,6 +171,7 @@ const { isInviteModalVisible, openInviteModal, closeInviteModal } = useInvitatio
     <!-- Invite modal -->
     <InviteFormModal
       :visible="isInviteModalVisible"
+      :roles="roles"
       :workspace-id="workspaceId"
       @close="closeInviteModal"
     />
@@ -270,6 +325,44 @@ const { isInviteModalVisible, openInviteModal, closeInviteModal } = useInvitatio
   background: var(--bg-2);
   color: var(--ink-4);
   border: 1px solid var(--line);
+}
+
+.settings-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-1);
+  max-width: 560px;
+}
+.settings-card__hd {
+  padding: 16px 20px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.settings-card__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.settings-card__sub {
+  font-size: 12.5px;
+  color: var(--ink-3);
+  margin-top: 2px;
+}
+.settings-card__body {
+  padding: 16px 20px;
+}
+.name-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.name-input {
+  flex: 1;
+}
+.settings-hint {
+  font-size: 12px;
+  color: var(--ink-4);
+  margin-top: 8px;
 }
 
 .custom-roles-cta {
