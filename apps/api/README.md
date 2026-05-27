@@ -52,7 +52,7 @@ You can still run package-local commands from `apps/api` with `pnpm`.
 - **OpenRouter**: LLM inference for chat and embeddings, including streaming chat completions for real-time responses
 - **Brevo**: Transactional email via inline HTML templates (verification, password reset, invitations)
 - **Cloudflare R2**: S3-compatible file storage
-- **LlamaIndex**: Document parsing via webhook
+- **LlamaIndex**: Document parsing via polling
 - **Firecrawl**: URL content scraping
 - **LangChain**: Text splitting for chunking
 
@@ -108,7 +108,7 @@ The API will be available at `http://localhost:3000/api`
 
 Create a `.env` file from `.env.example`. See `.env.example` for the full list with defaults.
 
-**Required variables**: `DATABASE_URL`, `REDIS_URL`, `ACCESS_TOKEN_SECRET`, `REFRESH_TOKEN_SECRET`, `JWT_ISSUER`, `JWT_AUDIENCE`, `OPENROUTER_API_KEY`, `BREVO_API_KEY`, `EMAIL_FROM_ADDRESS`, `APP_URL`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_ENDPOINT`, `LLAMAINDEX_API_KEY`, `LLAMAINDEX_WEBHOOK_SECRET`, `FIRECRAWL_API_KEY`
+**Required variables**: `DATABASE_URL`, `REDIS_URL`, `ACCESS_TOKEN_SECRET`, `REFRESH_TOKEN_SECRET`, `JWT_ISSUER`, `JWT_AUDIENCE`, `OPENROUTER_API_KEY`, `BREVO_API_KEY`, `EMAIL_FROM_ADDRESS`, `APP_URL`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_ENDPOINT`, `LLAMAINDEX_API_KEY`, `FIRECRAWL_API_KEY`
 
 **Optional with defaults**: `OPENROUTER_STREAM_TIMEOUT_MS` (60000) — abort an OpenRouter stream if no data arrives within this many ms. See `.env.example` for the full list.
 

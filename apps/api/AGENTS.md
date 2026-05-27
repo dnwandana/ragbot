@@ -57,7 +57,7 @@ No pre-commit hooks. Run `npm run lint:fix && npm run format:fix` before committ
 
 ### Async File Processing (BullMQ)
 
-Dataset file processing uses a persistent BullMQ job queue backed by Redis. All three trigger points (file upload via LlamaIndex webhook, URL scraping, reprocess) push the same minimal job payload:
+Dataset file processing uses a persistent BullMQ job queue backed by Redis. All three trigger points (file upload via LlamaIndex polling, URL scraping, reprocess) push the same minimal job payload:
 
 ```js
 { datasetFileId: string, datasetId: string }
@@ -280,7 +280,7 @@ The chat feature uses a server-side ReAct (Reason-Act-Observe) loop with dual-mo
 
 ## Environment Variables
 
-Required: `DATABASE_URL`, `REDIS_URL` (Redis connection string — `redis://localhost:6379` locally, `rediss://` for TLS), `ACCESS_TOKEN_SECRET` (≥32 chars), `REFRESH_TOKEN_SECRET` (≥32 chars, must differ), `JWT_ISSUER`, `JWT_AUDIENCE`, `OPENROUTER_API_KEY`, `BREVO_API_KEY`, `EMAIL_FROM_ADDRESS`, `APP_URL`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_ENDPOINT`, `LLAMAINDEX_API_KEY`, `LLAMAINDEX_WEBHOOK_SECRET` (≥16 chars), `FIRECRAWL_API_KEY`
+Required: `DATABASE_URL`, `REDIS_URL` (Redis connection string — `redis://localhost:6379` locally, `rediss://` for TLS), `ACCESS_TOKEN_SECRET` (≥32 chars), `REFRESH_TOKEN_SECRET` (≥32 chars, must differ), `JWT_ISSUER`, `JWT_AUDIENCE`, `OPENROUTER_API_KEY`, `BREVO_API_KEY`, `EMAIL_FROM_ADDRESS`, `APP_URL`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_ENDPOINT`, `LLAMAINDEX_API_KEY`, `FIRECRAWL_API_KEY`
 
 Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_EXPIRES_IN` (15m), `REFRESH_TOKEN_EXPIRES_IN` (7d), `LOG_LEVEL` (info), `LOG_TO_FILE` (true), `CORS_ALLOWED_ORIGINS` (http://localhost:8080), `RATE_LIMIT_AUTH_MAX` (10, capped at 50), `RATE_LIMIT_GENERAL_MAX` (100), `DEFAULT_EMBEDDINGS_MODEL` (openai/text-embedding-3-small), `DEFAULT_CHAT_MODEL` (openai/gpt-4.1), `S3_REGION` (auto), `EMAIL_FROM_NAME` ("RAG Chatbot"), `LLAMAINDEX_PARSE_TIER` (cost_effective), `OPENROUTER_STREAM_TIMEOUT_MS` (60000)
 
@@ -320,7 +320,7 @@ Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_E
   - `cleanAllTables()` — truncates all 15 tables in dependency order
   - `seedPermissions()` — seeds 30 RAG permissions
 - **Current test status**:
-  - Passing (138): health (5), http-error (3), pagination (9), request-id (4), sanitize (6), redis (5), auth (10), workspaces (32), webhooks (5), datasets (14), agents (12), conversations (9), chat (7), permissions (13)
+  - Passing (136): health (5), http-error (3), pagination (9), request-id (4), sanitize (6), redis (5), auth (10), workspaces (32), llamaindex-poll (4), datasets (14), agents (12), conversations (9), chat (7), permissions (13)
   - Skipped (0)
   - No Redis required for local test runs (queue module mocked via `tests/setup.js`)
 
