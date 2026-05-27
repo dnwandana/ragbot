@@ -61,5 +61,10 @@ export function validateEnv() {
     console.error(`Environment validation failed:\n${missing}`)
     process.exit(1)
   }
+  for (const [key, val] of Object.entries(value)) {
+    if (process.env[key] === undefined && val != null) {
+      process.env[key] = String(val)
+    }
+  }
   return value
 }
