@@ -360,7 +360,6 @@ docker compose run --rm api sh -c "node_modules/.bin/knex seed:run"
 | `S3_SECRET_KEY`             | Yes      | R2 secret key                                                                                       |
 | `S3_ENDPOINT`               | Yes      | R2 endpoint URL                                                                                     |
 | `LLAMAINDEX_API_KEY`        | Yes      | API key for LlamaIndex (document parsing)                                                           |
-| `LLAMAINDEX_WEBHOOK_SECRET` | Yes      | Shared secret for LlamaIndex webhook verification (min 16 chars)                                    |
 | `FIRECRAWL_API_KEY`         | Yes      | API key for Firecrawl (URL scraping)                                                                |
 | `LLAMAINDEX_PARSE_TIER`     | No       | LlamaParse tier: `fast`, `cost_effective`, `agentic`, `agentic_plus`. Defaults to `cost_effective`. |
 | `CORS_ALLOWED_ORIGINS`      | No       | Defaults to `http://localhost:8080`. Set to `https://yourdomain.com` in production.                 |
