@@ -1,5 +1,6 @@
 <script setup>
-import { ref, onMounted } from "vue"
+import { ref, watch, onMounted, onUnmounted } from "vue"
+import { message } from "ant-design-vue"
 import { useRoute } from "vue-router"
 import { useDatasetsStore } from "@/stores/datasets"
 import { useDatasetFiles } from "@/composables/useDatasetFiles"
@@ -25,10 +26,47 @@ const {
   handleReprocess,
 } = useDatasetFiles(workspaceId, datasetId)
 
+const ACTIVE_STATUSES = ["processing", "queued"]
+let pollTimer = null
+let consecutiveErrors = 0
+
+function stopPolling() {
+  clearInterval(pollTimer)
+  pollTimer = null
+}
+
+function startPolling() {
+  if (pollTimer) return
+  consecutiveErrors = 0
+  pollTimer = setInterval(async () => {
+    try {
+      await fetchFiles()
+      consecutiveErrors = 0
+    } catch {
+      if (++consecutiveErrors >= 3) {
+        stopPolling()
+        message.error("Could not reach server — refresh to check file status")
+      }
+    }
+  }, 5000)
+}
+
 onMounted(async () => {
   dataset.value = await datasetsStore.fetchDataset(workspaceId, datasetId)
   await fetchFiles()
 })
+
+onUnmounted(() => stopPolling())
+
+watch(
+  files,
+  (newFiles) => {
+    const hasActive = newFiles.some((f) => ACTIVE_STATUSES.includes(f.status))
+    if (hasActive) startPolling()
+    else stopPolling()
+  },
+  { immediate: true },
+)
 
 /** @param {string} status */
 function statusVariant(status) {
