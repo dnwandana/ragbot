@@ -1,16 +1,19 @@
 <script setup>
 import { ref, onMounted } from "vue"
-import { message } from "ant-design-vue"
-import { useRoute } from "vue-router"
+import { message, Modal } from "ant-design-vue"
+import { useRoute, useRouter } from "vue-router"
 import MembersTable from "@/components/MembersTable.vue"
 import InvitationsTable from "@/components/InvitationsTable.vue"
 import RoleFormModal from "@/components/RoleFormModal.vue"
 import InviteFormModal from "@/components/InviteFormModal.vue"
 import { useRoles } from "@/composables/useRoles"
 import { useInvitations } from "@/composables/useInvitations"
+import { useMembers } from "@/composables/useMembers"
+import { usePermissions } from "@/composables/usePermissions"
 import { useWorkspacesStore } from "@/stores/workspaces"
 
 const route = useRoute()
+const router = useRouter()
 const workspaceId = route.params.workspaceId
 const activeTab = ref("general")
 
@@ -26,11 +29,20 @@ const {
   handleInvite,
   loading: isInviteLoading,
 } = useInvitations()
+const {
+  members,
+  loading: membersLoading,
+  fetchMembers,
+  handleRoleChange,
+  handleRemove,
+} = useMembers()
+const { can } = usePermissions()
 
 onMounted(async () => {
   await workspacesStore.fetchWorkspaceById(workspaceId)
   workspaceName.value = workspacesStore.currentWorkspace?.name ?? ""
   fetchRoles(workspaceId)
+  fetchMembers(workspaceId)
 })
 
 async function handleSaveName() {
@@ -43,6 +55,26 @@ async function handleSaveName() {
   } finally {
     isSavingName.value = false
   }
+}
+
+function handleDeleteWorkspace() {
+  Modal.confirm({
+    title: "Delete workspace",
+    content:
+      "This will permanently delete the workspace and all its data — datasets, agents, conversations, and members. This action cannot be undone.",
+    okText: "Delete workspace",
+    okType: "danger",
+    cancelText: "Cancel",
+    onOk: async () => {
+      try {
+        await workspacesStore.deleteWorkspace(workspaceId)
+        message.success("Workspace deleted")
+        router.push("/workspaces")
+      } catch {
+        // HTTP client already showed message.error(); no rethrow needed
+      }
+    },
+  })
 }
 </script>
 
@@ -120,11 +152,33 @@ async function handleSaveName() {
           <div class="settings-hint">Used across the platform to identify your workspace.</div>
         </div>
       </div>
+
+      <div class="danger-zone">
+        <div class="danger-zone__hd">
+          <div class="danger-zone__title">Danger zone</div>
+          <div class="danger-zone__sub">Actions here are permanent and cannot be undone.</div>
+        </div>
+        <div class="danger-zone__body">
+          <div class="danger-zone__desc">
+            Permanently delete this workspace and all its data — datasets, agents, conversations,
+            and members.
+          </div>
+          <button class="btn-danger" @click="handleDeleteWorkspace">Delete workspace</button>
+        </div>
+      </div>
     </div>
 
     <!-- Members tab -->
     <div v-if="activeTab === 'members'" class="tab-panel">
-      <MembersTable :workspace-id="workspaceId" />
+      <MembersTable
+        :members="members"
+        :roles="roles"
+        :loading="membersLoading"
+        :can-update-role="can('member:manage_role')"
+        :can-remove="can('member:remove')"
+        @role-change="({ memberId, roleId }) => handleRoleChange(workspaceId, memberId, roleId)"
+        @remove="(memberId) => handleRemove(workspaceId, memberId)"
+      />
     </div>
 
     <!-- Pending invites tab -->
@@ -394,5 +448,56 @@ async function handleSaveName() {
   font-size: 12.5px;
   color: var(--ink-3);
   margin-top: 2px;
+}
+.danger-zone {
+  margin-top: 16px;
+  background: var(--surface);
+  border: 1px solid var(--err-border);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-1);
+  max-width: 560px;
+}
+.danger-zone__hd {
+  padding: 16px 20px 14px;
+  border-bottom: 1px solid var(--err-border);
+}
+.danger-zone__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--err);
+}
+.danger-zone__sub {
+  font-size: 12.5px;
+  color: var(--ink-3);
+  margin-top: 2px;
+}
+.danger-zone__body {
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.danger-zone__desc {
+  font-size: 12.5px;
+  color: var(--ink-3);
+  line-height: 1.5;
+}
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 14px;
+  background: var(--err);
+  color: #fff;
+  border: none;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.btn-danger:hover {
+  background: var(--err-2);
 }
 </style>

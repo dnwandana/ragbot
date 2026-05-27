@@ -44,6 +44,7 @@ body {
   --err: #c0291f;
   --err-bg: #fef2f2;
   --err-border: rgba(192, 41, 31, 0.2);
+  --err-2: #a01f17;
 
   /* Structure */
   --line: rgba(24, 18, 12, 0.1);
