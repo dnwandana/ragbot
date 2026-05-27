@@ -14,9 +14,7 @@ const createSchema = joi
   .object({
     name: joi.string().min(1).max(255).required(),
     description: joi.string().max(1000).optional().allow(""),
-    embedding_model: joi
-      .string()
-      .default(process.env.DEFAULT_EMBEDDINGS_MODEL || "openai/text-embedding-3-small"),
+    embedding_model: joi.string().default(process.env.DEFAULT_EMBEDDINGS_MODEL),
     chunk_size: joi.number().integer().min(256).max(8192).default(1024),
     chunk_overlap: joi.number().integer().min(0).max(2048).default(200),
   })

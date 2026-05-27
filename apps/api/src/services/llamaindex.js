@@ -22,7 +22,7 @@ export const submitParseJob = async (buffer, filename, mimeType) => {
   form.append(
     "configuration",
     JSON.stringify({
-      tier: process.env.LLAMAINDEX_PARSE_TIER ?? "cost_effective",
+      tier: process.env.LLAMAINDEX_PARSE_TIER,
       version: "latest",
     }),
   )

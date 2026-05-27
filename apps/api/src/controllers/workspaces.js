@@ -163,7 +163,7 @@ export const createWorkspace = async (req, res, next) => {
         description: "System default agent for this workspace",
         system_prompt: "You are a helpful assistant.",
         model_config: JSON.stringify({
-          model: process.env.DEFAULT_CHAT_MODEL || "openai/gpt-4.1",
+          model: process.env.DEFAULT_CHAT_MODEL,
           temperature: 0.7,
           top_p: 1,
           max_tokens: 4096,
