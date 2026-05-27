@@ -36,15 +36,6 @@ export const findOne = (conditions) =>
   db.select(COLUMNS).from(TABLE).where(conditions).whereNull("deleted_at").first()
 
 /**
- * Find an active dataset file by its LlamaIndex job ID stored in the metadata JSONB column.
- *
- * @param {string} jobId - LlamaIndex job ID to search for in metadata->>'llamaindex_job_id'
- * @returns {Promise<Object|undefined>} The file record, or undefined if not found
- */
-export const findByMetaJobId = (jobId) =>
-  db(TABLE).whereRaw("metadata->>'llamaindex_job_id' = ?", [jobId]).whereNull("deleted_at").first()
-
-/**
  * Count active dataset files for a dataset with optional ILIKE search.
  *
  * @param {Object} filter - Must include dataset_id

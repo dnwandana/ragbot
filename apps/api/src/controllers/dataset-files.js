@@ -32,8 +32,8 @@ const updateSchema = joi
  * POST /api/workspaces/:workspace_id/datasets/:dataset_id/files/upload — Upload a file to a dataset.
  *
  * Stores the uploaded file in R2, submits an async parse job to LlamaIndex, creates a
- * dataset_file record with status 'processing', and logs the upload audit event.
- * Processing is triggered later via the LlamaIndex webhook callback.
+ * dataset_file record with status 'processing', enqueues a BullMQ processing job, and
+ * logs the upload audit event. The worker polls LlamaIndex for completion asynchronously.
  *
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
@@ -82,6 +82,8 @@ export const uploadFile = async (req, res, next) => {
       created_at: new Date(),
       updated_at: new Date(),
     })
+
+    await addProcessingJob({ datasetFileId: file.id, datasetId: dataset.id })
 
     await logAuditEvent({
       workspace_id: req.workspace.id,

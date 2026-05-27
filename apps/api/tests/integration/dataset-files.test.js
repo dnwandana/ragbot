@@ -8,6 +8,7 @@ import {
   cleanAllTables,
   seedPermissions,
 } from "../helpers.js"
+import { addProcessingJob } from "../../src/queues/file-processing.js"
 
 vi.mock("../../src/services/email.js", () => ({
   sendVerificationEmail: vi.fn(),
@@ -16,7 +17,7 @@ vi.mock("../../src/services/email.js", () => ({
 }))
 vi.mock("../../src/services/llamaindex.js", () => ({
   submitParseJob: vi.fn().mockResolvedValue("mock-job-id"),
-  getMarkdown: vi.fn().mockResolvedValue("# Mock markdown content"),
+  pollForMarkdown: vi.fn().mockResolvedValue("# Mock markdown content"),
 }))
 vi.mock("../../src/services/storage.js", () => ({
   uploadFile: vi.fn().mockResolvedValue("mock-path"),
@@ -30,6 +31,7 @@ beforeAll(async () => {
   await seedPermissions()
 })
 beforeEach(async () => {
+  vi.clearAllMocks()
   await cleanAllTables()
   user = await createTestUser()
   ws = await createTestWorkspace(user.id)
@@ -58,6 +60,10 @@ describe("POST .../files/upload", () => {
     expect(res.body.data.status).toBe("processing")
     const metadata = res.body.data.metadata
     expect(metadata.llamaindex_job_id).toBe("mock-job-id")
+    expect(addProcessingJob).toHaveBeenCalledWith({
+      datasetFileId: res.body.data.id,
+      datasetId: dsId,
+    })
   })
 
   it("returns 400 when no file is attached", async () => {

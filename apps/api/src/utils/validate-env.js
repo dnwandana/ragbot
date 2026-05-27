@@ -50,7 +50,6 @@ const envSchema = joi
       .string()
       .valid("fast", "cost_effective", "agentic", "agentic_plus")
       .default("cost_effective"),
-    LLAMAINDEX_WEBHOOK_SECRET: joi.string().min(16).required(),
     FIRECRAWL_API_KEY: joi.string().required(),
   })
   .unknown(true)

@@ -93,7 +93,9 @@ const processJob = async (job) => {
 
   let markdown
   if (metadata.llamaindex_job_id) {
-    markdown = await llamaindexService.getMarkdown(metadata.llamaindex_job_id)
+    markdown = await llamaindexService.pollForMarkdown(metadata.llamaindex_job_id, {
+      timeoutMs: 300_000,
+    })
   } else if (metadata.source_url) {
     markdown = await firecrawlService.scrapeUrl(metadata.source_url)
   } else {
