@@ -1,8 +1,8 @@
 <script setup>
-import { reactive, ref, onMounted, computed } from "vue"
+import { ref, reactive, watch, onMounted } from "vue"
 import { useRoute } from "vue-router"
 import { useDatasets } from "@/composables/useDatasets"
-import VariationsToggle from "@/components/VariationsToggle.vue"
+import { relativeTime } from "@/utils/time"
 
 const route = useRoute()
 const workspaceId = route.params.workspaceId
@@ -11,240 +11,352 @@ const {
   datasets,
   loading,
   isModalVisible,
-  nameRules,
+  editingDataset,
   openCreateModal,
+  openEditModal,
   closeModal,
   handleSubmit,
   handleDelete,
+  nameRules,
   fetchDatasets,
 } = useDatasets(workspaceId)
 
-const form = reactive({
-  name: "",
-  description: "",
-  embedding_model: "openai/text-embedding-3-small",
-  chunk_size: 1024,
-  chunk_overlap: 200,
-})
 const viewMode = ref("cards")
+const menuOpenId = ref(null)
+const deleteTarget = ref(null)
+const form = reactive({ name: "", description: "" })
 
 onMounted(fetchDatasets)
 
-const VIEW_OPTIONS = [
-  { label: "Cards", value: "cards" },
-  { label: "Table", value: "table" },
-]
+// Sync form fields when the modal opens
+watch(isModalVisible, (open) => {
+  if (!open) return
+  if (editingDataset.value) {
+    form.name = editingDataset.value.name
+    form.description = editingDataset.value.description ?? ""
+  } else {
+    form.name = ""
+    form.description = ""
+  }
+})
 
-const DATASET_COLORS = [
-  "#FF6B35",
-  "#117A4A",
-  "#1D4ED8",
-  "#7C3AED",
-  "#C47B00",
-  "#0891B2",
-  "#BE185D",
-  "#374151",
-]
-
-/** @param {number} index */
-function datasetColor(index) {
-  return DATASET_COLORS[index % DATASET_COLORS.length]
-}
-
-/**
- * @param {object} ds
- * @returns {{ label: string, variant: string, progress: number|null }}
- */
-function datasetStatus(ds) {
-  const status = ds.status || "indexed"
-  if (status === "processing")
-    return { label: `Processing`, variant: "brand", progress: ds.progress || 0 }
-  if (status === "failed" || status === "error")
-    return { label: "Error", variant: "err", progress: null }
-  return { label: "Indexed", variant: "ok", progress: null }
-}
-
-/** @param {string} dateStr */
-function relativeDate(dateStr) {
+/** @param {string} dateStr @returns {string} */
+function shortDate(dateStr) {
   if (!dateStr) return ""
-  const diff = (Date.now() - new Date(dateStr)) / 86400000
-  if (diff < 1) return "Today"
-  if (diff < 2) return "Yesterday"
-  if (diff < 7) return `${Math.floor(diff)}d ago`
   return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
-const tableColumns = computed(() => [
-  { title: "Name", key: "name", dataIndex: "name" },
-  { title: "Files", key: "files", dataIndex: "file_count", width: 80 },
-  { title: "Status", key: "status", dataIndex: "status", width: 120 },
-  { title: "Updated", key: "updated", dataIndex: "updated_at", width: 120 },
-  { title: "", key: "actions", width: 80 },
-])
+/** @param {object} ds */
+function openDelete(ds) {
+  menuOpenId.value = null
+  deleteTarget.value = ds
+}
+
+async function confirmDelete() {
+  await handleDelete(deleteTarget.value.id)
+  deleteTarget.value = null
+}
 </script>
 
 <template>
-  <div class="page">
+  <div class="page" @click="menuOpenId = null">
     <!-- Page head -->
     <div class="page-head">
       <div>
-        <div class="page-title">Datasets</div>
-        <div class="page-sub">Knowledge bases for your agents.</div>
+        <div class="page-title">Knowledge base</div>
+        <div class="page-sub">Datasets for your agents to search.</div>
       </div>
       <div class="page-actions">
-        <VariationsToggle v-model="viewMode" :options="VIEW_OPTIONS" />
-        <button class="btn-outline" @click="openCreateModal">
+        <div class="view-toggle">
+          <button
+            class="view-btn"
+            :class="{ active: viewMode === 'cards' }"
+            @click="viewMode = 'cards'"
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+            >
+              <rect x="2" y="2" width="5" height="5" rx="1" />
+              <rect x="9" y="2" width="5" height="5" rx="1" />
+              <rect x="2" y="9" width="5" height="5" rx="1" />
+              <rect x="9" y="9" width="5" height="5" rx="1" />
+            </svg>
+            Cards
+          </button>
+          <button
+            class="view-btn"
+            :class="{ active: viewMode === 'table' }"
+            @click="viewMode = 'table'"
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+            >
+              <line x1="2" y1="4" x2="14" y2="4" />
+              <line x1="2" y1="8" x2="14" y2="8" />
+              <line x1="2" y1="12" x2="14" y2="12" />
+            </svg>
+            Table
+          </button>
+        </div>
+        <button class="btn-primary" @click="openCreateModal">
           <svg
-            width="12"
-            height="12"
+            width="11"
+            height="11"
             viewBox="0 0 16 16"
             fill="none"
             stroke="currentColor"
             stroke-width="2.2"
+            stroke-linecap="round"
           >
-            <path d="M8 3v10M3 8h10" stroke-linecap="round" />
+            <path d="M8 3v10M3 8h10" />
           </svg>
           New dataset
         </button>
       </div>
     </div>
 
-    <!-- Loading -->
-    <a-skeleton v-if="loading && !datasets.length" active :paragraph="{ rows: 4 }" />
-
-    <!-- Empty state -->
-    <div v-else-if="!datasets.length" class="empty-state">
-      <div class="empty-icon">📚</div>
-      <div class="empty-title">No datasets yet</div>
-      <p class="empty-text">Upload documents or scrape URLs to build your first knowledge base.</p>
-      <button class="btn-brand" @click="openCreateModal">New dataset</button>
-    </div>
-
-    <!-- CARDS view -->
-    <div v-else-if="viewMode === 'cards'" class="ds-grid">
-      <div
-        v-for="(ds, idx) in datasets"
-        :key="ds.id"
-        class="ds-card"
-        @click="$router.push(`/workspaces/${workspaceId}/datasets/${ds.id}`)"
-      >
-        <div class="ds-card__accent" :style="{ background: datasetColor(idx) }" />
-        <div class="ds-card__body">
-          <div class="ds-card__name">{{ ds.name }}</div>
-          <p v-if="ds.description" class="ds-card__desc">{{ ds.description }}</p>
-          <div class="ds-card__tags" v-if="ds.tags?.length">
-            <span v-for="tag in ds.tags" :key="tag" class="chip-sm">{{ tag }}</span>
-          </div>
-          <div class="ds-card__stats">
-            <span class="stat">{{ ds.file_count || 0 }} files</span>
-          </div>
-          <div class="ds-card__status">
-            <template v-if="datasetStatus(ds).variant === 'brand'">
-              <span class="chip chip--brand">
-                <span class="status-dot" style="background: var(--brand)" /> Processing
-              </span>
-            </template>
-            <template v-else-if="datasetStatus(ds).variant === 'err'">
-              <span class="chip chip--err"><span class="status-dot" /> Error</span>
-            </template>
-            <template v-else>
-              <span class="chip chip--ok"><span class="status-dot" /> Indexed</span>
-            </template>
+    <!-- Skeleton loading -->
+    <div v-if="loading && !datasets.length" class="ds-grid">
+      <div v-for="n in 6" :key="n" class="ds-card ds-card--skel">
+        <div class="card-body">
+          <div class="skel" style="height: 13px; width: 65%; margin-bottom: 8px"></div>
+          <div class="skel" style="height: 9px; width: 90%; margin-bottom: 5px"></div>
+          <div class="skel" style="height: 9px; width: 70%; margin-bottom: 12px"></div>
+          <div style="display: flex; gap: 12px">
+            <div class="skel" style="height: 9px; width: 50px"></div>
+            <div class="skel" style="height: 9px; width: 44px"></div>
           </div>
         </div>
-        <div class="ds-card__foot">
-          <span class="foot-time">{{ relativeDate(ds.updated_at || ds.created_at) }}</span>
-          <button class="icon-btn-sm" title="Delete dataset" @click.stop="handleDelete(ds.id)">
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.7"
-            >
-              <path
-                d="M3 4h10M5 4V3h6v1M6 7v5M10 7v5M4 4l1 9h6l1-9"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-          </button>
+        <div class="card-foot">
+          <div class="skel" style="height: 9px; width: 72px"></div>
         </div>
       </div>
     </div>
 
-    <!-- TABLE view -->
-    <div v-else class="ds-table-wrap">
-      <a-table
-        :dataSource="datasets"
-        :loading="loading"
-        :columns="tableColumns"
-        :pagination="false"
-        rowKey="id"
-        size="middle"
-        :bordered="false"
-      >
-        <template #bodyCell="{ column, record, index }">
-          <template v-if="column.key === 'name'">
-            <div
-              class="tbl-name-cell"
-              @click="$router.push(`/workspaces/${workspaceId}/datasets/${record.id}`)"
-            >
-              <div class="tbl-accent" :style="{ background: datasetColor(index) }" />
-              <div>
-                <div class="tbl-name">{{ record.name }}</div>
-                <div v-if="record.description" class="tbl-desc">{{ record.description }}</div>
-              </div>
-            </div>
-          </template>
-          <template v-if="column.key === 'status'">
-            <span v-if="datasetStatus(record).variant === 'brand'" class="chip chip--brand">
-              <span class="status-dot" style="background: var(--brand)" /> Processing
-            </span>
-            <span v-else-if="datasetStatus(record).variant === 'err'" class="chip chip--err">
-              <span class="status-dot" /> Error
-            </span>
-            <span v-else class="chip chip--ok"> <span class="status-dot" /> Indexed </span>
-          </template>
-          <template v-if="column.key === 'updated'">
-            <span class="tbl-muted">{{
-              relativeDate(record.updated_at || record.created_at)
-            }}</span>
-          </template>
-          <template v-if="column.key === 'actions'">
-            <button class="icon-btn-sm" title="Delete" @click="handleDelete(record.id)">
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.7"
-              >
-                <path
-                  d="M3 4h10M5 4V3h6v1M6 7v5M10 7v5M4 4l1 9h6l1-9"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-            </button>
-          </template>
-        </template>
-      </a-table>
+    <!-- Empty state -->
+    <div v-else-if="!loading && !datasets.length" class="empty-wrap">
+      <div class="empty">
+        <svg
+          viewBox="0 0 240 160"
+          width="200"
+          height="133"
+          fill="none"
+          stroke="var(--ink-3)"
+          stroke-width="1.25"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          style="margin-bottom: 20px"
+        >
+          <line x1="20" y1="125" x2="220" y2="125" stroke="var(--line)" />
+          <line x1="20" y1="135" x2="220" y2="135" stroke="var(--line)" />
+          <rect x="40" y="80" width="14" height="45" rx="1" />
+          <rect x="54" y="70" width="11" height="55" rx="1" />
+          <rect x="65" y="84" width="16" height="41" rx="1" />
+          <rect x="81" y="76" width="12" height="49" rx="1" />
+          <rect x="93" y="80" width="14" height="45" rx="1" />
+          <path d="M120 122L120 110L140 105L160 110L160 122Z" />
+          <line x1="140" y1="105" x2="140" y2="122" />
+          <rect x="172" y="78" width="13" height="47" rx="1" />
+          <rect x="185" y="82" width="11" height="43" rx="1" />
+          <rect x="196" y="74" width="14" height="51" rx="1" />
+          <circle cx="138" cy="58" r="22" stroke="var(--brand)" stroke-width="2" />
+          <line x1="156" y1="76" x2="172" y2="92" stroke="var(--brand)" stroke-width="2" />
+          <circle
+            cx="138"
+            cy="58"
+            r="22"
+            fill="var(--brand-tint)"
+            fill-opacity="0.4"
+            stroke="none"
+          />
+        </svg>
+        <h2 class="empty-title">No datasets yet</h2>
+        <p class="empty-body">
+          Datasets group the documents your agents search. Create one for each corpus — a wiki, a
+          contract set, a research collection.
+        </p>
+        <button class="btn-primary btn-lg" @click="openCreateModal">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.2"
+            stroke-linecap="round"
+          >
+            <path d="M8 3v10M3 8h10" />
+          </svg>
+          Create your first dataset
+        </button>
+        <p class="empty-caption">Supports PDF, DOCX, Markdown, plain text, and web URLs.</p>
+      </div>
     </div>
 
-    <!-- Create dataset modal -->
+    <!-- Cards view -->
+    <div v-else-if="viewMode === 'cards'" class="ds-grid">
+      <div
+        v-for="ds in datasets"
+        :key="ds.id"
+        class="ds-card"
+        @click="$router.push(`/workspaces/${workspaceId}/datasets/${ds.id}`)"
+      >
+        <div class="card-body">
+          <div class="card-top">
+            <div class="card-name">{{ ds.name }}</div>
+            <!-- ⋯ menu -->
+            <div class="menu-wrap" @click.stop>
+              <button
+                class="menu-btn"
+                @click="menuOpenId = menuOpenId === ds.id ? null : ds.id"
+                aria-label="More options"
+              >
+                ···
+              </button>
+              <div v-if="menuOpenId === ds.id" class="menu-popup">
+                <button
+                  class="menu-item"
+                  @click="openEditModal(ds); menuOpenId = null"
+                >
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                  >
+                    <path d="M11 2l3 3-8 8H3v-3z" />
+                  </svg>
+                  Edit
+                </button>
+                <button class="menu-item menu-item--danger" @click="openDelete(ds)">
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                  >
+                    <path d="M3 4h10M5 4V3h6v1M6 7v5M10 7v5M4 4l1 9h6l1-9" />
+                  </svg>
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+          <p v-if="ds.description" class="card-desc">{{ ds.description }}</p>
+          <div class="card-stats">
+            <span
+              ><strong>{{ ds.file_count ?? 0 }}</strong> files</span
+            >
+            <span v-if="ds.total_size_mb"
+              ><strong>{{ Number(ds.total_size_mb).toFixed(0) }}</strong> MB</span
+            >
+          </div>
+        </div>
+        <div class="card-foot">
+          <span class="foot-text">Created {{ shortDate(ds.created_at) }}</span>
+          <span class="foot-text">Updated {{ relativeTime(ds.updated_at) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table view -->
+    <div v-else class="ds-table">
+      <div class="tbl-head tbl-cols">
+        <div>Name</div>
+        <div>Files</div>
+        <div>Size</div>
+        <div>Updated</div>
+        <div></div>
+      </div>
+      <div
+        v-for="ds in datasets"
+        :key="ds.id"
+        class="tbl-row tbl-cols"
+        @click="$router.push(`/workspaces/${workspaceId}/datasets/${ds.id}`)"
+      >
+        <div>
+          <div class="tbl-name">{{ ds.name }}</div>
+          <div v-if="ds.description" class="tbl-desc">{{ ds.description }}</div>
+        </div>
+        <div class="tbl-mono">{{ ds.file_count ?? 0 }}</div>
+        <div class="tbl-mono">
+          {{ ds.total_size_mb ? `${Number(ds.total_size_mb).toFixed(0)} MB` : "—" }}
+        </div>
+        <div class="tbl-muted">{{ relativeTime(ds.updated_at) }}</div>
+        <div @click.stop>
+          <div class="menu-wrap">
+            <button
+              class="menu-btn"
+              @click="menuOpenId = menuOpenId === ds.id ? null : ds.id"
+              aria-label="More options"
+            >
+              ···
+            </button>
+            <div v-if="menuOpenId === ds.id" class="menu-popup menu-popup--left">
+              <button
+                class="menu-item"
+                @click="openEditModal(ds); menuOpenId = null"
+              >
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                >
+                  <path d="M11 2l3 3-8 8H3v-3z" />
+                </svg>
+                Edit
+              </button>
+              <button class="menu-item menu-item--danger" @click="openDelete(ds)">
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                >
+                  <path d="M3 4h10M5 4V3h6v1M6 7v5M10 7v5M4 4l1 9h6l1-9" />
+                </svg>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create / Edit modal -->
     <a-modal
       :open="isModalVisible"
-      title="New Dataset"
-      @cancel="closeModal"
+      :title="editingDataset ? 'Edit dataset' : 'New dataset'"
       :footer="null"
       :width="480"
+      @cancel="closeModal"
     >
-      <a-form :model="form" layout="vertical" @finish="handleSubmit(form)">
+      <a-form layout="vertical" @finish="handleSubmit(form)" style="margin-top: 8px">
         <a-form-item label="Name" name="name" :rules="nameRules">
-          <a-input v-model:value="form.name" placeholder="e.g. Q3 Financial Report" />
+          <a-input v-model:value="form.name" placeholder="e.g. Engineering wiki" />
         </a-form-item>
         <a-form-item label="Description">
           <a-textarea
@@ -253,33 +365,26 @@ const tableColumns = computed(() => [
             placeholder="Optional description"
           />
         </a-form-item>
-        <a-collapse ghost>
-          <a-collapse-panel key="adv" header="Advanced settings">
-            <a-form-item label="Embedding Model">
-              <a-input v-model:value="form.embedding_model" />
-            </a-form-item>
-            <a-form-item label="Chunk Size">
-              <a-input-number
-                v-model:value="form.chunk_size"
-                :min="256"
-                :max="8192"
-                style="width: 100%"
-              />
-            </a-form-item>
-            <a-form-item label="Chunk Overlap">
-              <a-input-number
-                v-model:value="form.chunk_overlap"
-                :min="0"
-                :max="2048"
-                style="width: 100%"
-              />
-            </a-form-item>
-          </a-collapse-panel>
-        </a-collapse>
-        <button type="submit" class="btn-brand btn-block" style="margin-top: 16px">
-          Create Dataset
+        <button type="submit" class="btn-primary btn-block">
+          {{ editingDataset ? "Save changes" : "Create dataset" }}
         </button>
       </a-form>
+    </a-modal>
+
+    <!-- Delete confirm modal -->
+    <a-modal
+      :open="!!deleteTarget"
+      title="Delete dataset?"
+      ok-text="Delete"
+      ok-type="danger"
+      cancel-text="Cancel"
+      @ok="confirmDelete"
+      @cancel="deleteTarget = null"
+    >
+      <p style="margin: 8px 0">
+        All files and indexed data in <strong>{{ deleteTarget?.name }}</strong> will be permanently
+        removed.
+      </p>
     </a-modal>
   </div>
 </template>
@@ -288,6 +393,7 @@ const tableColumns = computed(() => [
 .page {
   padding: 20px 24px;
 }
+
 .page-head {
   display: flex;
   align-items: flex-start;
@@ -313,59 +419,67 @@ const tableColumns = computed(() => [
   gap: 8px;
 }
 
-.btn-brand {
+.btn-primary {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 14px;
+  padding: 7px 12px;
   background: var(--brand);
   color: #fff;
   border: none;
   border-radius: var(--r-sm);
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 12.5px;
+  font-weight: 600;
   cursor: pointer;
 }
-.btn-brand:hover {
+.btn-primary:hover {
   background: var(--brand-2);
+}
+.btn-lg {
+  padding: 9px 16px;
+  font-size: 13.5px;
 }
 .btn-block {
   width: 100%;
-  padding: 10px;
   justify-content: center;
+  margin-top: 16px;
+  padding: 10px;
 }
-.btn-outline {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
-  background: var(--surface);
-  color: var(--ink-2);
+
+.view-toggle {
+  display: flex;
   border: 1px solid var(--line-2);
   border-radius: var(--r-sm);
-  font-size: 13px;
-  font-weight: 500;
+  overflow: hidden;
+}
+.view-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: none;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 12px;
   cursor: pointer;
 }
-.btn-outline:hover {
-  border-color: var(--brand);
-  color: var(--brand);
+.view-btn.active {
+  background: var(--bg-2);
+  color: var(--ink);
 }
 
 /* Cards */
 .ds-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(272px, 1fr));
   gap: 14px;
 }
 .ds-card {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--r);
+  border-radius: var(--r-lg);
   box-shadow: var(--shadow-1);
   cursor: pointer;
-  position: relative;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
   transition:
@@ -376,141 +490,92 @@ const tableColumns = computed(() => [
   box-shadow: var(--shadow-2);
   border-color: var(--line-2);
 }
-.ds-card__accent {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 4px;
-  height: 100%;
+.ds-card--skel {
+  cursor: default;
+  pointer-events: none;
 }
-.ds-card__body {
-  padding: 16px 16px 10px 20px;
+.card-body {
+  padding: 16px;
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
-.ds-card__name {
+.card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.card-name {
   font-size: 14px;
   font-weight: 600;
   color: var(--ink);
+  line-height: 1.3;
 }
-.ds-card__desc {
+.card-desc {
   font-size: 12.5px;
   color: var(--ink-3);
   line-height: 1.5;
+  margin: 0;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  margin: 0;
 }
-.ds-card__tags {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-.ds-card__stats {
+.card-stats {
   display: flex;
   gap: 12px;
-}
-.stat {
   font-size: 12px;
-  color: var(--ink-4);
+  color: var(--ink-3);
+  margin-top: 4px;
 }
-.ds-card__status {
-  margin-top: 2px;
+.card-stats strong {
+  color: var(--ink-2);
+  font-weight: 600;
 }
-.ds-card__foot {
+.card-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px 10px 20px;
+  padding: 9px 14px;
   border-top: 1px solid var(--line);
 }
-.foot-time {
+.foot-text {
   font-size: 11.5px;
   color: var(--ink-4);
-}
-
-/* Chips */
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 2px 8px;
-  border-radius: 20px;
-  font-size: 11.5px;
-  font-weight: 500;
-}
-.chip--ok {
-  background: var(--ok-bg);
-  color: var(--ok);
-  border: 1px solid var(--ok-border);
-}
-.chip--err {
-  background: var(--err-bg);
-  color: var(--err);
-  border: 1px solid var(--err-border);
-}
-.chip--brand {
-  background: var(--brand-tint);
-  color: var(--brand-3);
-  border: 1px solid rgba(255, 107, 53, 0.2);
-}
-.chip-sm {
-  display: inline-flex;
-  align-items: center;
-  padding: 1px 7px;
-  background: var(--bg-2);
-  border: 1px solid var(--line);
-  border-radius: 20px;
-  font-size: 11px;
-  color: var(--ink-4);
-}
-.status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-.icon-btn-sm {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  color: var(--ink-4);
-  border-radius: var(--r-sm);
-}
-.icon-btn-sm:hover {
-  background: var(--err-bg);
-  color: var(--err);
 }
 
 /* Table */
-.ds-table-wrap {
+.ds-table {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--r);
+  border-radius: var(--r-lg);
   overflow: hidden;
-  box-shadow: var(--shadow-1);
 }
-.tbl-name-cell {
-  display: flex;
-  align-items: center;
+.tbl-cols {
+  display: grid;
+  grid-template-columns: 1fr 80px 100px 120px 40px;
   gap: 12px;
+  align-items: center;
+}
+.tbl-head {
+  padding: 10px 18px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+.tbl-row {
+  padding: 11px 18px;
+  border-top: 1px solid var(--line);
   cursor: pointer;
 }
-.tbl-accent {
-  width: 4px;
-  height: 36px;
-  border-radius: 2px;
-  flex-shrink: 0;
+.tbl-row:hover {
+  background: var(--bg);
 }
 .tbl-name {
   font-size: 13.5px;
@@ -521,47 +586,127 @@ const tableColumns = computed(() => [
   font-size: 12px;
   color: var(--ink-4);
 }
+.tbl-mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-2);
+}
 .tbl-muted {
   font-size: 12.5px;
   color: var(--ink-4);
 }
-:deep(.ant-table-thead > tr > th) {
-  background: var(--bg-2);
-  font-size: 11.5px;
-  font-weight: 600;
+
+/* Menu */
+.menu-wrap {
+  position: relative;
+}
+.menu-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: var(--r-sm);
   color: var(--ink-4);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  border-bottom: 1px solid var(--line);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
 }
-:deep(.ant-table-tbody > tr > td) {
-  border-bottom: 1px solid var(--line);
-  padding: 11px 16px;
+.menu-btn:hover {
+  background: var(--bg-2);
+  color: var(--ink);
 }
-:deep(.ant-table-tbody > tr:hover > td) {
-  background: var(--bg) !important;
+.menu-popup {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-2);
+  min-width: 130px;
+  padding: 4px;
+  z-index: 20;
+}
+.menu-popup--left {
+  right: auto;
+  left: 0;
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  background: transparent;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  color: var(--ink-2);
+  cursor: pointer;
+  text-align: left;
+}
+.menu-item:hover {
+  background: var(--bg-2);
+}
+.menu-item--danger {
+  color: var(--err);
+}
+.menu-item--danger:hover {
+  background: var(--err-bg);
 }
 
-.empty-state {
-  text-align: center;
-  padding: 60px 24px;
+/* Skeleton */
+@keyframes shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
 }
-.empty-icon {
-  font-size: 40px;
-  margin-bottom: 14px;
+.skel {
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--bg-2) 25%, var(--surface) 50%, var(--bg-2) 75%);
+  background-size: 400px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+/* Empty */
+.empty-wrap {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 0;
+}
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px;
+  text-align: center;
 }
 .empty-title {
-  font-size: 15px;
+  font-size: 18px;
   font-weight: 600;
+  letter-spacing: -0.015em;
   color: var(--ink);
-  margin-bottom: 6px;
+  margin: 0 0 8px;
 }
-.empty-text {
-  font-size: 13px;
+.empty-body {
+  font-size: 13.5px;
   color: var(--ink-3);
-  margin-bottom: 20px;
-  max-width: 340px;
-  margin-left: auto;
-  margin-right: auto;
+  max-width: 360px;
+  margin: 0 0 20px;
+  line-height: 1.55;
+}
+.empty-caption {
+  font-size: 12px;
+  color: var(--ink-4);
+  margin: 16px 0 0;
 }
 </style>
