@@ -58,18 +58,21 @@ function onContainerClick(event) {
   padding-left: 1.5rem;
 }
 .markdown-body :deep(code) {
-  font-family: monospace;
-  background: #f1f5f9;
+  font-family: var(--font-mono);
+  background: var(--bg-2);
+  color: var(--ink-2);
   padding: 1px 3px;
   border-radius: 3px;
   font-size: 0.9em;
 }
+/* intentionally fixed dark palette — code blocks stay dark regardless of page theme */
 .markdown-body :deep(pre > code) {
-  background: #1e293b;
-  color: #fff;
+  font-family: var(--font-mono);
+  background: #1a1510;
+  color: #f0ebe3;
   display: block;
   padding: 1rem;
-  border-radius: 6px;
+  border-radius: var(--r);
   overflow-x: auto;
   font-size: 0.85em;
 }

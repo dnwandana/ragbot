@@ -139,7 +139,7 @@
         class="mobile-pill"
         @click="isMobileSourcesOpen = true"
       >
-        📎 {{ citations.length }} source{{ citations.length !== 1 ? "s" : "" }}
+        {{ citations.length }} source{{ citations.length !== 1 ? "s" : "" }}
       </div>
 
       <!-- Composer -->
@@ -149,7 +149,7 @@
             ref="inputEl"
             v-model="inputContent"
             class="composer-textarea"
-            placeholder="Ask something about your documents…"
+            placeholder="Ask anything across your corpus…"
             rows="1"
             :disabled="isStreaming"
             @keydown.enter.exact.prevent="handleSend"
@@ -593,8 +593,9 @@ onUnmounted(() => {
   border-bottom-left-radius: 4px;
 }
 .msg-bubble--user {
-  background: var(--brand);
-  color: #fff;
+  background: var(--brand-tint);
+  color: var(--ink);
+  border: 1px solid rgba(255, 107, 53, 0.18);
   border-bottom-right-radius: 4px;
 }
 .msg-meta {

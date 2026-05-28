@@ -72,6 +72,14 @@ body {
   --t-lg: 18px;
   --t-xl: 22px;
 
+  /* Font families */
+  --font-sans: "Geist", "Inter", system-ui, sans-serif;
+  --font-mono: "Geist Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Layout */
+  --composer-max: 760px;
+  --thread-max: 760px;
+
   /* ── Legacy aliases: map old token names → new values ──
      Keeps unrebuilt components working during rollout.
      Remove these once every component is migrated.         */
