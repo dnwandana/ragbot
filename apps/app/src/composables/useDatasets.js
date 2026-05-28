@@ -2,6 +2,10 @@ import { ref, computed } from "vue"
 import { message } from "ant-design-vue"
 import { useDatasetsStore } from "@/stores/datasets"
 
+/**
+ * @param {string} workspaceId
+ * @returns {{ datasets: import("vue").ComputedRef, loading: import("vue").ComputedRef, isModalVisible: import("vue").Ref<boolean>, editingDataset: import("vue").Ref, openCreateModal: Function, openEditModal: Function, closeModal: Function, handleSubmit: Function, handleDelete: Function, nameRules: Array, fetchDatasets: Function }}
+ */
 export function useDatasets(workspaceId) {
   const store = useDatasetsStore()
   const isModalVisible = ref(false)
@@ -11,6 +15,12 @@ export function useDatasets(workspaceId) {
 
   function openCreateModal() {
     editingDataset.value = null
+    isModalVisible.value = true
+  }
+
+  /** @param {{ id: string, name: string, description: string }} dataset */
+  function openEditModal(dataset) {
+    editingDataset.value = dataset
     isModalVisible.value = true
   }
 
@@ -33,17 +43,16 @@ export function useDatasets(workspaceId) {
 
   async function handleDelete(id) {
     await store.deleteDataset(workspaceId, id)
-    await store.fetchDatasets(workspaceId)
     message.success("Dataset deleted")
   }
 
   return {
     datasets: computed(() => store.datasets),
-    pagination: computed(() => store.pagination),
     loading: computed(() => store.loading),
     isModalVisible,
     editingDataset,
     openCreateModal,
+    openEditModal,
     closeModal,
     handleSubmit,
     handleDelete,
