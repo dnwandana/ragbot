@@ -41,6 +41,7 @@ body {
   --warn: #c47b00;
   --warn-bg: #fffbeb;
   --warn-border: rgba(196, 123, 0, 0.2);
+  --amber: #d97726;
   --err: #c0291f;
   --err-bg: #fef2f2;
   --err-border: rgba(192, 41, 31, 0.2);
