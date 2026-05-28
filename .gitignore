@@ -12,6 +12,7 @@ node_modules/
 
 # Coding agents
 .agents/
+.superpowers/
 docs/
 skills-lock.json
 
@@ -22,8 +23,3 @@ skills-lock.json
 
 # Docker deployment
 certs/
-
-# Visual brainstorm companion
-.superpowers/
-plans/
-Claude-*/
