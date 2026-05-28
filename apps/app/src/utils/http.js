@@ -156,8 +156,8 @@ async function send(method, url, options = {}) {
         return handleRefresh({ method, url, body, headers: customHeaders, params, timeout })
       }
 
-      // Show error toast for non-401 errors (matches current axios interceptor behavior)
-      if (response.status !== 401) {
+      // Show error toast for non-401 errors unless caller opts out with { silent: true }
+      if (response.status !== 401 && !options.silent) {
         message.error(errorMessage)
       }
 
@@ -216,7 +216,7 @@ export const request = {
     return send("PATCH", url, { body })
   },
 
-  del(url, params) {
-    return send("DELETE", url, { params })
+  del(url, options = {}) {
+    return send("DELETE", url, { ...options })
   },
 }
