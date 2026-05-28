@@ -67,12 +67,8 @@ onUnmounted(() => {
         Reset links are good for one hour. Request a fresh one and we'll email it over.
       </p>
       <div class="auth-actions">
-        <router-link to="/forgot-password" class="btn-primary">
-          Request a new link
-        </router-link>
-        <router-link to="/login" class="btn-ghost">
-          Back to sign in
-        </router-link>
+        <router-link to="/forgot-password" class="btn-primary"> Request a new link </router-link>
+        <router-link to="/login" class="btn-ghost"> Back to sign in </router-link>
       </div>
       <div class="auth-card-spacer"></div>
     </div>
