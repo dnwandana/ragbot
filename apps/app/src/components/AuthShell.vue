@@ -8,18 +8,28 @@
     <!-- Left panel: warm off-white with brand glow -->
     <div class="auth-side">
       <div class="auth-brand" @click="$router.push('/login')">
-        <div class="logo-mark">
-          <div class="logo-dot" />
-          <div class="logo-inner" />
-        </div>
-        <span class="brand-name">RAGbot</span>
+        <svg class="brand-logo" viewBox="0 0 140 48" role="img" aria-label="RAGBot">
+          <text x="2" y="34" fill="var(--brand)" font-size="28" font-weight="700">[</text>
+          <text x="15" y="35" fill="var(--ink)" font-size="28" font-weight="700">R</text>
+          <text x="35" y="34" fill="var(--brand)" font-size="28" font-weight="700">]</text>
+          <text
+            x="53"
+            y="33"
+            fill="var(--ink)"
+            font-size="21"
+            font-weight="600"
+            letter-spacing="-0.5"
+          >
+            RAGBot
+          </text>
+        </svg>
       </div>
 
       <div class="auth-feature">
         <div class="auth-eyebrow">What's new · v3</div>
         <h2 class="auth-headline">Stop searching.<br />Start asking.</h2>
         <p class="auth-sub">
-          RAGbot turns your documents into a chat interface your whole team can actually use.
+          RAGBot turns your documents into a chat interface your whole team can actually use.
         </p>
 
         <div class="auth-quote">
@@ -85,37 +95,9 @@
   z-index: 2;
   cursor: pointer;
 }
-.logo-mark {
-  width: 26px;
-  height: 26px;
-  background: var(--ink);
-  border-radius: 7px;
-  position: relative;
-  flex-shrink: 0;
-}
-.logo-dot {
-  position: absolute;
-  width: 9px;
-  height: 9px;
-  background: var(--brand);
-  border-radius: 50%;
-  top: 4px;
-  left: 4px;
-}
-.logo-inner {
-  position: absolute;
-  width: 5px;
-  height: 5px;
-  background: var(--bg-2);
-  border-radius: 50%;
-  top: 6px;
-  left: 6px;
-}
-.brand-name {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--ink);
-  letter-spacing: -0.01em;
+.brand-logo {
+  height: 28px;
+  display: block;
 }
 
 .auth-feature {
@@ -132,7 +114,7 @@
   margin-bottom: 12px;
 }
 .auth-headline {
-  font-family: "Source Serif 4", "Source Serif Pro", Georgia, serif;
+  font-family: var(--font-sans);
   font-size: 30px;
   font-weight: 600;
   color: var(--ink);

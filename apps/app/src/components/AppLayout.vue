@@ -39,10 +39,12 @@ onUnmounted(() => window.removeEventListener("resize", onResize))
         </svg>
       </button>
       <div class="topbar-brand">
-        <div class="logo-mark-sm">
-          <div class="logo-dot-sm" />
-        </div>
-        RAGbot
+        <svg class="brand-mark" viewBox="4 6 40 36" role="img" aria-label="RAGBot mark">
+          <text x="4" y="34" fill="var(--brand)" font-size="28" font-weight="700">[</text>
+          <text x="15" y="35" fill="var(--ink)" font-size="28" font-weight="700">R</text>
+          <text x="35" y="34" fill="var(--brand)" font-size="28" font-weight="700">]</text>
+        </svg>
+        RAGBot
       </div>
     </header>
 
@@ -128,21 +130,9 @@ onUnmounted(() => window.removeEventListener("resize", onResize))
   font-weight: 600;
   color: var(--ink);
 }
-.logo-mark-sm {
-  width: 20px;
+.brand-mark {
   height: 20px;
-  background: var(--ink);
-  border-radius: 5px;
-  position: relative;
-}
-.logo-dot-sm {
-  position: absolute;
-  width: 8px;
-  height: 8px;
-  background: var(--brand);
-  border-radius: 50%;
-  top: 3px;
-  left: 3px;
+  display: block;
 }
 
 /* Drawer */
