@@ -74,25 +74,6 @@ export function useAuth() {
     }
   }
 
-  /**
-   * Submits the password reset and redirects to login on success.
-   *
-   * @param {string} token - Raw reset token from the URL query string.
-   */
-  async function handleResetPassword(token) {
-    error.value = ""
-    try {
-      await authStore.resetPassword({
-        token,
-        password: formState.password,
-        confirmation_password: formState.confirmation_password,
-      })
-      router.push("/login")
-    } catch (e) {
-      error.value = e?.response?.data?.message || "Failed to reset password."
-    }
-  }
-
   /** Logs out the user and redirects to the login page. */
   function handleLogout() {
     void authStore.logout()
@@ -115,6 +96,5 @@ export function useAuth() {
     handleSignup,
     handleLogout,
     handleForgotPassword,
-    handleResetPassword,
   }
 }

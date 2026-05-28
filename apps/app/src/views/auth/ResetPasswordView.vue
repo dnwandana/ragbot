@@ -1,146 +1,144 @@
 <script setup>
-import { ref, onMounted } from "vue"
-import { useRoute } from "vue-router"
+import { ref, onMounted, onUnmounted } from "vue"
+import { useRoute, useRouter } from "vue-router"
 import AuthShell from "@/components/AuthShell.vue"
+import StrengthMeter from "@/components/StrengthMeter.vue"
 import { useAuth } from "@/composables/useAuth"
+import { useAuthStore } from "@/stores/auth.js"
 
 const route = useRoute()
-const { formState, error, loading, passwordRules, resetPasswordConfirmRules, handleResetPassword } =
-  useAuth()
+const router = useRouter()
+const authStore = useAuthStore()
+const { formState, error, loading, passwordRules, resetPasswordConfirmRules } = useAuth()
+
 const invalidLink = ref(false)
+const done = ref(false)
+const redirectIn = ref(4)
+let countdown = null
 
 onMounted(() => {
   if (!route.query.token) {
     invalidLink.value = true
-    error.value = "This reset link is invalid or has expired."
   }
+})
+
+async function handleSubmit() {
+  error.value = ""
+  try {
+    await authStore.resetPassword({
+      token: route.query.token,
+      password: formState.password,
+      confirmation_password: formState.confirmation_password,
+    })
+    done.value = true
+    countdown = setInterval(() => {
+      redirectIn.value--
+      if (redirectIn.value <= 0) {
+        clearInterval(countdown)
+        router.push("/login")
+      }
+    }, 1000)
+  } catch (e) {
+    error.value = e?.response?.data?.message || "Failed to reset password."
+  }
+}
+
+onUnmounted(() => {
+  clearInterval(countdown)
 })
 </script>
 
 <template>
   <AuthShell>
-    <div class="auth-card">
-      <template v-if="invalidLink">
-        <div class="auth-title">Link expired</div>
-        <div class="form-error">{{ error }}</div>
-        <div class="auth-footer">
-          <router-link to="/forgot-password">Request a new reset link</router-link>
-        </div>
-      </template>
+    <!-- State B: no / expired token -->
+    <div v-if="invalidLink" class="auth-card" style="text-align: center">
+      <div class="status-icon status-icon--err">
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"
+          />
+          <line x1="12" y1="9" x2="12" y2="13" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
+      </div>
+      <div class="auth-eyebrow">Link unusable</div>
+      <h1 class="auth-title">Reset link expired</h1>
+      <p class="auth-lede">
+        Reset links are good for one hour. Request a fresh one and we'll email it over.
+      </p>
+      <div class="auth-actions">
+        <router-link to="/forgot-password" class="btn-primary">
+          Request a new link
+        </router-link>
+        <router-link to="/login" class="btn-ghost">
+          Back to sign in
+        </router-link>
+      </div>
+      <div class="auth-card-spacer"></div>
+    </div>
 
-      <template v-else>
-        <div class="auth-title">Set new password</div>
-        <div class="auth-subtitle">Must be at least 8 characters.</div>
+    <!-- State C: success -->
+    <div v-else-if="done" class="auth-card" style="text-align: center">
+      <div class="status-icon status-icon--ok">
+        <svg viewBox="0 0 24 24">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+          <polyline points="22 4 12 14.01 9 11.01" />
+        </svg>
+      </div>
+      <div class="auth-eyebrow">Password updated</div>
+      <h1 class="auth-title">You're good to go</h1>
+      <p class="auth-lede">
+        Your password has been changed. Sign in with the new one to pick up where you left off.
+      </p>
+      <button class="btn-primary" @click="router.push('/login')">Continue to sign in</button>
+      <p class="redirect-countdown">
+        Redirecting in <span>{{ redirectIn }}s</span>…
+      </p>
+      <div class="auth-card-spacer"></div>
+    </div>
 
-        <a-form
-          :model="formState"
-          layout="vertical"
-          @finish="() => handleResetPassword(route.query.token)"
+    <!-- State A: valid token form -->
+    <div v-else class="auth-card">
+      <div class="auth-eyebrow">Reset password</div>
+      <h1 class="auth-title">Choose a new password</h1>
+      <p class="auth-lede">
+        Pick something memorable and at least 8 characters. Mix in numbers or symbols for a stronger
+        result.
+      </p>
+
+      <a-form :model="formState" layout="vertical" @finish="handleSubmit">
+        <a-form-item name="password" label="New password" :rules="passwordRules">
+          <a-input-password
+            v-model:value="formState.password"
+            placeholder="At least 8 characters"
+            autocomplete="new-password"
+          />
+        </a-form-item>
+
+        <StrengthMeter :password="formState.password" />
+
+        <a-form-item
+          name="confirmation_password"
+          label="Confirm new password"
+          :rules="resetPasswordConfirmRules"
         >
-          <a-form-item name="password" :rules="passwordRules">
-            <template #label><span class="field-label">New password</span></template>
-            <a-input-password v-model:value="formState.password" placeholder="Min 8 characters" />
-          </a-form-item>
+          <a-input-password
+            v-model:value="formState.confirmation_password"
+            placeholder="Repeat your new password"
+            autocomplete="new-password"
+          />
+        </a-form-item>
 
-          <a-form-item name="confirmation_password" :rules="resetPasswordConfirmRules">
-            <template #label><span class="field-label">Confirm password</span></template>
-            <a-input-password
-              v-model:value="formState.confirmation_password"
-              placeholder="Re-enter password"
-            />
-          </a-form-item>
+        <div v-if="error" class="form-alert form-alert--err">{{ error }}</div>
 
-          <div v-if="error" class="form-error">{{ error }}</div>
+        <button type="submit" class="btn-primary" :disabled="loading" style="margin-top: 4px">
+          {{ loading ? "Updating…" : "Update password" }}
+        </button>
+      </a-form>
 
-          <button type="submit" class="btn-brand" :disabled="loading">
-            {{ loading ? "Resetting…" : "Reset password →" }}
-          </button>
-        </a-form>
-
-        <div class="auth-footer">
-          <router-link to="/login">← Back to sign in</router-link>
-        </div>
-      </template>
+      <div class="auth-foot">
+        <router-link to="/login">← Cancel and sign in</router-link>
+      </div>
     </div>
   </AuthShell>
 </template>
-
-<style scoped>
-.auth-card {
-  width: 100%;
-  max-width: 380px;
-}
-.auth-title {
-  font-size: 22px;
-  font-weight: 600;
-  letter-spacing: -0.015em;
-  color: var(--ink);
-  margin-bottom: 4px;
-}
-.auth-subtitle {
-  font-size: 13.5px;
-  color: var(--ink-3);
-  margin-bottom: 28px;
-}
-.field-label {
-  font-size: 12.5px;
-  font-weight: 500;
-  color: var(--ink);
-}
-.form-error {
-  font-size: 13px;
-  color: var(--err);
-  background: var(--err-bg);
-  border: 1px solid var(--err-border);
-  border-radius: var(--r-sm);
-  padding: 10px 12px;
-  margin-bottom: 14px;
-}
-.btn-brand {
-  width: 100%;
-  padding: 10px 16px;
-  margin-top: 4px;
-  margin-bottom: 20px;
-  background: var(--brand);
-  color: #fff;
-  border: none;
-  border-radius: var(--r-sm);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-}
-.btn-brand:hover:not(:disabled) {
-  background: var(--brand-2);
-}
-.btn-brand:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-.auth-footer {
-  font-size: 13px;
-  color: var(--ink-3);
-  text-align: center;
-}
-.auth-footer a {
-  color: var(--ink);
-  font-weight: 500;
-  text-decoration: none;
-}
-.auth-footer a:hover {
-  color: var(--brand);
-}
-:deep(.ant-input-affix-wrapper) {
-  background: var(--surface);
-  border-color: var(--line-2);
-  border-radius: var(--r-sm);
-}
-:deep(.ant-input-affix-wrapper-focused) {
-  border-color: var(--brand);
-  box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.12);
-}
-:deep(.ant-form-item-label > label) {
-  color: var(--ink);
-  font-size: 12.5px;
-  font-weight: 500;
-}
-</style>

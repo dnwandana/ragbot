@@ -1,211 +1,439 @@
 <script setup>
-// No props — left panel content is fixed brand copy.
-// Use the default slot for the right-panel form content.
+// Shell provides the centered page wrapper only.
+// Slot accepts the auth card rendered by each view.
 </script>
 
 <template>
   <div class="auth-shell">
-    <!-- Left panel: warm off-white with brand glow -->
-    <div class="auth-side">
-      <div class="auth-brand" @click="$router.push('/login')">
-        <svg class="brand-logo" viewBox="0 0 140 48" role="img" aria-label="RAGBot">
-          <text x="2" y="34" fill="var(--brand)" font-size="28" font-weight="700">[</text>
-          <text x="15" y="35" fill="var(--ink)" font-size="28" font-weight="700">R</text>
-          <text x="35" y="34" fill="var(--brand)" font-size="28" font-weight="700">]</text>
-          <text
-            x="53"
-            y="33"
-            fill="var(--ink)"
-            font-size="21"
-            font-weight="600"
-            letter-spacing="-0.5"
-          >
-            RAGBot
-          </text>
-        </svg>
-      </div>
-
-      <div class="auth-feature">
-        <div class="auth-eyebrow">What's new · v3</div>
-        <h2 class="auth-headline">Stop searching.<br />Start asking.</h2>
-        <p class="auth-sub">
-          RAGBot turns your documents into a chat interface your whole team can actually use.
-        </p>
-
-        <div class="auth-quote">
-          <p class="quote-text">
-            "We replaced 4 internal wikis with RAGbot. Onboarding new hires takes half as long."
-          </p>
-          <div class="quote-author">
-            <div class="quote-avatar">MP</div>
-            <div>
-              <div class="author-name">Maya Petrov</div>
-              <div class="author-role">Head of Operations · Lumen</div>
-            </div>
-            <div class="stars">★★★★★</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="auth-badges">
-        <span>SOC 2 Type II</span><span>·</span> <span>GDPR</span><span>·</span>
-        <span>HIPAA-ready</span>
-      </div>
-    </div>
-
-    <!-- Right panel: white form -->
-    <div class="auth-form-wrap">
-      <slot />
-    </div>
+    <slot />
   </div>
 </template>
 
 <style scoped>
 .auth-shell {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
   min-height: 100vh;
+  display: grid;
+  place-items: start center;
+  padding: 36px 24px 64px;
+  background: var(--bg);
 }
 
-.auth-side {
-  background: var(--bg-2);
-  padding: 36px 44px;
-  display: flex;
-  flex-direction: column;
-  border-right: 1px solid var(--line);
-  position: relative;
-  overflow: hidden;
+@media (max-width: 520px) {
+  .auth-shell {
+    padding: 20px 16px 48px;
+  }
 }
-.auth-side::after {
-  content: "";
-  position: absolute;
-  width: 400px;
-  height: 400px;
-  right: -140px;
-  top: 30%;
-  background: radial-gradient(circle, var(--brand-tint) 0%, transparent 70%);
-  pointer-events: none;
-}
+</style>
 
-.auth-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  position: relative;
-  z-index: 2;
-  cursor: pointer;
-}
-.brand-logo {
-  height: 28px;
-  display: block;
-}
+<style>
+/*
+  Auth card system — non-scoped so slot content in every view
+  can use these classes. All AntD overrides are scoped via
+  .auth-card to avoid leaking into the rest of the app.
+*/
 
-.auth-feature {
-  margin-top: auto;
-  position: relative;
-  z-index: 2;
-  padding-top: 40px;
-}
-.auth-eyebrow {
-  font-size: 10.5px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink-4);
-  margin-bottom: 12px;
-}
-.auth-headline {
-  font-family: var(--font-sans);
-  font-size: 30px;
-  font-weight: 600;
-  color: var(--ink);
-  line-height: 1.18;
-  letter-spacing: -0.018em;
-  margin: 0 0 14px;
-}
-.auth-sub {
-  font-size: 14px;
-  color: var(--ink-3);
-  line-height: 1.55;
-  max-width: 34ch;
-  margin-bottom: 28px;
-}
-
-.auth-quote {
+/* ── Card ────────────────────────────────────────── */
+.auth-card {
+  /* bottom padding is intentionally 0; .auth-foot provides it via negative margin */
+  width: 100%;
+  max-width: 420px;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--r);
-  padding: 16px;
-  max-width: 340px;
-  box-shadow: var(--shadow-1);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-2);
+  padding: 36px 36px 0;
 }
-.quote-text {
-  font-size: 13px;
-  line-height: 1.55;
-  color: var(--ink-2);
-  margin: 0 0 12px;
+
+/* ── Header block ────────────────────────────────── */
+.auth-eyebrow {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-3);
+  text-align: center;
+  margin-bottom: 6px;
 }
-.quote-author {
+
+.auth-title {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  line-height: 1.15;
+  color: var(--ink);
+  margin: 0 0 8px;
+  text-align: center;
   display: flex;
-  align-items: center;
-  gap: 10px;
+  justify-content: center;
+  align-items: baseline;
+  gap: 9px;
+  text-wrap: balance;
 }
-.quote-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
+
+.auth-title::before {
+  content: "[";
+  color: var(--brand);
+  font-weight: 700;
+}
+
+.auth-title::after {
+  content: "]";
+  color: var(--brand);
+  font-weight: 700;
+}
+
+.auth-lede {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink-3);
+  text-align: center;
+  margin: 0 0 22px;
+  text-wrap: pretty;
+}
+
+.auth-lede strong {
+  color: var(--ink-2);
+  font-weight: 500;
+}
+
+/* ── Footer strip ────────────────────────────────── */
+.auth-foot {
+  font-size: 12.5px;
+  color: var(--ink-3);
+  text-align: center;
+  padding: 14px 36px;
+  margin: 16px -36px 0;
+  border-top: 1px solid var(--line);
+}
+
+.auth-foot a {
+  color: var(--brand-3);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.auth-foot a:hover {
+  color: var(--brand-2);
+}
+
+.auth-foot a:focus-visible {
+  outline: 2px solid var(--brand-3);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ── Primary button ──────────────────────────────── */
+.auth-card .btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
   background: var(--brand);
   color: #fff;
-  display: grid;
-  place-items: center;
-  font-size: 10px;
-  font-weight: 600;
-  flex-shrink: 0;
+  border: none;
+  border-radius: var(--r);
+  font: 600 13.5px var(--font-sans);
+  letter-spacing: -0.003em;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background var(--dur) var(--ease);
 }
-.author-name {
-  font-size: 12px;
-  font-weight: 500;
+
+.auth-card .btn-primary:hover:not(:disabled) {
+  background: var(--brand-2);
+}
+
+.auth-card .btn-primary:active:not(:disabled) {
+  background: var(--brand-3);
+}
+
+.auth-card .btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.auth-card .btn-primary:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 0 4px var(--brand);
+}
+
+/* ── Ghost button ────────────────────────────────── */
+.auth-card .btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 8px 16px;
+  background: transparent;
+  color: var(--ink-2);
+  border: none;
+  border-radius: var(--r);
+  font: 500 13px var(--font-sans);
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    background var(--dur) var(--ease),
+    color var(--dur) var(--ease);
+}
+
+.auth-card .btn-ghost:hover:not(:disabled) {
+  background: var(--bg-2);
   color: var(--ink);
 }
-.author-role {
-  font-size: 11px;
-  color: var(--ink-4);
-}
-.stars {
-  color: var(--brand);
-  font-size: 11px;
-  margin-left: auto;
-  letter-spacing: 1px;
+
+.auth-card .btn-ghost:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
-.auth-badges {
+.auth-card .btn-ghost:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 0 4px var(--ink-3);
+}
+
+/* ── Stacked action buttons ──────────────────────── */
+.auth-actions {
   display: flex;
+  flex-direction: column;
   gap: 10px;
-  margin-top: 28px;
-  position: relative;
-  z-index: 2;
-  font-size: 11px;
-  color: var(--ink-4);
 }
 
-.auth-form-wrap {
-  background: var(--surface);
+/* ── Card bottom spacer (states without .auth-foot) ─ */
+.auth-card-spacer {
+  height: 24px;
+}
+
+/* ── Form-level error banner ─────────────────────── */
+.form-alert {
+  padding: 9px 11px;
+  border-radius: var(--r);
+  font-size: 12.5px;
+  line-height: 1.45;
+  margin-bottom: 14px;
+}
+
+.form-alert--err {
+  background: var(--err-bg);
+  border: 1px solid var(--err-border);
+  color: var(--err);
+}
+
+/* ── Status icon (verify / reset screens) ────────── */
+.status-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 13px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 40px;
+  margin: 0 auto 10px;
 }
 
-@media (max-width: 767px) {
-  .auth-shell {
-    grid-template-columns: 1fr;
+.status-icon svg {
+  width: 26px;
+  height: 26px;
+  stroke-width: 1.6;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.status-icon--ok {
+  background: var(--ok-bg);
+  color: var(--ok);
+  border: 1px solid var(--ok-border);
+}
+
+.status-icon--err {
+  background: var(--err-bg);
+  color: var(--err);
+  border: 1px solid var(--err-border);
+}
+
+.status-icon--brand {
+  background: var(--brand-tint);
+  color: var(--brand-3);
+  border: 1px solid rgba(255, 107, 53, 0.18);
+}
+
+/* ── Recipient pill (check-email screen) ─────────── */
+.recipient-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 11px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--ink-2);
+  margin-bottom: 8px;
+}
+
+/* ── Cooldown resend row ──────────────────────────── */
+.resend-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--ink-3);
+  margin-bottom: 8px;
+}
+
+.resend-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: 500 12.5px var(--font-sans);
+  color: var(--brand-3);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.resend-btn:hover:not(:disabled) {
+  color: var(--brand-2);
+}
+
+.resend-btn:disabled {
+  color: var(--ink-4);
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+.resend-btn:focus-visible {
+  outline: 2px solid var(--brand-3);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.resend-timer {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-3);
+  padding: 2px 6px;
+  background: var(--bg-2);
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+}
+
+/* ── Redirect countdown (reset success) ──────────── */
+.redirect-countdown {
+  font-size: 12px;
+  color: var(--ink-3);
+  text-align: center;
+  margin-top: 8px;
+}
+
+.redirect-countdown span {
+  font-family: var(--font-mono);
+  color: var(--ink-2);
+}
+
+/* ── Ant Design form overrides ───────────────────── */
+/* Scoped to .auth-card so they don't leak into the rest of the app */
+
+.auth-card .ant-form-item {
+  margin-bottom: 14px;
+}
+
+.auth-card .ant-form-item-label > label {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+  height: auto;
+  /* AntD uses inline-flex which shrink-wraps to content width.
+     Switch to flex + full width so slot content like .password-label-row
+     can use justify-content: space-between across the full label column. */
+  display: flex;
+  width: 100%;
+}
+
+/* Hide the red required asterisk — design doesn't use it */
+.auth-card .ant-form-item-label > label.ant-form-item-required::before {
+  display: none;
+}
+
+.auth-card .ant-input,
+.auth-card .ant-input-affix-wrapper {
+  background: var(--surface);
+  border-color: var(--line-2);
+  border-radius: var(--r-sm);
+  color: var(--ink);
+  font-size: 13.5px;
+  padding: 9px 11px;
+}
+
+.auth-card .ant-input::placeholder,
+.auth-card .ant-input-affix-wrapper input::placeholder {
+  color: var(--ink-4);
+}
+
+.auth-card .ant-input:hover:not([disabled]),
+.auth-card .ant-input-affix-wrapper:not(.ant-input-affix-wrapper-disabled):hover {
+  border-color: var(--ink-4);
+}
+
+.auth-card .ant-input:focus,
+.auth-card .ant-input-affix-wrapper-focused {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.18);
+}
+
+.auth-card .ant-form-item-has-error .ant-input,
+.auth-card .ant-form-item-has-error .ant-input-affix-wrapper {
+  border-color: var(--err);
+}
+
+.auth-card .ant-form-item-has-error .ant-input:focus,
+.auth-card .ant-form-item-has-error .ant-input-affix-wrapper-focused {
+  box-shadow: 0 0 0 2px rgba(192, 41, 31, 0.15);
+}
+
+.auth-card .ant-form-item-explain-error {
+  font-size: 11.5px;
+  color: var(--err);
+}
+
+/* ── Mobile ──────────────────────────────────────── */
+@media (max-width: 520px) {
+  .auth-card {
+    padding: 28px 22px 0;
   }
-  .auth-side {
-    display: none;
+
+  .auth-title {
+    font-size: 20px;
   }
-  .auth-form-wrap {
-    min-height: 100vh;
-    align-items: flex-start;
-    padding: 40px 24px;
+
+  .auth-lede {
+    font-size: 13.5px;
+  }
+
+  .auth-foot {
+    padding: 14px 22px;
+    margin: 16px -22px 0;
+  }
+
+  .status-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 11px;
+  }
+
+  .status-icon svg {
+    width: 22px;
+    height: 22px;
   }
 }
 </style>
