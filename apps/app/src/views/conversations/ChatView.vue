@@ -92,7 +92,12 @@
               class="msg-bubble"
               :class="msg.role === 'user' ? 'msg-bubble--user' : 'msg-bubble--ai'"
             >
-              <pre class="msg-text">{{ msg.content }}</pre>
+              <MarkdownMessage
+                v-if="msg.role !== 'user'"
+                :content="msg.content"
+                @citation-click="handleCitationClick"
+              />
+              <MarkdownMessage v-else :content="msg.content" />
             </div>
             <div class="msg-meta">{{ msg.role === "user" ? "You" : "RAGbot" }}</div>
           </div>
@@ -116,7 +121,11 @@
           </div>
           <div v-if="currentContent" class="msg-row">
             <div class="msg-bubble msg-bubble--ai">
-              <pre class="msg-text">{{ currentContent }}<span class="blink">▋</span></pre>
+              <MarkdownMessage
+                :content="debouncedStreamContent"
+                @citation-click="handleCitationClick"
+              />
+              <span class="blink">▋</span>
             </div>
           </div>
         </template>
@@ -192,12 +201,20 @@
           </svg>
         </button>
       </div>
-      <div v-for="c in citations" :key="c.citation_number" class="sp-item">
-        <div class="sp-num">[{{ c.citation_number }}] · {{ c.relevance_score?.toFixed(2) }}</div>
-        <p class="sp-text">{{ c.cited_text }}</p>
-        <span class="sp-badge" :class="relevanceBadgeClass(c.relevance_score)">
-          {{ relevanceLabel(c.relevance_score) }}
-        </span>
+      <div class="sp-body">
+        <div
+          v-for="c in citations"
+          :key="c.citation_number"
+          class="sp-item"
+          :data-num="c.citation_number"
+          :class="{ 'sp-item--highlighted': highlightedCitation === c.citation_number }"
+        >
+          <div class="sp-num">[{{ c.citation_number }}] · {{ c.relevance_score?.toFixed(2) }}</div>
+          <MarkdownMessage :content="c.cited_text" />
+          <span class="sp-badge" :class="relevanceBadgeClass(c.relevance_score)">
+            {{ relevanceLabel(c.relevance_score) }}
+          </span>
+        </div>
       </div>
     </aside>
 
@@ -210,11 +227,19 @@
             Sources
             <span class="src-count">{{ citations.length }}</span>
           </div>
-          <div v-for="c in citations" :key="c.citation_number" class="sp-item">
-            <div class="sp-num">
-              [{{ c.citation_number }}] · {{ c.relevance_score?.toFixed(2) }}
+          <div class="sp-body">
+            <div
+              v-for="c in citations"
+              :key="c.citation_number"
+              class="sp-item"
+              :data-num="c.citation_number"
+              :class="{ 'sp-item--highlighted': highlightedCitation === c.citation_number }"
+            >
+              <div class="sp-num">
+                [{{ c.citation_number }}] · {{ c.relevance_score?.toFixed(2) }}
+              </div>
+              <MarkdownMessage :content="c.cited_text" />
             </div>
-            <p class="sp-text">{{ c.cited_text }}</p>
           </div>
         </div>
       </div>
@@ -229,6 +254,7 @@ import { useConversationsStore } from "@/stores/conversations"
 import { useChatStore } from "@/stores/chat"
 import { useChat } from "@/composables/useChat"
 import { relativeTime } from "@/utils/time"
+import MarkdownMessage from "@/components/MarkdownMessage.vue"
 
 const route = useRoute()
 const workspaceId = route.params.workspaceId
@@ -259,6 +285,19 @@ const isInputFocused = ref(false)
 const isMobileSourcesOpen = ref(false)
 const showSources = ref(false)
 
+const debouncedStreamContent = ref("")
+let debounceTimer = null
+
+const highlightedCitation = ref(null)
+let highlightTimer = null
+
+watch(currentContent, (val) => {
+  clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => {
+    debouncedStreamContent.value = val
+  }, 200)
+})
+
 function relevanceBadgeClass(score) {
   if (!score) return "sp-badge--gray"
   if (score >= 0.8) return "sp-badge--ok"
@@ -271,6 +310,19 @@ function relevanceLabel(score) {
   if (score >= 0.8) return "High"
   if (score >= 0.6) return "Medium"
   return "Low"
+}
+
+function handleCitationClick(num) {
+  showSources.value = true
+  highlightedCitation.value = num
+  clearTimeout(highlightTimer)
+  nextTick(() => {
+    const el = document.querySelector(`.sp-item[data-num="${num}"]`)
+    el?.scrollIntoView({ behavior: "smooth", block: "nearest" })
+    highlightTimer = setTimeout(() => {
+      highlightedCitation.value = null
+    }, 2000)
+  })
 }
 
 /** @param {string} dateStr */
@@ -305,6 +357,8 @@ onMounted(async () => {
 onUnmounted(() => {
   abort()
   chatStore.reset()
+  clearTimeout(debounceTimer)
+  clearTimeout(highlightTimer)
 })
 </script>
 
@@ -543,11 +597,6 @@ onUnmounted(() => {
   color: #fff;
   border-bottom-right-radius: 4px;
 }
-.msg-text {
-  white-space: pre-wrap;
-  margin: 0;
-  font-family: inherit;
-}
 .msg-meta {
   font-size: 11px;
   color: var(--ink-4);
@@ -705,7 +754,6 @@ onUnmounted(() => {
   border-left: 1px solid var(--line);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 .sp-hd {
   display: flex;
@@ -716,30 +764,31 @@ onUnmounted(() => {
   font-size: 13px;
   font-weight: 600;
   color: var(--ink);
-  position: sticky;
-  top: 0;
   background: var(--surface);
   flex-shrink: 0;
+}
+.sp-body {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 .sp-item {
   padding: 12px 16px;
   border-bottom: 1px solid var(--line);
+}
+.sp-item--highlighted {
+  background: var(--brand-tint);
+  border-left: 3px solid var(--brand);
+  padding-left: 13px;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
 }
 .sp-num {
   font-size: 11.5px;
   font-weight: 700;
   color: var(--brand);
   margin-bottom: 5px;
-}
-.sp-text {
-  font-size: 12px;
-  color: var(--ink-3);
-  line-height: 1.5;
-  margin: 0 0 6px;
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 .sp-badge {
   display: inline-block;
