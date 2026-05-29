@@ -116,7 +116,7 @@ Custom fetch-based client (NOT Axios). Key behaviors:
 | `InviteFormModal`  | `components/InviteFormModal.vue`  | Invite member modal — username/email toggle, role selection            |
 | `MembersTable`     | `components/MembersTable.vue`     | Members table with inline role-change dropdown and remove button       |
 | `InvitationsTable` | `components/InvitationsTable.vue` | Invitations table with status tags and revoke button                   |
-| `AgentFormModal`   | `components/AgentFormModal.vue`   | Create/edit agent modal with model config                              |
+| `AgentFormDrawer`  | `components/agents/AgentFormDrawer.vue` | Create/edit agent side drawer with model config                   |
 
 ## API Service Catalog
 
