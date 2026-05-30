@@ -1,22 +1,26 @@
-import { ref } from "vue"
+import { ref, computed } from "vue"
 import { defineStore } from "pinia"
 import * as agentsApi from "@/api/agents"
 
 export const useAgentsStore = defineStore("agents", () => {
   const agents = ref([])
-  const loading = ref(false)
+  const pagination = ref(null)
+  const loadingCount = ref(0)
+  const loading = computed(() => loadingCount.value > 0)
 
   /**
-   * Fetch all agents for a workspace.
+   * Fetch agents with optional search/sort/pagination params.
    * @param {string} workspaceId
+   * @param {Object} [params]
    */
-  async function fetchAgents(workspaceId) {
-    loading.value = true
+  async function fetchAgents(workspaceId, params = {}) {
+    loadingCount.value++
     try {
-      const res = await agentsApi.listAgents(workspaceId)
+      const res = await agentsApi.listAgents(workspaceId, params)
       agents.value = res.data.data
+      pagination.value = res.data.pagination
     } finally {
-      loading.value = false
+      loadingCount.value--
     }
   }
 
@@ -56,5 +60,5 @@ export const useAgentsStore = defineStore("agents", () => {
     agents.value = agents.value.filter((a) => a.id !== id)
   }
 
-  return { agents, loading, fetchAgents, createAgent, updateAgent, deleteAgent }
+  return { agents, pagination, loading, fetchAgents, createAgent, updateAgent, deleteAgent }
 })
