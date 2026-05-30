@@ -44,7 +44,9 @@ export const useConversationsStore = defineStore("conversations", () => {
    */
   async function createConversation(workspaceId, data) {
     const res = await conversationsApi.createConversation(workspaceId, data)
-    return res.data.data
+    const created = res.data.data
+    conversations.value.unshift(created)
+    return created
   }
 
   /**
@@ -56,10 +58,13 @@ export const useConversationsStore = defineStore("conversations", () => {
    */
   async function updateConversation(workspaceId, id, data) {
     const res = await conversationsApi.updateConversation(workspaceId, id, data)
+    const updated = res.data.data
+    const idx = conversations.value.findIndex((c) => c.id === id)
+    if (idx !== -1) conversations.value[idx] = { ...conversations.value[idx], ...updated }
     if (currentConversation.value?.id === id) {
-      currentConversation.value = { ...currentConversation.value, ...res.data.data }
+      currentConversation.value = { ...currentConversation.value, ...updated }
     }
-    return res.data.data
+    return updated
   }
 
   /**

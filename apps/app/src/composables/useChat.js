@@ -1,3 +1,4 @@
+import { unref } from "vue"
 import { useConversationsStore } from "../stores/conversations.js"
 import { useChatStore } from "../stores/chat.js"
 import * as chatApi from "../api/chat.js"
@@ -8,8 +9,8 @@ import * as authApi from "../api/auth.js"
  * message, opens the stream, parses `event:`/`data:` SSE frames into the chat
  * store, and reloads the conversation when the stream completes.
  *
- * @param {string} workspaceId - Workspace UUID.
- * @param {string} conversationId - Conversation UUID.
+ * @param {string | import('vue').Ref<string>} workspaceId - Workspace UUID or ref.
+ * @param {string | import('vue').Ref<string>} conversationId - Conversation UUID or ref.
  * @returns {{ sendMessage: (content: string) => Promise<void>, abort: () => void }}
  */
 export function useChat(workspaceId, conversationId) {
@@ -52,8 +53,8 @@ export function useChat(workspaceId, conversationId) {
       await authApi.getMe()
 
       const response = await chatApi.sendMessage(
-        workspaceId,
-        conversationId,
+        unref(workspaceId),
+        unref(conversationId),
         content,
         abortController.signal,
       )
@@ -91,7 +92,7 @@ export function useChat(workspaceId, conversationId) {
               chatStore.pendingCitations.push(data)
             } else if (currentEvent === "done") {
               // Reload conversation to get stored messages
-              await conversationsStore.fetchConversation(workspaceId, conversationId)
+              await conversationsStore.fetchConversation(unref(workspaceId), unref(conversationId))
               chatStore.currentContent = ""
             } else if (currentEvent === "error") {
               chatStore.error = data.message
@@ -117,5 +118,7 @@ export function useChat(workspaceId, conversationId) {
     chatStore.isStreaming = false
   }
 
+  // TODO: edit/regenerate require server-side message deletion — implement when
+  // DELETE /messages endpoint exists.
   return { sendMessage, abort }
 }
