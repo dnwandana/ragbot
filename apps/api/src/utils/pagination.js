@@ -8,7 +8,7 @@ import { escapeIlike } from "./sanitize.js"
  *
  * @param {Object} query - Express request query object (req.query)
  * @param {string[]} sortableColumns - Valid column names for sorting (first element is the default)
- * @returns {{ page: number, limit: number, sort_by: string, sort_order: string, search: string }} Validated params
+ * @returns {{ page: number, limit: number, sort_by: string, sort_order: string, search?: string }} Validated params
  */
 export const validatePaginationQuery = (query, sortableColumns) => {
   const schema = joi.object({
@@ -19,7 +19,7 @@ export const validatePaginationQuery = (query, sortableColumns) => {
       .valid(...sortableColumns)
       .default(sortableColumns[0]),
     sort_order: joi.string().valid("asc", "desc").default("desc"),
-    search: joi.string().trim().max(255).default(""),
+    search: joi.string().trim().max(255).optional(),
   })
 
   const { error, value } = schema.validate(query)
@@ -71,7 +71,7 @@ export const buildPaginationMeta = (page, limit, totalItems) => {
  * @param {Function} countFn - Function that accepts (conditions, options) and returns { count }
  * @param {Function} findFn - Function that accepts (conditions, options) and returns rows
  * @param {Object} conditions - WHERE conditions passed to both functions
- * @param {{ page: number, limit: number, sort_by: string, sort_order: string, search: string }} params - Pagination params
+ * @param {{ page: number, limit: number, sort_by: string, sort_order: string, search?: string }} params - Pagination params
  * @param {string[]} [searchableColumns=[]] - Columns to apply search against (ILIKE)
  * @returns {Promise<{ data: Array, pagination: Object }>} Paginated result
  */

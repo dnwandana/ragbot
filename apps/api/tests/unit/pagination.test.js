@@ -10,7 +10,6 @@ describe("validatePaginationQuery", () => {
       limit: 10,
       sort_by: "updated_at",
       sort_order: "desc",
-      search: "",
     })
   })
 
