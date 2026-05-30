@@ -1,10 +1,20 @@
 <script setup>
-import { computed } from "vue"
+import { ref, computed, onMounted, onBeforeUnmount } from "vue"
 import { useRoute, useRouter } from "vue-router"
+import {
+  SearchOutlined,
+  PlusOutlined,
+  MessageOutlined,
+  EllipsisOutlined,
+  EditOutlined,
+  DeleteOutlined,
+} from "@ant-design/icons-vue"
 import { useAuthStore } from "@/stores/auth"
 import { useWorkspacesStore } from "@/stores/workspaces"
+import { useConversationsStore } from "@/stores/conversations"
 import { useInvitations } from "@/composables/useInvitations"
 import { useTheme } from "@/composables/useTheme"
+import { relativeTime } from "@/utils/time"
 
 const route = useRoute()
 const router = useRouter()
@@ -49,6 +59,118 @@ function handleLogout() {
   void authStore.logout()
   router.push("/login")
 }
+
+const conversationsStore = useConversationsStore()
+
+const conversationSearch = ref("")
+const hoveredConvoId = ref(null)
+const menuConvoId = ref(null)
+const menuAnchor = ref(null)
+const modalState = ref(null)
+const renameValue = ref("")
+
+const filteredConversations = computed(() => {
+  const q = conversationSearch.value.toLowerCase().trim()
+  return conversationsStore.conversations.filter((c) => c.title?.toLowerCase().includes(q))
+})
+
+function conversationGroup(c) {
+  if (!c.updated_at && !c.created_at) return "Earlier"
+  const d = new Date(c.updated_at || c.created_at)
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const itemDay = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  const diffDays = Math.round((today - itemDay) / 86_400_000)
+  if (diffDays === 0) return "Today"
+  if (diffDays === 1) return "Yesterday"
+  return "Earlier"
+}
+
+const groupedConversations = computed(() => {
+  const groups = {}
+  filteredConversations.value.forEach((c) => {
+    const key = conversationGroup(c)
+    ;(groups[key] = groups[key] || []).push(c)
+  })
+  return groups
+})
+
+const GROUP_ORDER = ["Today", "Yesterday", "Earlier"]
+const orderedGroups = computed(() =>
+  GROUP_ORDER.filter((k) => groupedConversations.value[k]?.length),
+)
+
+async function onNewConversation() {
+  if (!workspaceId.value) return
+  const convo = await conversationsStore.createConversation(workspaceId.value, {
+    title: "New conversation",
+  })
+  router.push(`/workspaces/${workspaceId.value}/conversations/${convo.id}`)
+}
+
+function onSelectConversation(id) {
+  router.push(`/workspaces/${workspaceId.value}/conversations/${id}`)
+}
+
+async function onDeleteConversation(id) {
+  if (!workspaceId.value) return
+  await conversationsStore.deleteConversation(workspaceId.value, id)
+  if (route.params.conversationId === id) {
+    router.push(`/workspaces/${workspaceId.value}/conversations`)
+  }
+}
+
+async function onRenameConversation(id, title) {
+  if (!workspaceId.value) return
+  await conversationsStore.updateConversation(workspaceId.value, id, { title })
+}
+
+function openKebabMenu(e, convoId) {
+  e.stopPropagation()
+  const rect = e.currentTarget.getBoundingClientRect()
+  menuConvoId.value = menuConvoId.value === convoId ? null : convoId
+  menuAnchor.value = { bottom: rect.bottom, right: rect.right }
+}
+
+function openRenameModal(convo) {
+  renameValue.value = convo.title
+  modalState.value = { type: "rename", convo }
+  menuConvoId.value = null
+}
+
+function openDeleteModal(convo) {
+  modalState.value = { type: "delete", convo }
+  menuConvoId.value = null
+}
+
+async function confirmRename() {
+  if (modalState.value?.convo && renameValue.value.trim()) {
+    await onRenameConversation(modalState.value.convo.id, renameValue.value.trim())
+  }
+  modalState.value = null
+}
+
+async function confirmDelete() {
+  if (modalState.value?.convo) {
+    await onDeleteConversation(modalState.value.convo.id)
+  }
+  modalState.value = null
+}
+
+function onDocumentClick() {
+  menuConvoId.value = null
+}
+
+onMounted(() => {
+  if (workspaceId.value) {
+    conversationsStore.fetchConversations(workspaceId.value)
+  }
+  document.addEventListener("click", onDocumentClick)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener("click", onDocumentClick)
+})
 </script>
 
 <template>
@@ -145,6 +267,59 @@ function handleLogout() {
       </button>
     </nav>
 
+    <!-- Conversation history (only when in a workspace) -->
+    <template v-if="workspaceId">
+      <div style="height: 1px; background: var(--line); margin: 8px 12px" />
+
+      <button class="sidebar-new-btn" @click="onNewConversation">
+        <PlusOutlined /> New conversation
+      </button>
+
+      <div class="sidebar-search">
+        <SearchOutlined class="sidebar-search__icon" />
+        <input
+          v-model="conversationSearch"
+          class="sidebar-search__input"
+          placeholder="Search conversations"
+        />
+      </div>
+
+      <div class="sidebar-convo-list">
+        <div v-if="orderedGroups.length === 0" class="sidebar-convo-empty">
+          <template v-if="conversationSearch">
+            No conversations match "{{ conversationSearch }}".
+          </template>
+          <template v-else>No conversations yet.</template>
+        </div>
+        <div v-for="group in orderedGroups" :key="group">
+          <div class="sidebar-convo-group">{{ group }}</div>
+          <div
+            v-for="c in groupedConversations[group]"
+            :key="c.id"
+            class="sidebar-convo-item"
+            :class="{ 'sidebar-convo-item--active': route.params.conversationId === c.id }"
+            @click="onSelectConversation(c.id)"
+            @mouseenter="hoveredConvoId = c.id"
+            @mouseleave="hoveredConvoId = null"
+          >
+            <MessageOutlined class="sidebar-convo-item__icon" />
+            <span class="sidebar-convo-item__title">{{ c.title }}</span>
+            <button
+              v-if="hoveredConvoId === c.id || menuConvoId === c.id"
+              class="sidebar-convo-item__kebab"
+              @click.stop="openKebabMenu($event, c.id)"
+            >
+              <EllipsisOutlined />
+            </button>
+            <span v-else class="sidebar-convo-item__time">{{ relativeTime(c.created_at) }}</span>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- Fallback spacer when no workspace (non-workspace routes) -->
+    <div v-else style="flex: 1" />
+
     <div class="rail-divider" />
 
     <!-- Global nav -->
@@ -213,8 +388,6 @@ function handleLogout() {
       </button>
     </nav>
 
-    <div style="flex: 1" />
-
     <!-- Footer: user + dark toggle -->
     <div class="rail-footer">
       <div class="user-avatar">{{ avatarInitials }}</div>
@@ -270,6 +443,88 @@ function handleLogout() {
           />
         </svg>
       </button>
+    </div>
+    <!-- Kebab dropdown -->
+    <div
+      v-if="menuConvoId && menuAnchor"
+      class="sidebar-menu"
+      :style="{
+        top: Math.min(menuAnchor.bottom + 4, window.innerHeight - 96) + 'px',
+        left: Math.min(menuAnchor.right - 168, window.innerWidth - 176) + 'px',
+      }"
+    >
+      <div
+        class="sidebar-menu__item"
+        @click.stop="
+          openRenameModal(conversationsStore.conversations.find((c) => c.id === menuConvoId))
+        "
+      >
+        <EditOutlined /> Rename
+      </div>
+      <div
+        class="sidebar-menu__item sidebar-menu__item--danger"
+        @click.stop="
+          openDeleteModal(conversationsStore.conversations.find((c) => c.id === menuConvoId))
+        "
+      >
+        <DeleteOutlined /> Delete
+      </div>
+    </div>
+
+    <!-- Rename modal -->
+    <div
+      v-if="modalState?.type === 'rename'"
+      class="sidebar-scrim"
+      @mousedown.self="modalState = null"
+    >
+      <div class="sidebar-modal">
+        <div class="sidebar-modal__title">Rename conversation</div>
+        <div class="sidebar-modal__body">
+          Give this conversation a clear name so it's easy to find later.
+        </div>
+        <input
+          v-model="renameValue"
+          class="sidebar-modal__input"
+          maxlength="80"
+          autofocus
+          @keydown.enter="confirmRename"
+          @keydown.escape="modalState = null"
+        />
+        <div class="sidebar-modal__actions">
+          <button class="sidebar-modal__btn-ghost" @click="modalState = null">Cancel</button>
+          <button
+            class="sidebar-modal__btn-primary"
+            :disabled="!renameValue.trim()"
+            @click="confirmRename"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete modal -->
+    <div
+      v-if="modalState?.type === 'delete'"
+      class="sidebar-scrim"
+      @mousedown.self="modalState = null"
+    >
+      <div class="sidebar-modal">
+        <div style="display: flex; gap: 13px; align-items: flex-start">
+          <span class="sidebar-modal__error-icon"><DeleteOutlined /></span>
+          <div>
+            <div class="sidebar-modal__title">Delete conversation?</div>
+            <div class="sidebar-modal__body">
+              This permanently removes "{{ modalState.convo?.title }}" and all of its messages. This
+              can't be undone.
+            </div>
+          </div>
+        </div>
+        <div class="sidebar-modal__actions">
+          <button class="sidebar-modal__btn-ghost" @click="modalState = null">Cancel</button>
+          <button class="sidebar-modal__btn-danger" @click="confirmDelete">Delete</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -453,5 +708,291 @@ function handleLogout() {
 .icon-btn:hover {
   background: var(--line);
   color: var(--ink);
+}
+
+/* ── Conversation history ── */
+.sidebar-new-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 12px 10px;
+  padding: 9px 12px;
+  background: var(--brand);
+  color: #fff;
+  border: none;
+  border-radius: var(--r);
+  font: 600 13.5px var(--font-sans);
+  cursor: pointer;
+  transition: background var(--dur) var(--ease);
+  justify-content: center;
+  width: calc(100% - 24px);
+}
+
+.sidebar-new-btn:hover {
+  background: var(--brand-2);
+}
+
+.sidebar-search {
+  margin: 0 12px 8px;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.sidebar-search__icon {
+  position: absolute;
+  left: 9px;
+  color: var(--ink-4);
+  pointer-events: none;
+  font-size: 14px;
+}
+
+.sidebar-search__input {
+  width: 100%;
+  padding: 7px 10px 7px 30px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  outline: none;
+  font: 400 12.5px var(--font-sans);
+  color: var(--ink);
+}
+
+.sidebar-search__input:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.14);
+}
+
+.sidebar-convo-list {
+  padding: 0 8px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.sidebar-convo-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--ink-4);
+  font-size: var(--t-sm);
+  line-height: 1.5;
+}
+
+.sidebar-convo-group {
+  padding: 12px 14px 4px;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+.sidebar-convo-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  font-size: var(--t-base);
+  color: var(--ink-2);
+  font-weight: 400;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease);
+  position: relative;
+}
+
+.sidebar-convo-item:hover {
+  background: rgba(24, 18, 12, 0.04);
+}
+
+.sidebar-convo-item--active {
+  color: var(--ink);
+  font-weight: 500;
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+
+.sidebar-convo-item__icon {
+  color: var(--ink-4);
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.sidebar-convo-item--active .sidebar-convo-item__icon {
+  color: var(--brand);
+}
+
+.sidebar-convo-item__title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-convo-item__time {
+  font-size: var(--t-xs);
+  color: var(--ink-4);
+  font-family: var(--font-mono);
+}
+
+.sidebar-convo-item__kebab {
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-4);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: 16px;
+}
+
+.sidebar-convo-item__kebab:hover {
+  background: var(--bg-2);
+  color: var(--ink);
+}
+
+.sidebar-menu {
+  position: fixed;
+  min-width: 168px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-3);
+  padding: 6px;
+  z-index: 120;
+}
+
+.sidebar-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  color: var(--ink-2);
+  font-size: var(--t-base);
+  font-weight: 500;
+  transition: background var(--dur) var(--ease);
+}
+
+.sidebar-menu__item:hover {
+  background: var(--bg-2);
+}
+
+.sidebar-menu__item--danger {
+  color: var(--err);
+}
+
+.sidebar-menu__item--danger:hover {
+  background: var(--err-bg);
+}
+
+.sidebar-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(24, 18, 12, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.sidebar-modal {
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-3);
+  padding: 22px;
+}
+
+.sidebar-modal__title {
+  font-size: var(--t-lg);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.sidebar-modal__body {
+  font-size: var(--t-base);
+  color: var(--ink-3);
+  line-height: 1.55;
+  margin-top: 8px;
+}
+
+.sidebar-modal__input {
+  width: 100%;
+  margin-top: 16px;
+  padding: 10px 12px;
+  border-radius: var(--r);
+  border: 1px solid var(--brand);
+  outline: none;
+  background: var(--surface);
+  font: 400 14px var(--font-sans);
+  color: var(--ink);
+  box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.16);
+}
+
+.sidebar-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.sidebar-modal__btn-ghost {
+  padding: 8px 14px;
+  border-radius: var(--r-sm);
+  background: transparent;
+  border: 1px solid var(--line-2);
+  color: var(--ink-2);
+  font: 500 13px var(--font-sans);
+  cursor: pointer;
+}
+
+.sidebar-modal__btn-primary {
+  padding: 8px 14px;
+  border-radius: var(--r-sm);
+  background: var(--brand);
+  border: none;
+  color: #fff;
+  font: 600 13px var(--font-sans);
+  cursor: pointer;
+}
+
+.sidebar-modal__btn-primary:disabled {
+  background: var(--bg-2);
+  color: var(--ink-4);
+  cursor: not-allowed;
+}
+
+.sidebar-modal__btn-danger {
+  padding: 8px 14px;
+  border-radius: var(--r-sm);
+  background: var(--err);
+  border: none;
+  color: #fff;
+  font: 600 13px var(--font-sans);
+  cursor: pointer;
+}
+
+.sidebar-modal__error-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r);
+  background: var(--err-bg);
+  border: 1px solid var(--err-border);
+  color: var(--err);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 17px;
 }
 </style>
