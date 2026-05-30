@@ -101,7 +101,7 @@ function buildURL(url, params) {
   if (params && Object.keys(params).length > 0) {
     const searchParams = new URLSearchParams()
     Object.entries(params).forEach(([key, value]) => {
-      searchParams.append(key, value)
+      if (value != null) searchParams.append(key, value)
     })
     fullURL += `?${searchParams.toString()}`
   }
