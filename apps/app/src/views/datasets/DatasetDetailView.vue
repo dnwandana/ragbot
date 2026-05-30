@@ -145,6 +145,18 @@ async function confirmDeleteDataset() {
   router.push(`/workspaces/${workspaceId}/datasets`)
 }
 
+/** @returns {void} */
+function openDeleteMenu() {
+  deleteOpen.value = true
+  dsMenuOpen.value = false
+}
+
+/** @returns {void} */
+function openDrawer() {
+  detailFile.value = null
+  drawerOpen.value = true
+}
+
 function openDetail(file) {
   drawerOpen.value = false
   detailFile.value = file
@@ -250,10 +262,7 @@ const visiblePages = computed(() => {
               Edit dataset
             </button>
             <hr class="menu-divider" />
-            <button
-              class="menu-item menu-item--danger"
-              @click="deleteOpen = true; dsMenuOpen = false"
-            >
+            <button class="menu-item menu-item--danger" @click="openDeleteMenu">
               <svg
                 width="13"
                 height="13"
@@ -269,10 +278,7 @@ const visiblePages = computed(() => {
             </button>
           </div>
         </div>
-        <button
-          class="btn-primary"
-          @click="detailFile = null; drawerOpen = true"
-        >
+        <button class="btn-primary" @click="openDrawer">
           <plus-outlined />
           Add source
         </button>

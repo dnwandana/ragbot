@@ -1,7 +1,8 @@
 <script setup>
-import { ref, reactive, watch, onMounted } from "vue"
+import { ref, reactive, watch } from "vue"
 import { useRoute } from "vue-router"
 import { useDatasets } from "@/composables/useDatasets"
+import { usePaginationUI } from "@/composables/usePaginationUI"
 import { relativeTime } from "@/utils/time"
 
 const route = useRoute()
@@ -10,6 +11,13 @@ const workspaceId = route.params.workspaceId
 const {
   datasets,
   loading,
+  pagination,
+  viewMode,
+  query,
+  sortBy,
+  sortOrder,
+  page,
+  setPage,
   isModalVisible,
   editingDataset,
   openCreateModal,
@@ -18,15 +26,21 @@ const {
   handleSubmit,
   handleDelete,
   nameRules,
-  fetchDatasets,
 } = useDatasets(workspaceId)
 
-const viewMode = ref("cards")
+const { SORT_OPTIONS, currentSortLabel, totalCount, paginationInfo, pageNumbers, showPagination } =
+  usePaginationUI({ pagination, page, sortBy, sortOrder })
+
 const menuOpenId = ref(null)
 const deleteTarget = ref(null)
+const sortMenuOpen = ref(false)
 const form = reactive({ name: "", description: "" })
 
-onMounted(fetchDatasets)
+/** @returns {void} */
+function closeMenus() {
+  menuOpenId.value = null
+  sortMenuOpen.value = false
+}
 
 // Sync form fields when the modal opens
 watch(isModalVisible, (open) => {
@@ -40,6 +54,13 @@ watch(isModalVisible, (open) => {
   }
 })
 
+/** @param {{ label: string, sortBy: string, sortOrder: string }} option */
+function selectSort(option) {
+  sortBy.value = option.sortBy
+  sortOrder.value = option.sortOrder
+  sortMenuOpen.value = false
+}
+
 /** @param {string} dateStr @returns {string} */
 function shortDate(dateStr) {
   if (!dateStr) return ""
@@ -52,6 +73,12 @@ function openDelete(ds) {
   deleteTarget.value = ds
 }
 
+/** @param {object} ds */
+function handleEditClick(ds) {
+  openEditModal(ds)
+  menuOpenId.value = null
+}
+
 async function confirmDelete() {
   await handleDelete(deleteTarget.value.id)
   deleteTarget.value = null
@@ -59,73 +86,155 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <div class="page" @click="menuOpenId = null">
+  <div class="page" @click="closeMenus">
     <!-- Page head -->
     <div class="page-head">
       <div>
         <div class="page-title">Knowledge base</div>
         <div class="page-sub">Datasets for your agents to search.</div>
       </div>
-      <div class="page-actions">
-        <div class="view-toggle">
-          <button
-            class="view-btn"
-            :class="{ active: viewMode === 'cards' }"
-            @click="viewMode = 'cards'"
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-            >
-              <rect x="2" y="2" width="5" height="5" rx="1" />
-              <rect x="9" y="2" width="5" height="5" rx="1" />
-              <rect x="2" y="9" width="5" height="5" rx="1" />
-              <rect x="9" y="9" width="5" height="5" rx="1" />
-            </svg>
-            Cards
-          </button>
-          <button
-            class="view-btn"
-            :class="{ active: viewMode === 'table' }"
-            @click="viewMode = 'table'"
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-            >
-              <line x1="2" y1="4" x2="14" y2="4" />
-              <line x1="2" y1="8" x2="14" y2="8" />
-              <line x1="2" y1="12" x2="14" y2="12" />
-            </svg>
-            Table
-          </button>
-        </div>
-        <button class="btn-primary" @click="openCreateModal">
+      <button class="btn-primary" @click="openCreateModal">
+        <svg
+          width="11"
+          height="11"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.2"
+          stroke-linecap="round"
+        >
+          <path d="M8 3v10M3 8h10" />
+        </svg>
+        New dataset
+      </button>
+    </div>
+
+    <!-- Toolbar: search + count + sort + view toggle -->
+    <div class="toolbar" @click.stop>
+      <div class="search-wrap" :class="{ 'search-wrap--active': query }">
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          style="flex-shrink: 0; color: var(--ink-4)"
+        >
+          <circle cx="6.5" cy="6.5" r="4.5" />
+          <line x1="10.5" y1="10.5" x2="14" y2="14" />
+        </svg>
+        <input
+          v-model="query"
+          class="search-input"
+          placeholder="Search datasets…"
+          type="search"
+          autocomplete="off"
+        />
+        <span v-if="loading && datasets.length" class="search-spin" />
+      </div>
+      <span class="toolbar-count">{{ totalCount }} dataset{{ totalCount === 1 ? "" : "s" }}</span>
+      <div style="flex: 1" />
+      <!-- Sort dropdown -->
+      <div class="sort-wrap" @click.stop>
+        <button class="sort-btn" @click="sortMenuOpen = !sortMenuOpen">
           <svg
-            width="11"
-            height="11"
+            width="12"
+            height="12"
             viewBox="0 0 16 16"
             fill="none"
             stroke="currentColor"
-            stroke-width="2.2"
+            stroke-width="1.8"
             stroke-linecap="round"
           >
-            <path d="M8 3v10M3 8h10" />
+            <line x1="2" y1="5" x2="14" y2="5" />
+            <line x1="4" y1="9" x2="12" y2="9" />
+            <line x1="6" y1="13" x2="10" y2="13" />
           </svg>
-          New dataset
+          {{ currentSortLabel }}
+          <svg
+            width="10"
+            height="10"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          >
+            <polyline points="4 6 8 10 12 6" />
+          </svg>
+        </button>
+        <div v-if="sortMenuOpen" class="sort-menu">
+          <button
+            v-for="opt in SORT_OPTIONS"
+            :key="opt.label"
+            class="sort-item"
+            :class="{ 'sort-item--active': opt.sortBy === sortBy && opt.sortOrder === sortOrder }"
+            @click="selectSort(opt)"
+          >
+            <svg
+              v-if="opt.sortBy === sortBy && opt.sortOrder === sortOrder"
+              width="12"
+              height="12"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.2"
+              stroke-linecap="round"
+            >
+              <polyline points="2 8 6 12 14 4" />
+            </svg>
+            <span v-else style="width: 12px; display: inline-block" />
+            {{ opt.label }}
+          </button>
+        </div>
+      </div>
+      <!-- View toggle -->
+      <div class="view-toggle">
+        <button
+          class="view-btn"
+          :class="{ active: viewMode === 'cards' }"
+          @click="viewMode = 'cards'"
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+          >
+            <rect x="2" y="2" width="5" height="5" rx="1" />
+            <rect x="9" y="2" width="5" height="5" rx="1" />
+            <rect x="2" y="9" width="5" height="5" rx="1" />
+            <rect x="9" y="9" width="5" height="5" rx="1" />
+          </svg>
+          Cards
+        </button>
+        <button
+          class="view-btn"
+          :class="{ active: viewMode === 'table' }"
+          @click="viewMode = 'table'"
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+          >
+            <line x1="2" y1="4" x2="14" y2="4" />
+            <line x1="2" y1="8" x2="14" y2="8" />
+            <line x1="2" y1="12" x2="14" y2="12" />
+          </svg>
+          Table
         </button>
       </div>
     </div>
 
-    <!-- Skeleton loading -->
+    <!-- Skeleton: initial load only (no data yet) -->
     <div v-if="loading && !datasets.length" class="ds-grid">
       <div v-for="n in 6" :key="n" class="ds-card ds-card--skel">
         <div class="card-body">
@@ -143,8 +252,8 @@ async function confirmDelete() {
       </div>
     </div>
 
-    <!-- Empty state -->
-    <div v-else-if="!loading && !datasets.length" class="empty-wrap">
+    <!-- Empty: no datasets exist yet and no active search -->
+    <div v-else-if="!loading && !datasets.length && !query" class="empty-wrap">
       <div class="empty">
         <svg
           viewBox="0 0 240 160"
@@ -203,8 +312,28 @@ async function confirmDelete() {
       </div>
     </div>
 
+    <!-- Empty search: no results for current query -->
+    <div v-else-if="!loading && !datasets.length && query" class="search-empty">
+      <svg
+        width="22"
+        height="22"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="var(--ink-4)"
+        stroke-width="1.6"
+        stroke-linecap="round"
+        style="margin-bottom: 10px"
+      >
+        <circle cx="6.5" cy="6.5" r="4.5" />
+        <line x1="10.5" y1="10.5" x2="14" y2="14" />
+      </svg>
+      <div class="search-empty-title">No datasets match "{{ query }}"</div>
+      <div class="search-empty-sub">Try a different name or description.</div>
+      <button class="search-empty-clear" @click="query = ''">Clear search</button>
+    </div>
+
     <!-- Cards view -->
-    <div v-else-if="viewMode === 'cards'" class="ds-grid">
+    <div v-else-if="viewMode === 'cards'" class="ds-grid" :class="{ 'is-fetching': loading }">
       <div
         v-for="ds in datasets"
         :key="ds.id"
@@ -224,10 +353,7 @@ async function confirmDelete() {
                 ···
               </button>
               <div v-if="menuOpenId === ds.id" class="menu-popup">
-                <button
-                  class="menu-item"
-                  @click="openEditModal(ds); menuOpenId = null"
-                >
+                <button class="menu-item" @click="handleEditClick(ds)">
                   <svg
                     width="13"
                     height="13"
@@ -276,7 +402,7 @@ async function confirmDelete() {
     </div>
 
     <!-- Table view -->
-    <div v-else class="ds-table">
+    <div v-else class="ds-table" :class="{ 'is-fetching': loading }">
       <div class="tbl-head tbl-cols">
         <div>Name</div>
         <div>Files</div>
@@ -309,10 +435,7 @@ async function confirmDelete() {
               ···
             </button>
             <div v-if="menuOpenId === ds.id" class="menu-popup menu-popup--left">
-              <button
-                class="menu-item"
-                @click="openEditModal(ds); menuOpenId = null"
-              >
+              <button class="menu-item" @click="handleEditClick(ds)">
                 <svg
                   width="13"
                   height="13"
@@ -343,6 +466,32 @@ async function confirmDelete() {
             </div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Pagination -->
+    <div v-if="showPagination" class="pagination-row">
+      <span class="pg-info">{{ paginationInfo }}</span>
+      <div class="pg-controls">
+        <button class="pg-btn" :disabled="page === 1" @click="setPage(page - 1)">← Prev</button>
+        <template v-for="(p, i) in pageNumbers" :key="i">
+          <span v-if="p === '…'" class="pg-sep">…</span>
+          <button
+            v-else
+            class="pg-btn"
+            :class="{ 'pg-btn--active': p === page }"
+            @click="setPage(p)"
+          >
+            {{ p }}
+          </button>
+        </template>
+        <button
+          class="pg-btn"
+          :disabled="page === pagination?.total_pages"
+          @click="setPage(page + 1)"
+        >
+          Next →
+        </button>
       </div>
     </div>
 
@@ -398,7 +547,7 @@ async function confirmDelete() {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 20px;
+  margin-bottom: 14px;
   gap: 12px;
   flex-wrap: wrap;
 }
@@ -413,12 +562,6 @@ async function confirmDelete() {
   color: var(--ink-3);
   margin-top: 2px;
 }
-.page-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .btn-primary {
   display: inline-flex;
   align-items: center;
@@ -708,5 +851,221 @@ async function confirmDelete() {
   font-size: 12px;
   color: var(--ink-4);
   margin: 16px 0 0;
+}
+
+/* Toolbar */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 180px;
+  max-width: 300px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 5px 10px;
+  background: var(--surface);
+  transition: border-color var(--dur) var(--ease);
+}
+.search-wrap--active {
+  border-color: var(--line-2);
+}
+.search-wrap:focus-within {
+  border-color: var(--brand);
+  outline: none;
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 12.5px;
+  color: var(--ink);
+  min-width: 0;
+}
+.search-input::placeholder {
+  color: var(--ink-4);
+}
+.search-input::-webkit-search-cancel-button {
+  display: none;
+}
+
+@keyframes ds-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.search-spin {
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--line-2);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  animation: ds-spin 0.6s linear infinite;
+  flex-shrink: 0;
+}
+
+.toolbar-count {
+  font-size: 12px;
+  color: var(--ink-4);
+  white-space: nowrap;
+}
+
+.sort-wrap {
+  position: relative;
+}
+.sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  font-size: 12px;
+  color: var(--ink-2);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sort-btn:hover {
+  background: var(--bg-2);
+}
+.sort-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-2);
+  min-width: 180px;
+  padding: 4px;
+  z-index: 30;
+}
+.sort-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  background: transparent;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  color: var(--ink-2);
+  cursor: pointer;
+  text-align: left;
+}
+.sort-item:hover {
+  background: var(--bg-2);
+}
+.sort-item--active {
+  font-weight: 500;
+  color: var(--ink);
+}
+
+/* Fetching state — dim grid/table during re-fetch */
+.is-fetching {
+  opacity: 0.5;
+  pointer-events: none;
+  transition: opacity 150ms var(--ease);
+}
+
+/* Empty search state */
+.search-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 24px;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+.search-empty-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+.search-empty-sub {
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+.search-empty-clear {
+  margin-top: 12px;
+  border: none;
+  background: transparent;
+  color: var(--brand);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+/* Pagination */
+.pagination-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0 4px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pg-info {
+  font-size: 12px;
+  color: var(--ink-4);
+}
+.pg-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.pg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  font-size: 12px;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.pg-btn:hover:not(:disabled) {
+  background: var(--bg-2);
+}
+.pg-btn--active {
+  background: var(--brand);
+  color: #fff;
+  border-color: var(--brand);
+  font-weight: 600;
+}
+.pg-btn--active:hover {
+  background: var(--brand-2);
+  border-color: var(--brand-2);
+}
+.pg-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.pg-sep {
+  font-size: 12px;
+  color: var(--ink-4);
+  padding: 0 2px;
+  user-select: none;
 }
 </style>

@@ -1,22 +1,78 @@
-import { ref, computed } from "vue"
+import { ref, computed, watch, onMounted, onUnmounted } from "vue"
 import { message } from "ant-design-vue"
 import { useAgentsStore } from "@/stores/agents"
 
 /**
- * Composable for agent CRUD with drawer state management.
- * @param {string} workspaceId - Current workspace ID.
+ * Composable for agent CRUD with drawer state, search, sort, and pagination.
+ * @param {string} workspaceId
  */
 export function useAgents(workspaceId) {
   const store = useAgentsStore()
+
+  // Drawer state
   const isDrawerOpen = ref(false)
   const drawerAgent = ref(null)
   const isEditing = computed(() => !!drawerAgent.value)
+
+  // View state
+  const viewMode = ref("cards")
+
+  // Search / sort / page
+  const query = ref("")
+  const sortBy = ref("created_at")
+  const sortOrder = ref("desc")
+  const page = ref(1)
+
+  function currentLimit() {
+    return viewMode.value === "table" ? 15 : 12
+  }
+
+  function doFetch() {
+    const trimmed = query.value.trim()
+    return store.fetchAgents(workspaceId, {
+      ...(trimmed && { search: trimmed }),
+      sort_by: sortBy.value,
+      sort_order: sortOrder.value,
+      page: page.value,
+      limit: currentLimit(),
+    })
+  }
+
+  // Debounced search — resets to page 1 before firing
+  let debounceTimer = null
+  watch(query, () => {
+    page.value = 1
+    clearTimeout(debounceTimer)
+    debounceTimer = setTimeout(doFetch, 300)
+  })
+
+  // Sort changes — immediate, reset page
+  watch([sortBy, sortOrder], () => {
+    page.value = 1
+    doFetch()
+  })
+
+  // View mode change — reset page, re-fetch with new limit
+  watch(viewMode, () => {
+    page.value = 1
+    doFetch()
+  })
+
+  /** @param {number} p */
+  function setPage(p) {
+    page.value = p
+    doFetch()
+  }
+
+  onMounted(doFetch)
+  onUnmounted(() => clearTimeout(debounceTimer))
 
   function openCreate() {
     drawerAgent.value = null
     isDrawerOpen.value = true
   }
 
+  /** @param {object} agent */
   function openEdit(agent) {
     drawerAgent.value = agent
     isDrawerOpen.value = true
@@ -27,6 +83,7 @@ export function useAgents(workspaceId) {
     drawerAgent.value = null
   }
 
+  /** @param {object} formData */
   async function handleSubmit(formData) {
     if (isEditing.value) {
       await store.updateAgent(workspaceId, drawerAgent.value.id, formData)
@@ -34,18 +91,30 @@ export function useAgents(workspaceId) {
     } else {
       await store.createAgent(workspaceId, formData)
       message.success("Agent created")
+      page.value = 1
     }
+    await doFetch()
     closeDrawer()
   }
 
+  /** @param {string} id */
   async function handleDelete(id) {
     await store.deleteAgent(workspaceId, id)
     message.success("Agent deleted")
+    if (store.agents.length === 0 && page.value > 1) page.value = 1
+    await doFetch()
   }
 
   return {
     agents: computed(() => store.agents),
     loading: computed(() => store.loading),
+    pagination: computed(() => store.pagination),
+    viewMode,
+    query,
+    sortBy,
+    sortOrder,
+    page,
+    setPage,
     isDrawerOpen,
     drawerAgent,
     isEditing,
@@ -54,6 +123,5 @@ export function useAgents(workspaceId) {
     closeDrawer,
     handleSubmit,
     handleDelete,
-    fetchAgents: () => store.fetchAgents(workspaceId),
   }
 }
