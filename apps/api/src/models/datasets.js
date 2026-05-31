@@ -13,6 +13,8 @@ const COLUMNS = [
   "updated_at",
 ]
 
+const AGGREGATE_ALIASES = new Set(["file_count", "total_size_mb"])
+
 /**
  * Insert a new dataset record and return all selected columns.
  *
@@ -27,8 +29,25 @@ export const create = (dataset) => db.insert(dataset).into(TABLE).returning(COLU
  * @param {Object} conditions - Knex where conditions (e.g. { id, workspace_id })
  * @returns {Promise<Object|undefined>} The dataset record, or undefined if not found
  */
-export const findOne = (conditions) =>
-  db.select(COLUMNS).from(TABLE).where(conditions).whereNull("deleted_at").first()
+export const findOne = (conditions) => {
+  const prefixed = Object.fromEntries(
+    Object.entries(conditions).map(([k, v]) => [`${TABLE}.${k}`, v]),
+  )
+  return db
+    .select([
+      ...COLUMNS.map((c) => `${TABLE}.${c}`),
+      db.raw("COUNT(df.id)::int AS file_count"),
+      db.raw("COALESCE(SUM(df.file_size_bytes), 0)::float8 / (1024.0 * 1024.0) AS total_size_mb"),
+    ])
+    .from(TABLE)
+    .leftJoin("dataset_files as df", function () {
+      this.on("df.dataset_id", "=", `${TABLE}.id`).andOnNull("df.deleted_at")
+    })
+    .where(prefixed)
+    .whereNull(`${TABLE}.deleted_at`)
+    .groupBy(COLUMNS.map((c) => `${TABLE}.${c}`))
+    .first()
+}
 
 /**
  * Count active datasets for a workspace with optional ILIKE search.
@@ -65,11 +84,28 @@ export const findManyPaginated = (
   { workspace_id },
   { limit, offset, orders, search, searchColumns } = {},
 ) => {
-  let q = db.select(COLUMNS).from(TABLE).where({ workspace_id }).whereNull("deleted_at")
+  let q = db
+    .select([
+      ...COLUMNS.map((c) => `${TABLE}.${c}`),
+      db.raw("COUNT(df.id)::int AS file_count"),
+      db.raw("COALESCE(SUM(df.file_size_bytes), 0)::float8 / (1024.0 * 1024.0) AS total_size_mb"),
+    ])
+    .from(TABLE)
+    .leftJoin("dataset_files as df", function () {
+      this.on("df.dataset_id", "=", `${TABLE}.id`).andOnNull("df.deleted_at")
+    })
+    .where({ [`${TABLE}.workspace_id`]: workspace_id })
+    .whereNull(`${TABLE}.deleted_at`)
+    .groupBy(COLUMNS.map((c) => `${TABLE}.${c}`))
   if (search && searchColumns?.length) {
-    q = q.where((b) => searchColumns.forEach((col) => b.orWhereILike(col, `%${search}%`)))
+    q = q.where((b) =>
+      searchColumns.forEach((col) => b.orWhereILike(`${TABLE}.${col}`, `%${search}%`)),
+    )
   }
-  if (orders?.length) orders.forEach(({ column, order }) => q.orderBy(column, order))
+  if (orders?.length)
+    orders.forEach(({ column, order }) =>
+      q.orderBy(AGGREGATE_ALIASES.has(column) ? column : `${TABLE}.${column}`, order),
+    )
   return q.limit(limit).offset(offset)
 }
 

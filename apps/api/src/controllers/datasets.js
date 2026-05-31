@@ -62,7 +62,9 @@ export const createDataset = async (req, res, next) => {
 
     return res
       .status(HTTP_STATUS_CODE.CREATED)
-      .json(apiResponse({ message: "Created", data: dataset }))
+      .json(
+        apiResponse({ message: "Created", data: { ...dataset, file_count: 0, total_size_mb: 0 } }),
+      )
   } catch (error) {
     return next(error)
   }
@@ -153,7 +155,12 @@ export const updateDataset = async (req, res, next) => {
       context: { request_id: req.id },
     })
 
-    return res.json(apiResponse({ message: "OK", data: updated }))
+    return res.json(
+      apiResponse({
+        message: "OK",
+        data: { ...updated, file_count: dataset.file_count, total_size_mb: dataset.total_size_mb },
+      }),
+    )
   } catch (error) {
     return next(error)
   }
