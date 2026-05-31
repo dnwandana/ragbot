@@ -1,5 +1,6 @@
 import crypto from "node:crypto"
 import joi from "joi"
+import db from "../config/database.js"
 import HttpError from "../utils/http-error.js"
 import apiResponse from "../utils/response.js"
 import { HTTP_STATUS_CODE } from "../utils/constant.js"
@@ -78,6 +79,27 @@ const resetPasswordSchema = joi
     confirmation_password: joi.valid(joi.ref("password")).required().messages({
       "any.only": "Passwords do not match",
     }),
+  })
+  .options({ stripUnknown: true })
+
+const VALID_TIMEZONES = Intl.supportedValuesOf("timeZone")
+
+/** Joi schema for profile update request body. */
+const updateProfileSchema = joi
+  .object({
+    full_name: joi.string().min(1).max(100).required(),
+    timezone: joi
+      .string()
+      .valid(...VALID_TIMEZONES)
+      .required(),
+  })
+  .options({ stripUnknown: true })
+
+/** Joi schema for password change request body. */
+const changePasswordSchema = joi
+  .object({
+    current_password: joi.string().required(),
+    new_password: joi.string().min(8).max(72).required(),
   })
   .options({ stripUnknown: true })
 
@@ -392,6 +414,111 @@ export const getMe = async (req, res, next) => {
     if (!user) throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "User not found")
 
     return res.json(apiResponse({ message: "OK", data: user }))
+  } catch (error) {
+    return next(error)
+  }
+}
+
+/**
+ * PUT /api/auth/profile — Update the current user's profile.
+ *
+ * Updates full_name and timezone for the authenticated user.
+ *
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next middleware function
+ * @returns {Promise<void>}
+ */
+export const updateProfile = async (req, res, next) => {
+  try {
+    const { error, value } = updateProfileSchema.validate(req.body)
+    if (error) throw new HttpError(HTTP_STATUS_CODE.BAD_REQUEST, error.details[0].message)
+
+    const [updated] = await userModel.update(
+      { id: req.user.id },
+      { ...value, updated_at: new Date() },
+    )
+    if (!updated) throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "User not found")
+
+    return res.json(apiResponse({ message: "Profile updated", data: updated }))
+  } catch (error) {
+    return next(error)
+  }
+}
+
+/**
+ * DELETE /api/auth/profile — Delete the current user's account.
+ *
+ * Soft-deletes the user, revokes all refresh tokens, and clears auth cookies.
+ *
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next middleware function
+ * @returns {Promise<void>}
+ */
+export const deleteProfile = async (req, res, next) => {
+  try {
+    const soleOwnerWorkspaces = await db("workspace_members as wm")
+      .join("roles as r", "wm.role_id", "r.id")
+      .where({ "wm.user_id": req.user.id, "r.name": "owner" })
+      .whereNull("wm.deleted_at")
+      .whereNotExists(
+        db("workspace_members as wm2")
+          .join("roles as r2", "wm2.role_id", "r2.id")
+          .whereRaw("wm2.workspace_id = wm.workspace_id")
+          .where("r2.name", "owner")
+          .whereNot("wm2.user_id", req.user.id)
+          .whereNull("wm2.deleted_at")
+          .select(db.raw("1")),
+      )
+      .select("wm.workspace_id")
+
+    if (soleOwnerWorkspaces.length > 0) {
+      throw new HttpError(
+        HTTP_STATUS_CODE.CONFLICT,
+        "You are the sole owner of one or more workspaces. Transfer ownership before deleting your account.",
+      )
+    }
+
+    await userModel.softDelete(req.user.id)
+    await refreshTokenModel.revokeAllForUser(req.user.id)
+    clearAuthCookies(res)
+
+    return res.json(apiResponse({ message: "Account deleted", data: null }))
+  } catch (error) {
+    return next(error)
+  }
+}
+
+/**
+ * PUT /api/auth/password — Change the current user's password.
+ *
+ * Verifies the current password, updates the hash, and revokes all other
+ * refresh tokens so existing sessions on other devices are signed out.
+ *
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next middleware function
+ * @returns {Promise<void>}
+ */
+export const changePassword = async (req, res, next) => {
+  try {
+    const { error, value } = changePasswordSchema.validate(req.body)
+    if (error) throw new HttpError(HTTP_STATUS_CODE.BAD_REQUEST, error.details[0].message)
+
+    const user = await userModel.findOneWithPassword({ id: req.user.id })
+    if (!user) throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "User not found")
+
+    const matches = await verifyPassword(user.password_hash, value.current_password)
+    if (!matches) {
+      throw new HttpError(HTTP_STATUS_CODE.BAD_REQUEST, "Current password is incorrect")
+    }
+
+    const newHash = await hashPassword(value.new_password)
+    await userModel.update({ id: req.user.id }, { password_hash: newHash, updated_at: new Date() })
+    await refreshTokenModel.revokeAllForUser(req.user.id)
+
+    return res.json(apiResponse({ message: "Password updated", data: null }))
   } catch (error) {
     return next(error)
   }
