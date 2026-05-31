@@ -28,14 +28,17 @@ export const findByMessageId = (messageId) =>
   db.select(COLUMNS).from(TABLE).where({ message_id: messageId }).orderBy("citation_number")
 
 /**
- * Find all citations across all messages in a conversation.
+ * Find all citations across all messages in a conversation, enriched with the
+ * source file's filename via document_chunks → dataset_files.
  * @param {string} conversationId - Conversation UUID.
  * @returns {Promise<Object[]>}
  */
 export const findByConversationId = (conversationId) =>
   // Relies on controller-level soft-delete check before this is called.
   db(TABLE)
-    .select(COLUMNS.map((col) => `${TABLE}.${col}`))
+    .select([...COLUMNS.map((col) => `${TABLE}.${col}`), "dataset_files.filename"])
     .join("messages", "messages.id", `${TABLE}.message_id`)
+    .leftJoin("document_chunks", "document_chunks.id", `${TABLE}.chunk_id`)
+    .leftJoin("dataset_files", "dataset_files.id", "document_chunks.dataset_file_id")
     .where("messages.conversation_id", conversationId)
     .orderBy(`${TABLE}.created_at`, "asc")
