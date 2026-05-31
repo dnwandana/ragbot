@@ -19,6 +19,7 @@ const bodySchema = joi
 const updateSchema = joi
   .object({
     name: joi.string().min(1).max(100).optional(),
+    description: joi.string().max(240).allow("").optional(),
     settings: joi.object().optional(),
   })
   .options({ stripUnknown: true })

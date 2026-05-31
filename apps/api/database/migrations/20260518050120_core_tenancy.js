@@ -3,6 +3,7 @@ export async function up(knex) {
     CREATE TABLE workspaces (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       name TEXT NOT NULL,
+      description TEXT,
       settings JSONB NOT NULL DEFAULT '{}',
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -20,6 +21,7 @@ export async function up(knex) {
       email TEXT NOT NULL,
       password_hash TEXT NOT NULL,
       full_name TEXT NOT NULL,
+      timezone TEXT NOT NULL DEFAULT 'UTC',
       email_verified BOOLEAN NOT NULL DEFAULT FALSE,
       failed_login_attempts INTEGER NOT NULL DEFAULT 0,
       locked_until TIMESTAMPTZ,

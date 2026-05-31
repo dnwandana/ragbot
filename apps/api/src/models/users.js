@@ -5,6 +5,7 @@ const COLUMNS = [
   "id",
   "email",
   "full_name",
+  "timezone",
   "email_verified",
   "last_login_at",
   "settings",

@@ -1,7 +1,7 @@
 import db from "../config/database.js"
 
 const TABLE = "workspaces"
-const COLUMNS = ["id", "name", "settings", "created_at", "updated_at"]
+const COLUMNS = ["id", "name", "description", "settings", "created_at", "updated_at"]
 
 /**
  * Insert a new workspace record.
