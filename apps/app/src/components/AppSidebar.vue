@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from "vue"
+import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue"
 import { useRoute, useRouter } from "vue-router"
 import {
   SearchOutlined,
@@ -161,10 +161,15 @@ function onDocumentClick() {
   menuConvoId.value = null
 }
 
+watch(
+  workspaceId,
+  (id) => {
+    if (id) conversationsStore.fetchConversations(id)
+  },
+  { immediate: true },
+)
+
 onMounted(() => {
-  if (workspaceId.value) {
-    conversationsStore.fetchConversations(workspaceId.value)
-  }
   document.addEventListener("click", onDocumentClick)
 })
 

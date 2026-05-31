@@ -1,10 +1,12 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from "vue"
 import { useAuthStore } from "@/stores/auth"
+import { useWorkspacesStore } from "@/stores/workspaces"
 import { useInvitations } from "@/composables/useInvitations"
 import AppSidebar from "@/components/AppSidebar.vue"
 
 const authStore = useAuthStore()
+const workspacesStore = useWorkspacesStore()
 const { fetchMyInvitations } = useInvitations()
 const isMobileDrawerOpen = ref(false)
 
@@ -14,7 +16,10 @@ function onResize() {
 
 onMounted(() => {
   window.addEventListener("resize", onResize)
-  if (authStore.isAuthenticated) fetchMyInvitations()
+  if (authStore.isAuthenticated) {
+    fetchMyInvitations()
+    workspacesStore.fetchWorkspaces()
+  }
 })
 onUnmounted(() => window.removeEventListener("resize", onResize))
 </script>
