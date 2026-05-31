@@ -8,7 +8,7 @@ const citationExtension = {
     return src.indexOf("[")
   },
   tokenizer(src) {
-    const match = /^\[(\d+)\](?!\[|\()/.exec(src)
+    const match = /^\[(\d+)\](?!\(|\[[^\d])/.exec(src)
     if (match) return { type: "citation", raw: match[0], num: match[1] }
   },
   renderer(token) {
