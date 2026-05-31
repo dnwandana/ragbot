@@ -528,6 +528,130 @@
         }
       }
     },
+    "/api/auth/profile": {
+      "put": {
+        "tags": ["Authentication"],
+        "summary": "Update profile",
+        "description": "Update the authenticated user's full_name and/or email. At least one field must be provided.",
+        "operationId": "updateProfile",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profile updated",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/UserDetail"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "description": "Email already in use by another account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "message": "Email already in use"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Authentication"],
+        "summary": "Delete account",
+        "description": "Soft-delete the authenticated user's account and clear auth cookies.",
+        "operationId": "deleteProfile",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Account deleted — auth cookies cleared"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/auth/password": {
+      "put": {
+        "tags": ["Authentication"],
+        "summary": "Change password",
+        "description": "Change the authenticated user's password. Requires the current password for verification.",
+        "operationId": "changePassword",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Password changed successfully"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
     "/api/permissions": {
       "get": {
         "tags": ["Permissions"],
@@ -4286,6 +4410,17 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "file_count": {
+            "type": "integer",
+            "description": "Number of files in this dataset.",
+            "example": 3
+          },
+          "total_size_mb": {
+            "type": "number",
+            "format": "float",
+            "description": "Total size of all files in megabytes.",
+            "example": 1.45
           }
         },
         "required": [
@@ -4296,7 +4431,9 @@
           "chunk_size",
           "chunk_overlap",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "file_count",
+          "total_size_mb"
         ]
       },
       "CreateDatasetRequest": {
@@ -4321,6 +4458,38 @@
           }
         },
         "required": ["name"]
+      },
+      "UpdateProfileRequest": {
+        "type": "object",
+        "description": "At least one field required.",
+        "properties": {
+          "full_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
+        }
+      },
+      "ChangePasswordRequest": {
+        "type": "object",
+        "properties": {
+          "old_password": {
+            "type": "string"
+          },
+          "new_password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 72
+          },
+          "confirmation_password": {
+            "type": "string"
+          }
+        },
+        "required": ["old_password", "new_password", "confirmation_password"]
       },
       "UpdateDatasetRequest": {
         "type": "object",
