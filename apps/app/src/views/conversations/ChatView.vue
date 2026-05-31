@@ -9,11 +9,11 @@
       :prompts="suggestedPrompts"
       :source-label="sourceLabel"
       :theme="theme"
-      :highlight="chatActions.highlightedSource.value"
       @send="onSend"
       @copy="chatActions.copyMessage"
       @rate="onRate"
       @cite="onCite"
+      @open-panel="onOpenPanel"
     />
 
     <ChatComposer
@@ -24,30 +24,46 @@
       @abort="chat.abort"
     />
 
-    <!-- Sources panel (right overlay) -->
+    <!-- Sources panel (right overlay) — scoped to the active message -->
     <Transition name="slide">
       <div v-if="sourcesPanelOpen" class="chat-view__sources">
         <div class="chat-view__sources-header">
-          <span class="chat-view__sources-title">Sources</span>
-          <button class="chat-view__sources-close" @click="sourcesPanelOpen = false">
+          <div>
+            <span class="chat-view__sources-title">Sources</span>
+            <span v-if="activeMsgIndex != null" class="chat-view__sources-meta">
+              · Response {{ activeMsgIndex }} · {{ activeCitationCount }}
+              {{ activeCitationCount === 1 ? "citation" : "citations" }}
+            </span>
+          </div>
+          <button class="chat-view__sources-close" @click="closePanel">
             <CloseOutlined />
           </button>
         </div>
         <div class="chat-view__sources-list">
-          <div
-            v-for="source in allCitations"
-            :key="source.n"
-            class="chat-view__source-card"
-            :class="{ 'chat-view__source-card--highlight': highlightedN === source.n }"
-          >
-            <div class="chat-view__source-meta">
-              <span class="chat-view__source-badge" :class="relevanceClass(source.relevance)">{{
-                source.relevanceLabel
-              }}</span>
-              <span class="chat-view__source-score">{{ source.relevance?.toFixed(2) }}</span>
+          <div v-for="group in activeSources" :key="group.title" class="chat-view__source-group">
+            <div class="chat-view__source-group-header">
+              <span class="chat-view__source-group-title">{{ group.title }}</span>
+              <span class="chat-view__source-group-count">
+                {{ group.citations.length }}
+                {{ group.citations.length === 1 ? "excerpt" : "excerpts" }}
+              </span>
             </div>
-            <div class="chat-view__source-title">{{ source.title }}</div>
-            <div class="chat-view__source-url">{{ source.url }}</div>
+            <div
+              v-for="citation in group.citations"
+              :key="citation.n"
+              class="chat-view__source-card"
+              :class="{ 'chat-view__source-card--highlight': citation.n === highlightedN }"
+            >
+              <div class="chat-view__source-meta">
+                <span class="chat-view__source-badge" :class="relevanceClass(citation.relevance)">{{
+                  citation.relevanceLabel
+                }}</span>
+                <span class="chat-view__source-num">[{{ citation.n }}]</span>
+              </div>
+              <div v-if="citation.cited_text" class="chat-view__source-excerpt">
+                <MarkdownRenderer :text="citation.cited_text" />
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -66,6 +82,7 @@ import { useChatActions } from "@/composables/useChatActions"
 import { useTheme } from "@/composables/useTheme"
 import ChatThread from "@/components/chat/ChatThread.vue"
 import ChatComposer from "@/components/chat/ChatComposer.vue"
+import MarkdownRenderer from "@/components/chat/MarkdownRenderer.vue"
 
 const route = useRoute()
 const conversationsStore = useConversationsStore()
@@ -79,11 +96,15 @@ const { theme } = useTheme()
 // Local state
 const sourcesPanelOpen = ref(false)
 const highlightedN = ref(null)
+const activeMsgId = ref(null)
 
 // Load conversation when route changes
 watch(
   conversationId,
   (id) => {
+    sourcesPanelOpen.value = false
+    activeMsgId.value = null
+    highlightedN.value = null
     if (id && workspaceId.value) {
       chatStore.reset()
       conversationsStore.fetchConversation(workspaceId.value, id)
@@ -145,7 +166,13 @@ const displayMessages = computed(() => {
       (m.created_at
         ? new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
         : ""),
-    sources: citationsByMsgId.value.get(m.id) || [],
+    sources: [
+      ...new Set(
+        (citationsByMsgId.value.get(m.id) || []).map(
+          (c) => c.filename || `Source ${c.citation_number}`,
+        ),
+      ),
+    ],
   }))
   if (streamingMessage.value) return [...base, streamingMessage.value]
   return base
@@ -165,7 +192,33 @@ const suggestedPrompts = [
   { icon: "book", text: "What changed in the latest release?" },
 ]
 
-const allCitations = computed(() => conversationsStore.currentConversation?.citations || [])
+const activeSources = computed(() => {
+  if (!activeMsgId.value) return []
+  const citations = citationsByMsgId.value.get(activeMsgId.value) || []
+  const groupMap = new Map()
+  for (const c of citations) {
+    const title = c.filename || `Source ${c.citation_number}`
+    if (!groupMap.has(title)) groupMap.set(title, [])
+    groupMap.get(title).push({
+      n: c.citation_number,
+      relevance: c.relevance_score,
+      relevanceLabel: c.relevance_score >= 0.85 ? "High" : c.relevance_score >= 0.6 ? "Med" : "Low",
+      cited_text: c.cited_text || "",
+    })
+  }
+  return Array.from(groupMap.entries()).map(([title, cits]) => ({ title, citations: cits }))
+})
+
+const activeCitationCount = computed(() =>
+  activeSources.value.reduce((sum, g) => sum + g.citations.length, 0),
+)
+
+const activeMsgIndex = computed(() => {
+  if (!activeMsgId.value) return null
+  const aiMessages = filteredMessages.value.filter((m) => m.role === "assistant")
+  const idx = aiMessages.findIndex((m) => m.id === activeMsgId.value)
+  return idx === -1 ? null : idx + 1
+})
 
 // Actions
 async function onSend(text) {
@@ -177,9 +230,26 @@ function onRate(msg, rating) {
 }
 
 function onCite(msgId, n) {
-  chatActions.setHighlight(msgId, n)
   highlightedN.value = n
+  activeMsgId.value = msgId
   sourcesPanelOpen.value = true
+}
+
+function onOpenPanel(msgId) {
+  if (msgId === "streaming") return
+  if (sourcesPanelOpen.value && activeMsgId.value === msgId) {
+    closePanel()
+  } else {
+    activeMsgId.value = msgId
+    highlightedN.value = null
+    sourcesPanelOpen.value = true
+  }
+}
+
+function closePanel() {
+  sourcesPanelOpen.value = false
+  activeMsgId.value = null
+  highlightedN.value = null
 }
 
 function relevanceClass(relevance) {
@@ -200,11 +270,11 @@ function relevanceClass(relevance) {
 
 /* ── Sources panel ── */
 .chat-view__sources {
-  position: absolute;
+  position: fixed;
   top: 0;
   right: 0;
   width: 340px;
-  height: 100%;
+  height: 100vh;
   background: var(--surface);
   border-left: 1px solid var(--line);
   display: flex;
@@ -226,6 +296,27 @@ function relevanceClass(relevance) {
   color: var(--ink);
 }
 
+.chat-view__sources-meta {
+  font-size: var(--t-sm);
+  color: var(--ink-3);
+  margin-left: 2px;
+}
+
+.chat-view__source-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 3px;
+  background: var(--brand-tint);
+  color: var(--brand-3);
+  font: 600 10.5px var(--font-mono);
+  flex-shrink: 0;
+  margin-right: 4px;
+}
+
 .chat-view__sources-close {
   background: transparent;
   border: none;
@@ -242,6 +333,30 @@ function relevanceClass(relevance) {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.chat-view__source-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chat-view__source-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 2px;
+}
+
+.chat-view__source-group-title {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.chat-view__source-group-count {
+  font-size: 11px;
+  color: var(--ink-3);
 }
 
 .chat-view__source-card {
@@ -283,21 +398,11 @@ function relevanceClass(relevance) {
   background: var(--bg-2);
 }
 
-.chat-view__source-score {
+.chat-view__source-excerpt {
   font-size: 11px;
   color: var(--ink-3);
-}
-
-.chat-view__source-title {
-  font-weight: 500;
-  font-size: 12px;
-  color: var(--ink);
-}
-
-.chat-view__source-url {
-  font-size: 11px;
-  color: var(--ink-3);
-  margin-top: 2px;
+  margin-top: 4px;
+  line-height: 1.5;
 }
 
 /* ── Slide transition ── */

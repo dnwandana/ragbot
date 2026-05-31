@@ -214,22 +214,19 @@ function onContainerClick(event) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 17px;
-  height: 17px;
-  padding: 0 4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
   margin-left: 2px;
-  border-radius: 4px;
+  border-radius: 3px;
   background: var(--brand-tint);
   color: var(--brand-3);
   font: 600 10.5px var(--font-mono);
   vertical-align: 1px;
   cursor: pointer;
-  border: 1px solid rgba(255, 107, 53, 0.2);
   transition:
     background var(--dur) var(--ease),
     color var(--dur) var(--ease);
-  position: relative;
-  top: -1px;
 }
 
 .md-prose :deep(.cite-ref:hover) {

@@ -7,8 +7,9 @@
     </div>
     <div class="chat-message__bubble chat-message__bubble--user">{{ msg.text }}</div>
     <div class="chat-message__user-actions">
-      <button class="chat-message__tool-btn" title="Copy" @click="emit('copy', msg)">
-        <CopyOutlined />
+      <button class="chat-message__tool-btn" title="Copy" @click="handleCopy">
+        <CheckOutlined v-if="copyActive" />
+        <CopyOutlined v-else />
       </button>
     </div>
   </div>
@@ -80,11 +81,7 @@
         v-if="!msg.streaming && !msg.error && msg.sources && msg.sources.length > 0"
         class="chat-message__sources"
       >
-        <SourceCitations
-          :sources="msg.sources"
-          :highlight-n="highlight && highlight.msgId === msg.id ? highlight.n : null"
-          @cite="(n) => emit('cite', n)"
-        />
+        <SourceCitations :sources="msg.sources" @open-panel="emit('open-panel')" />
       </div>
     </div>
 
@@ -106,15 +103,18 @@
       >
         <DislikeOutlined />
       </button>
-      <button class="chat-message__tool-btn" title="Copy" @click="emit('copy', msg)">
-        <CopyOutlined />
+      <button class="chat-message__tool-btn" title="Copy" @click="handleCopy">
+        <CheckOutlined v-if="copyActive" />
+        <CopyOutlined v-else />
       </button>
     </div>
   </div>
 </template>
 
 <script setup>
+import { ref, onUnmounted } from "vue"
 import {
+  CheckOutlined,
   CopyOutlined,
   LikeOutlined,
   DislikeOutlined,
@@ -126,15 +126,27 @@ import SourceCitations from "./SourceCitations.vue"
 const props = defineProps({
   /** Message object: { id, role, text, time, sources, streaming, error, errorMsg, rating } */
   msg: { type: Object, required: true },
-  /** Highlighted source: { msgId, n } or null */
-  highlight: { type: Object, default: null },
   /** ReAct steps for streaming state: { thoughts: [], observations: [] } */
   reActSteps: { type: Object, default: null },
 })
 
-const emit = defineEmits(["copy", "rate", "cite"])
+const emit = defineEmits(["copy", "rate", "cite", "open-panel"])
 
 const isUser = props.msg.role === "user"
+
+const copyActive = ref(false)
+let copyTimer = null
+
+function handleCopy() {
+  emit("copy", props.msg)
+  copyActive.value = true
+  clearTimeout(copyTimer)
+  copyTimer = setTimeout(() => {
+    copyActive.value = false
+  }, 1500)
+}
+
+onUnmounted(() => clearTimeout(copyTimer))
 </script>
 
 <style scoped>

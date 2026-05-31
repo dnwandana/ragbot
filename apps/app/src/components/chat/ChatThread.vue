@@ -37,11 +37,11 @@
         v-for="m in messages"
         :key="m.id"
         :msg="m"
-        :highlight="highlight"
         :re-act-steps="m.streaming ? reActSteps : null"
         @copy="emit('copy', $event)"
         @rate="(r) => emit('rate', m, r)"
         @cite="(n) => emit('cite', m.id, n)"
+        @open-panel="emit('open-panel', m.id)"
       />
 
       <!-- Searching / loading indicator -->
@@ -81,10 +81,9 @@ const props = defineProps({
   sourceLabel: { type: String, default: "your sources" },
   theme: { type: String, default: "light" },
   density: { type: String, default: "comfortable" },
-  highlight: { type: Object, default: null },
 })
 
-const emit = defineEmits(["send", "copy", "rate", "cite"])
+const emit = defineEmits(["send", "copy", "rate", "cite", "open-panel"])
 
 const scrollRef = ref(null)
 
