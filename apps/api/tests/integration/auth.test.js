@@ -6,6 +6,8 @@ import {
   getAuthHeaders,
   cleanAllTables,
   seedPermissions,
+  createTestWorkspace,
+  addWorkspaceMember,
 } from "../helpers.js"
 import * as emailTokenModel from "../../src/models/email-tokens.js"
 
@@ -389,6 +391,151 @@ describe("POST /api/auth/logout", () => {
     // Token should be revoked — refresh with same token should fail
     const refreshRes = await (await request()).post("/api/auth/refresh").set(headers)
     expect(refreshRes.status).toBe(401)
+  })
+})
+
+describe("PUT /api/auth/profile", () => {
+  it("updates full_name and timezone for the authenticated user", async () => {
+    const user = await createTestUser({ email_verified: true })
+    const headers = await getAuthHeaders(user.id)
+
+    const res = await (await request())
+      .put("/api/auth/profile")
+      .set("Cookie", headers.Cookie)
+      .send({ full_name: "Updated Name", timezone: "Asia/Singapore" })
+
+    expect(res.status).toBe(200)
+    expect(res.body.data.full_name).toBe("Updated Name")
+    expect(res.body.data.timezone).toBe("Asia/Singapore")
+    expect(res.body.data.password_hash).toBeUndefined()
+  })
+
+  it("accepts any valid IANA timezone identifier", async () => {
+    const user = await createTestUser({ email_verified: true })
+    const headers = await getAuthHeaders(user.id)
+
+    const res = await (await request())
+      .put("/api/auth/profile")
+      .set("Cookie", headers.Cookie)
+      .send({ full_name: "Name", timezone: "America/Indiana/Vincennes" })
+
+    expect(res.status).toBe(200)
+    expect(res.body.data.timezone).toBe("America/Indiana/Vincennes")
+  })
+
+  it("returns 400 for an invalid timezone", async () => {
+    const user = await createTestUser({ email_verified: true })
+    const headers = await getAuthHeaders(user.id)
+
+    const res = await (await request())
+      .put("/api/auth/profile")
+      .set("Cookie", headers.Cookie)
+      .send({ full_name: "Name", timezone: "Not/AReal/Zone" })
+
+    expect(res.status).toBe(400)
+  })
+
+  it("returns 401 when not authenticated", async () => {
+    const res = await (await request())
+      .put("/api/auth/profile")
+      .send({ full_name: "Name", timezone: "UTC" })
+
+    expect(res.status).toBe(401)
+  })
+})
+
+describe("DELETE /api/auth/profile", () => {
+  it("soft-deletes the user and clears cookies", async () => {
+    const user = await createTestUser({ email_verified: true })
+    const headers = await getAuthHeaders(user.id)
+
+    const res = await (await request()).delete("/api/auth/profile").set("Cookie", headers.Cookie)
+
+    expect(res.status).toBe(200)
+    expect(res.body.message).toBe("Account deleted")
+
+    // Cookie should be cleared
+    const cookies = res.headers["set-cookie"] ?? []
+    const accessCookie = cookies.find((c) => c.startsWith("access_token="))
+    expect(accessCookie).toMatch(/access_token=;/)
+  })
+
+  it("returns 401 when not authenticated", async () => {
+    const res = await (await request()).delete("/api/auth/profile")
+    expect(res.status).toBe(401)
+  })
+
+  it("returns 409 when user is the sole owner of a workspace", async () => {
+    const user = await createTestUser({ email_verified: true })
+    await createTestWorkspace(user.id)
+    const headers = await getAuthHeaders(user.id)
+
+    const res = await (await request()).delete("/api/auth/profile").set("Cookie", headers.Cookie)
+
+    expect(res.status).toBe(409)
+    expect(res.body.message).toMatch(/sole owner/i)
+  })
+
+  it("deletes account when another active owner exists in the workspace", async () => {
+    const user = await createTestUser({ email_verified: true })
+    const other = await createTestUser({ email_verified: true })
+    const ws = await createTestWorkspace(user.id)
+    // ws.roles is { owner: uuid, admin: uuid, editor: uuid, viewer: uuid }
+    await addWorkspaceMember(ws.id, other.id, ws.roles.owner)
+    const headers = await getAuthHeaders(user.id)
+
+    const res = await (await request()).delete("/api/auth/profile").set("Cookie", headers.Cookie)
+
+    expect(res.status).toBe(200)
+    expect(res.body.message).toBe("Account deleted")
+  })
+})
+
+describe("PUT /api/auth/password", () => {
+  it("updates the password when current_password is correct", async () => {
+    const user = await createTestUser({ email_verified: true, password: "OldPass123!" })
+    const headers = await getAuthHeaders(user.id)
+
+    const res = await (await request())
+      .put("/api/auth/password")
+      .set("Cookie", headers.Cookie)
+      .send({ current_password: "OldPass123!", new_password: "NewPass456!" })
+
+    expect(res.status).toBe(200)
+    expect(res.body.message).toBe("Password updated")
+  })
+
+  it("returns 400 when current_password is wrong", async () => {
+    const user = await createTestUser({ email_verified: true, password: "OldPass123!" })
+    const headers = await getAuthHeaders(user.id)
+
+    const res = await (await request())
+      .put("/api/auth/password")
+      .set("Cookie", headers.Cookie)
+      .send({ current_password: "WrongPass!", new_password: "NewPass456!" })
+
+    expect(res.status).toBe(400)
+    expect(res.body.message).toBe("Current password is incorrect")
+  })
+
+  it("returns 400 when new_password is too short", async () => {
+    const user = await createTestUser({ email_verified: true })
+    const headers = await getAuthHeaders(user.id)
+
+    const res = await (await request())
+      .put("/api/auth/password")
+      .set("Cookie", headers.Cookie)
+      .send({ current_password: "Password123!", new_password: "short" })
+
+    expect(res.status).toBe(400)
+  })
+
+  it("returns 401 when not authenticated", async () => {
+    const res = await (await request())
+      .put("/api/auth/password")
+      .send({ current_password: "any", new_password: "NewPass456!" })
+
+    expect(res.status).toBe(401)
   })
 })
 
