@@ -46,14 +46,18 @@ Vue 3 SPA built with Vite, using a Pinia store + composables pattern for state m
 | `/verify-email`                                          | VerifyEmail       | `views/auth/VerifyEmailView.vue`                | none            | Working |
 | `/forgot-password`                                       | ForgotPassword    | `views/auth/ForgotPasswordView.vue`             | `requiresGuest` | Working |
 | `/reset-password`                                        | ResetPassword     | `views/auth/ResetPasswordView.vue`              | `requiresGuest` | Working |
-| `/`                                                      | —                 | redirect to `/workspaces`                       | —               | Stale   |
+| `/`                                                      | —                 | redirect to `/workspaces`                       | —               | Working |
 | `/invitations`                                           | MyInvitations     | `views/invitations/MyInvitationsView.vue`       | `requiresAuth`  | Working |
-| `/:pathMatch(.*)*`                                       | —                 | redirect to `/workspaces`                       | —               | Stale   |
-| `/workspaces/:workspaceId/agents`                        | AgentsList        | `views/agents/AgentsListView.vue`               | `requiresAuth`  | Working |
+| `/:pathMatch(.*)*`                                       | —                 | redirect to `/workspaces`                       | —               | Working |
+| `/workspaces`                                            | WorkspacesList    | `views/workspaces/WorkspacesListView.vue`        | `requiresAuth`  | Working |
+| `/workspaces/:workspaceId/settings`                      | WorkspaceSettings | `views/settings/WorkspaceSettingsView.vue`       | `requiresAuth`  | Working |
+| `/workspaces/:workspaceId/datasets`                      | DatasetsList      | `views/datasets/DatasetsListView.vue`            | `requiresAuth`  | Working |
+| `/workspaces/:workspaceId/datasets/:datasetId`           | DatasetDetail     | `views/datasets/DatasetDetailView.vue`           | `requiresAuth`  | Working |
+| `/workspaces/:workspaceId/agents`                        | AgentsList        | `views/agents/AgentsListView.vue`                | `requiresAuth`  | Working |
 | `/workspaces/:workspaceId/conversations`                 | ConversationsList | `views/conversations/ConversationsListView.vue` | `requiresAuth`  | Working |
 | `/workspaces/:workspaceId/conversations/:conversationId` | Chat              | `views/conversations/ChatView.vue`              | `requiresAuth`  | Working |
 
-**Stale routes**: `/` and catch-all redirect to `/workspaces`.
+**Redirect routes**: `/` and `/:pathMatch(.*)*` both redirect to `/workspaces`.
 
 **Navigation guard**: Unauthenticated users on `requiresAuth` routes redirect to `/login?redirect=`. Authenticated users on `requiresGuest` routes redirect to `/workspaces`. Auth store is initialized from localStorage on first navigation.
 
@@ -92,6 +96,9 @@ Custom fetch-based client (NOT Axios). Key behaviors:
 | `useAgentsStore`        | `stores/agents.js`        | `agents`, `loading`                                                                      | `fetchAgents`, `createAgent`, `updateAgent`, `deleteAgent`                                                            | Working                              |
 | `useConversationsStore` | `stores/conversations.js` | `conversations`, `currentConversation`, `pagination`, `loading`                          | `fetchConversations`, `fetchConversation`, `createConversation`, `updateConversation`, `deleteConversation`           | Working                              |
 | `useChatStore`          | `stores/chat.js`          | `isStreaming`, `currentContent`, `thoughts`, `observations`, `pendingCitations`, `error` | `reset`                                                                                                               | Working                              |
+| `useWorkspacesStore`    | `stores/workspaces.js`    | `workspaces`, `currentWorkspace`, `currentPermissions`, `loading`                        | `fetchWorkspaces`, `fetchWorkspaceById`, `createWorkspace`, `updateWorkspace`, `deleteWorkspace`                      | Working                              |
+| `useDatasetsStore`      | `stores/datasets.js`      | `datasets`, `currentDataset`, `pagination`, `loading` (computed from a counter ref)     | `fetchDatasets`, `fetchDataset`, `createDataset`, `updateDataset`, `deleteDataset`                                    | Working                              |
+| `useDatasetFilesStore`  | `stores/datasetFiles.js`  | `files`, `pagination`, `loading`                                                         | `fetchFiles`, `uploadFile`, `scrapeUrl`, `deleteFile`, `reprocessFile`                                                | Working                              |
 
 ## Composable Catalog
 
@@ -105,6 +112,15 @@ Custom fetch-based client (NOT Axios). Key behaviors:
 | `useAgents`        | `composables/useAgents.js`        | `agents`, `loading`, modal state, CRUD wrappers                                                                     |
 | `useConversations` | `composables/useConversations.js` | `conversations`, `pagination`, `loading`, modal state, create/delete handlers                                       |
 | `useChat`          | `composables/useChat.js`          | `sendMessage`, `abort`. Probes `GET /auth/me` through the HTTP client before opening the raw-fetch SSE stream so a stale access token is refreshed first |
+| `useWorkspaces`    | `composables/useWorkspaces.js`    | `workspaces`, `currentWorkspace`, `loading`, `isModalVisible`, `editingWorkspace`, `isEditing`, `nameRules`, `openCreateModal`, `openEditModal`, `closeModal`, `handleSubmit`, `handleDelete`, `fetchWorkspaces`, `fetchWorkspaceById` |
+| `useDatasets`      | `composables/useDatasets.js`      | `datasets`, `loading`, `pagination`, `viewMode` ("cards"\|"table" — affects items per page: 12 cards, 15 table rows), `query` (debounced 300 ms), `sortBy`, `sortOrder`, `page`, `setPage`, `isModalVisible`, `editingDataset`, `openCreateModal`, `openEditModal`, `closeModal`, `handleSubmit`, `handleDelete`, `nameRules` |
+| `useDatasetFiles`  | `composables/useDatasetFiles.js`  | `files`, `filteredFiles` (filtered by `searchQuery` + `filterStatus`), `loading`, `searchQuery`, `filterStatus` ("all"\|"indexed"\|"parsing"\|"failed"), `fetchFiles`, `handleUpload`, `handleScrape`, `handleDelete`, `handleReprocess`, `bulkDelete` (returns array of failed IDs) |
+| `useProfile`       | `composables/useProfile.js`       | `saving`, `saveProfile(data)` — updates user profile via `PUT /auth/profile`, refreshes auth store and localStorage |
+| `useAccount`       | `composables/useAccount.js`       | `changingPassword`, `deletingAccount`, `submitChangePassword(data)` — calls `PUT /auth/password`, `submitDeleteAccount()` — calls `DELETE /auth/profile`, clears auth, redirects to `/login` |
+| `useChatActions`   | `composables/useChatActions.js`   | `highlightedSource`, `copiedId`, `copyMessage(msg)`, `rateMessage(msg, rating)` (stub — no backend endpoint yet), `setHighlight(msgId, n)` — auto-clears after 2.8 s |
+| `useMarkdown`      | `composables/useMarkdown.js`      | `render(content)` — markdown → DOMPurify-sanitized HTML; custom `[N]` citation extension renders `<span class="cite-ref">`, external links get `target="_blank" rel="noopener noreferrer"` |
+| `usePaginationUI`  | `composables/usePaginationUI.js`  | `SORT_OPTIONS` (also a named export const), `currentSortLabel`, `totalCount`, `paginationInfo` ("Showing X–Y of Z"), `pageNumbers` (smart ellipsis, shows all when ≤7 pages), `showPagination` |
+| `useTheme`         | `composables/useTheme.js`         | `theme` ("light"\|"dark", loaded from `localStorage` on mount), `toggleTheme()` — persists to `localStorage` and sets `data-theme` attribute on `<html>` |
 
 ## Component Catalog
 
@@ -130,6 +146,11 @@ Custom fetch-based client (NOT Axios). Key behaviors:
 | datasetFiles  | `api/datasetFiles.js`  | `listFiles`, `uploadFile`, `scrapeUrl`, `deleteFile`, `reprocessFile`                                         |
 | conversations | `api/conversations.js` | `listConversations`, `getConversation`, `createConversation`, `updateConversation`, `deleteConversation`      |
 | chat          | `api/chat.js`          | `sendMessage`                                                                                                 |
+| account       | `api/account.js`       | `changePassword`                                                                                              |
+| datasets      | `api/datasets.js`      | `listDatasets`, `getDataset`, `createDataset`, `updateDataset`, `deleteDataset`                               |
+| members       | `api/members.js`       | `getMembers`, `inviteMember`, `changeMemberRole`, `removeMember`                                              |
+| profile       | `api/profile.js`       | `updateProfile`, `deleteProfile`                                                                              |
+| workspaces    | `api/workspaces.js`    | `getWorkspaces`, `getWorkspace`, `createWorkspace`, `updateWorkspace`, `deleteWorkspace`                      |
 
 ## Utility Files
 

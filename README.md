@@ -115,19 +115,6 @@ corepack pnpm migrate        # runs knex migrate:latest
 corepack pnpm seed           # seeds permissions + 2 test users
 ```
 
-This creates 15 tables across 8 migrations:
-
-```
-001_extensions_and_types   → pgcrypto + vector extensions, 5 ENUM types
-002_core_tenancy           → workspaces, users, email_tokens, refresh_tokens
-003_roles_and_permissions  → permissions, roles, role_permissions, workspace_members
-004_rag_pipeline            → datasets, dataset_files, document_chunks (with HNSW vector index)
-005_agents                  → agents (configurable system prompt + model)
-006_conversations_and_messages → conversations, conversation_datasets, messages, message_citations
-007_functions               → trigger_set_updated_at(), search_chunks() function
-008_audit_logs              → audit_logs (immutable, append-only)
-```
-
 ## Development
 
 ```bash
@@ -153,48 +140,121 @@ Append `:api` or `:app` to target a single workspace (e.g. `pnpm test:api`).
 
 ## Current API endpoints
 
-### Authentication (public)
+### Health (public, not rate-limited)
 
-| Method | Path                            | Description                                                             |
-| ------ | ------------------------------- | ----------------------------------------------------------------------- |
-| POST   | `/api/auth/signup`              | Register — sends verification email, returns `{ id, email, full_name }` |
-| POST   | `/api/auth/verify-email`        | Verify email via token from email link                                  |
-| POST   | `/api/auth/resend-verification` | Resend verification email (always returns 200)                          |
-| POST   | `/api/auth/signin`              | Login — requires verified email, sets httpOnly auth cookies             |
-| POST   | `/api/auth/forgot-password`     | Request password reset email (always returns 200)                       |
-| POST   | `/api/auth/reset-password`      | Reset password via token from email, revokes all sessions               |
-| GET    | `/api/auth/me`                  | Current user (requires access token)                                    |
-| POST   | `/api/auth/refresh`             | Rotate tokens via httpOnly cookie                                       |
-| POST   | `/api/auth/logout`              | Revoke refresh token, clear cookies                                     |
+| Method | Path      | Description                                        |
+| ------ | --------- | -------------------------------------------------- |
+| GET    | `/health` | Health check — `{ status, database }` (DB ping)   |
 
-### Permissions (authenticated)
+### Authentication
 
-| Method | Path               | Description               |
-| ------ | ------------------ | ------------------------- |
-| GET    | `/api/permissions` | Permission reference list |
+| Method | Path                            | Auth          | Description                                              |
+| ------ | ------------------------------- | ------------- | -------------------------------------------------------- |
+| POST   | `/api/auth/signup`              | —             | Register — sends verification email                     |
+| POST   | `/api/auth/verify-email`        | —             | Verify email via token from email link                   |
+| POST   | `/api/auth/resend-verification` | —             | Resend verification email (always returns 200)           |
+| POST   | `/api/auth/signin`              | —             | Sign in — requires verified email, sets httpOnly cookies |
+| POST   | `/api/auth/forgot-password`     | —             | Request password reset email (always returns 200)        |
+| POST   | `/api/auth/reset-password`      | —             | Reset password via token, revokes all sessions           |
+| GET    | `/api/auth/me`                  | Access Token  | Return current user                                      |
+| PUT    | `/api/auth/profile`             | Access Token  | Update `full_name` and/or `email`                        |
+| DELETE | `/api/auth/profile`             | Access Token  | Delete account (soft delete, clears cookies)             |
+| PUT    | `/api/auth/password`            | Access Token  | Change password                                          |
+| POST   | `/api/auth/refresh`             | Refresh Token | Rotate tokens via httpOnly cookie                        |
+| POST   | `/api/auth/logout`              | Refresh Token | Revoke refresh token, clear cookies                      |
 
-### Workspace-scoped (authenticated + workspace membership)
+### Permissions
 
-| Method | Path                                              | Description                     |
-| ------ | ------------------------------------------------- | ------------------------------- |
-| POST   | `/api/workspaces`                                 | Create workspace                |
-| GET    | `/api/workspaces`                                 | List user's workspaces          |
-| GET    | `/api/workspaces/:id`                             | Get workspace detail            |
-| PUT    | `/api/workspaces/:id`                             | Update workspace                |
-| DELETE | `/api/workspaces/:id`                             | Delete workspace                |
-| POST   | `/api/workspaces/:id/roles`                       | Create role                     |
-| GET    | `/api/workspaces/:id/roles`                       | List roles                      |
-| GET    | `/api/workspaces/:id/members`                     | List members                    |
-| POST   | `/api/workspaces/:id/members/invite`              | Invite member                   |
-| POST   | `/api/workspaces/:id/datasets`                    | Create dataset                  |
-| GET    | `/api/workspaces/:id/datasets`                    | List datasets                   |
-| POST   | `/api/workspaces/:id/datasets/:did/files/upload`  | Upload file                     |
-| POST   | `/api/workspaces/:id/datasets/:did/files/scrape`  | Scrape URL                      |
-| POST   | `/api/workspaces/:id/agents`                      | Create agent                    |
-| GET    | `/api/workspaces/:id/agents`                      | List agents                     |
-| POST   | `/api/workspaces/:id/conversations`               | Create conversation             |
-| GET    | `/api/workspaces/:id/conversations`               | List conversations              |
-| POST   | `/api/workspaces/:id/conversations/:cid/messages` | Send chat message (SSE or JSON) |
+| Method | Path               | Auth         | Description               |
+| ------ | ------------------ | ------------ | ------------------------- |
+| GET    | `/api/permissions` | Access Token | Permission reference list |
+
+### Invitations
+
+| Method | Path                           | Auth         | Description                          |
+| ------ | ------------------------------ | ------------ | ------------------------------------ |
+| GET    | `/api/invitations/:token`      | —            | Preview invitation details (public)  |
+| POST   | `/api/invitations/accept`      | Access Token | Accept a workspace invitation        |
+
+### Workspaces
+
+| Method | Path                    | Auth         | Permission         |
+| ------ | ----------------------- | ------------ | ------------------ |
+| GET    | `/api/workspaces`       | Access Token | —                  |
+| POST   | `/api/workspaces`       | Access Token | —                  |
+| GET    | `/api/workspaces/:id`   | Access Token | `workspace:read`   |
+| PUT    | `/api/workspaces/:id`   | Access Token | `workspace:update` |
+| DELETE | `/api/workspaces/:id`   | Access Token | `workspace:delete` |
+
+### Roles
+
+| Method | Path                              | Permission    |
+| ------ | --------------------------------- | ------------- |
+| GET    | `/api/workspaces/:id/roles`       | `role:read`   |
+| POST   | `/api/workspaces/:id/roles`       | `role:create` |
+| GET    | `/api/workspaces/:id/roles/:rid`  | `role:read`   |
+| PUT    | `/api/workspaces/:id/roles/:rid`  | `role:update` |
+| DELETE | `/api/workspaces/:id/roles/:rid`  | `role:delete` |
+
+### Members
+
+| Method | Path                                         | Permission          |
+| ------ | -------------------------------------------- | ------------------- |
+| GET    | `/api/workspaces/:id/members`                | `member:read`       |
+| GET    | `/api/workspaces/:id/members/:mid`           | `member:read`       |
+| POST   | `/api/workspaces/:id/members/invite`         | `member:invite`     |
+| PUT    | `/api/workspaces/:id/members/:mid/role`      | `member:manage_role`|
+| DELETE | `/api/workspaces/:id/members/:mid`           | `member:remove`     |
+
+### Audit Logs
+
+| Method | Path                               | Permission    |
+| ------ | ---------------------------------- | ------------- |
+| GET    | `/api/workspaces/:id/audit-logs`   | `audit:read`  |
+
+### Datasets
+
+| Method | Path                                               | Permission           |
+| ------ | -------------------------------------------------- | -------------------- |
+| GET    | `/api/workspaces/:id/datasets`                     | `dataset:read`       |
+| POST   | `/api/workspaces/:id/datasets`                     | `dataset:create`     |
+| GET    | `/api/workspaces/:id/datasets/:did`                | `dataset:read`       |
+| PUT    | `/api/workspaces/:id/datasets/:did`                | `dataset:update`     |
+| DELETE | `/api/workspaces/:id/datasets/:did`                | `dataset:delete`     |
+| POST   | `/api/workspaces/:id/datasets/:did/conversations`  | `conversation:create`|
+
+### Dataset Files
+
+| Method | Path                                                         | Permission       |
+| ------ | ------------------------------------------------------------ | ---------------- |
+| GET    | `/api/workspaces/:id/datasets/:did/files`                    | `file:read`      |
+| GET    | `/api/workspaces/:id/datasets/:did/files/:fid`               | `file:read`      |
+| POST   | `/api/workspaces/:id/datasets/:did/files/upload`             | `file:upload`    |
+| POST   | `/api/workspaces/:id/datasets/:did/files/scrape-url`         | `file:upload`    |
+| PUT    | `/api/workspaces/:id/datasets/:did/files/:fid`               | `file:update`    |
+| DELETE | `/api/workspaces/:id/datasets/:did/files/:fid`               | `file:delete`    |
+| POST   | `/api/workspaces/:id/datasets/:did/files/:fid/reprocess`     | `file:reprocess` |
+
+### Agents
+
+| Method | Path                                 | Permission      |
+| ------ | ------------------------------------ | --------------- |
+| GET    | `/api/workspaces/:id/agents`         | `agent:read`    |
+| POST   | `/api/workspaces/:id/agents`         | `agent:create`  |
+| GET    | `/api/workspaces/:id/agents/:aid`    | `agent:read`    |
+| PUT    | `/api/workspaces/:id/agents/:aid`    | `agent:update`  |
+| DELETE | `/api/workspaces/:id/agents/:aid`    | `agent:delete`  |
+
+### Conversations
+
+| Method | Path                                                         | Permission              |
+| ------ | ------------------------------------------------------------ | ----------------------- |
+| GET    | `/api/workspaces/:id/conversations`                          | `conversation:read`     |
+| POST   | `/api/workspaces/:id/conversations`                          | `conversation:create`   |
+| GET    | `/api/workspaces/:id/conversations/:cid`                     | `conversation:read`     |
+| PUT    | `/api/workspaces/:id/conversations/:cid`                     | `conversation:update`   |
+| DELETE | `/api/workspaces/:id/conversations/:cid`                     | `conversation:delete`   |
+| POST   | `/api/workspaces/:id/conversations/:cid/messages`            | `conversation:chat`     |
 
 ### Health check (public, not rate-limited)
 
@@ -235,7 +295,7 @@ cp apps/api/.env.example apps/api/.env.test
 # Update PORT (e.g. 3001), LOG_LEVEL=error, LOG_TO_FILE=false
 ```
 
-The test suite uses real PostgreSQL (no mocks). Vitest runs migrations once before the session, and `cleanAllTables()` truncates between tests. Auth tests mock the Brevo email service; queue tests mock BullMQ so no Redis is required locally. Currently passing: 138 tests (health, auth, workspaces, webhooks, datasets, agents, conversations, chat, http-error, pagination, request-id, sanitize, redis, permissions), 0 skipped.
+The test suite uses real PostgreSQL (no mocks). Vitest runs migrations once before the session, and `cleanAllTables()` truncates between tests. Auth tests mock the Brevo email service; queue tests mock BullMQ so no Redis is required locally. Currently passing: 162 tests (health, auth, workspaces, webhooks, datasets, agents, conversations, chat, http-error, pagination, request-id, sanitize, redis, permissions), 0 skipped.
 
 ## Deployment
 
