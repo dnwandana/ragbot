@@ -447,7 +447,7 @@ async function confirmDelete() {
             >
               ···
             </button>
-            <div v-if="menuOpenId === agent.id" class="menu-popup menu-popup--left">
+            <div v-if="menuOpenId === agent.id" class="menu-popup">
               <button class="menu-item" @click="handleEditClick(agent)">
                 <svg
                   width="13"
@@ -730,7 +730,6 @@ async function confirmDelete() {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
-  overflow: hidden;
 }
 
 .tbl-cols {
@@ -749,6 +748,7 @@ async function confirmDelete() {
   color: var(--ink-3);
   text-transform: uppercase;
   letter-spacing: 0.07em;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
 }
 
 .tbl-row {
@@ -759,6 +759,10 @@ async function confirmDelete() {
 
 .tbl-row:hover {
   background: var(--bg);
+}
+
+.tbl-row:last-child {
+  border-radius: 0 0 var(--r-lg) var(--r-lg);
 }
 
 .tbl-row--active {
@@ -827,11 +831,6 @@ async function confirmDelete() {
   min-width: 130px;
   padding: 4px;
   z-index: 20;
-}
-
-.menu-popup--left {
-  right: auto;
-  left: 0;
 }
 
 .menu-item {
