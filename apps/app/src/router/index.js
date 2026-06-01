@@ -58,9 +58,41 @@ const routes = [
   },
   {
     path: "/workspaces/:workspaceId/settings",
-    name: "WorkspaceSettings",
     component: () => import("@/views/settings/WorkspaceSettingsView.vue"),
+    redirect: { name: "SettingsGeneral" },
     meta: { requiresAuth: true },
+    children: [
+      {
+        path: "general",
+        name: "SettingsGeneral",
+        component: () => import("@/views/settings/SettingsGeneral.vue"),
+        meta: { requiresAuth: true },
+      },
+      {
+        path: "members",
+        name: "SettingsMembers",
+        component: () => import("@/views/settings/SettingsMembers.vue"),
+        meta: { requiresAuth: true },
+      },
+      {
+        path: "roles",
+        name: "SettingsRoles",
+        component: () => import("@/views/settings/SettingsRoles.vue"),
+        meta: { requiresAuth: true },
+      },
+      {
+        path: "profile",
+        name: "SettingsProfile",
+        component: () => import("@/views/settings/SettingsProfile.vue"),
+        meta: { requiresAuth: true },
+      },
+      {
+        path: "account",
+        name: "SettingsAccount",
+        component: () => import("@/views/settings/SettingsAccount.vue"),
+        meta: { requiresAuth: true },
+      },
+    ],
   },
   {
     path: "/workspaces/:workspaceId/datasets",
