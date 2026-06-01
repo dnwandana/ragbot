@@ -172,20 +172,20 @@ npm run seed:make <name>       # Create a new seed file
 
 ### Authentication
 
-| Method | Endpoint                        | Description                                              | Auth Required |
-| ------ | ------------------------------- | -------------------------------------------------------- | ------------- |
-| POST   | `/api/auth/signup`              | Create account, sends verification email                 | No            |
-| POST   | `/api/auth/verify-email`        | Verify email via token from email link                   | No            |
-| POST   | `/api/auth/resend-verification` | Resend verification email (always returns 200)           | No            |
-| POST   | `/api/auth/signin`              | Sign in (requires verified email); sets httpOnly cookies | No            |
-| POST   | `/api/auth/forgot-password`     | Request password reset email (always returns 200)        | No            |
-| POST   | `/api/auth/reset-password`      | Reset password via token, revokes all sessions           | No            |
-| GET    | `/api/auth/me`                  | Verify cookie validity, return user                         | Access Token  |
-| PUT    | `/api/auth/profile`             | Update `full_name` and/or `email`                           | Access Token  |
-| DELETE | `/api/auth/profile`             | Delete account (soft delete, clears cookies)                | Access Token  |
-| PUT    | `/api/auth/password`            | Change password (`old_password`, `new_password`, confirm)   | Access Token  |
-| POST   | `/api/auth/refresh`             | Rotate tokens via httpOnly cookie                           | Refresh Token |
-| POST   | `/api/auth/logout`              | Revoke refresh token, clear cookies                         | Refresh Token |
+| Method | Endpoint                        | Description                                               | Auth Required |
+| ------ | ------------------------------- | --------------------------------------------------------- | ------------- |
+| POST   | `/api/auth/signup`              | Create account, sends verification email                  | No            |
+| POST   | `/api/auth/verify-email`        | Verify email via token from email link                    | No            |
+| POST   | `/api/auth/resend-verification` | Resend verification email (always returns 200)            | No            |
+| POST   | `/api/auth/signin`              | Sign in (requires verified email); sets httpOnly cookies  | No            |
+| POST   | `/api/auth/forgot-password`     | Request password reset email (always returns 200)         | No            |
+| POST   | `/api/auth/reset-password`      | Reset password via token, revokes all sessions            | No            |
+| GET    | `/api/auth/me`                  | Verify cookie validity, return user                       | Access Token  |
+| PUT    | `/api/auth/profile`             | Update `full_name` and/or `email`                         | Access Token  |
+| DELETE | `/api/auth/profile`             | Delete account (soft delete, clears cookies)              | Access Token  |
+| PUT    | `/api/auth/password`            | Change password (`old_password`, `new_password`, confirm) | Access Token  |
+| POST   | `/api/auth/refresh`             | Rotate tokens via httpOnly cookie                         | Refresh Token |
+| POST   | `/api/auth/logout`              | Revoke refresh token, clear cookies                       | Refresh Token |
 
 ### Permissions
 
