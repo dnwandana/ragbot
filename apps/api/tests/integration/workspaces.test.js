@@ -35,6 +35,29 @@ describe("POST /api/workspaces", () => {
     expect(res.status).toBe(201)
     expect(res.body.data.name).toBe("My Workspace")
   })
+
+  it("allows two workspaces with the same name", async () => {
+    const user = await createTestUser()
+    const headers = await getAuthHeaders(user.id)
+
+    const first = await (await request())
+      .post("/api/workspaces")
+      .set(headers)
+      .send({ name: "Default Workspace" })
+
+    const second = await (await request())
+      .post("/api/workspaces")
+      .set(headers)
+      .send({ name: "Default Workspace" })
+
+    expect(first.status).toBe(201)
+    expect(second.status).toBe(201)
+    expect(first.body.data.name).toBe("Default Workspace")
+    expect(second.body.data.name).toBe("Default Workspace")
+    expect(first.body.data.id).toBeDefined()
+    expect(second.body.data.id).toBeDefined()
+    expect(first.body.data.id).not.toBe(second.body.data.id)
+  })
 })
 
 describe("GET /api/workspaces", () => {

@@ -10,10 +10,6 @@ export async function up(knex) {
       deleted_at TIMESTAMPTZ
     )
   `)
-  await knex.raw(`
-    CREATE UNIQUE INDEX idx_workspaces_name_active
-      ON workspaces (name) WHERE deleted_at IS NULL
-  `)
 
   await knex.raw(`
     CREATE TABLE users (
