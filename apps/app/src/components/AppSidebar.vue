@@ -9,6 +9,7 @@ import {
   EditOutlined,
   DeleteOutlined,
 } from "@ant-design/icons-vue"
+import AppUserMenu from "@/components/AppUserMenu.vue"
 import { useAuthStore } from "@/stores/auth"
 import { useWorkspacesStore } from "@/stores/workspaces"
 import { useConversationsStore } from "@/stores/conversations"
@@ -24,20 +25,6 @@ const { pendingCount } = useInvitations()
 const { theme, toggleTheme } = useTheme()
 
 const workspaceId = computed(() => route.params.workspaceId || null)
-const currentUser = computed(() => authStore.currentUser)
-
-const avatarInitials = computed(() => {
-  const name = currentUser.value?.full_name || ""
-  return (
-    name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase() || "?"
-  )
-})
-
 const currentWorkspace = computed(() =>
   workspacesStore.workspaces.find((ws) => ws.id === workspaceId.value),
 )
@@ -211,6 +198,7 @@ onBeforeUnmount(() => {
 
     <!-- Workspace-scoped nav -->
     <nav class="rail-nav" v-if="workspaceId">
+      <div class="nav-eyebrow">Main</div>
       <button
         class="nav-item"
         :class="{ active: isActive(`/workspaces/${workspaceId}/conversations`) }"
@@ -332,10 +320,10 @@ onBeforeUnmount(() => {
       <div class="nav-eyebrow">Workspace</div>
 
       <button
-        class="nav-item"
-        :class="{ active: isActive(`/workspaces/${workspaceId}/settings`) }"
-        @click="navigate(`/workspaces/${workspaceId}/settings`)"
         v-if="workspaceId"
+        class="nav-item"
+        :class="{ active: route.name === 'SettingsGeneral' }"
+        @click="navigate(`/workspaces/${workspaceId}/settings/general`)"
       >
         <svg
           class="nav-icon"
@@ -350,7 +338,46 @@ onBeforeUnmount(() => {
             stroke-linecap="round"
           />
         </svg>
-        Settings
+        General
+      </button>
+
+      <button
+        v-if="workspaceId"
+        class="nav-item"
+        :class="{ active: route.name === 'SettingsMembers' }"
+        @click="navigate(`/workspaces/${workspaceId}/settings/members`)"
+      >
+        <svg
+          class="nav-icon"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.7"
+        >
+          <circle cx="6" cy="5" r="2.5" />
+          <path d="M1 14c0-2.8 2.2-5 5-5" />
+          <circle cx="12" cy="8" r="2" />
+          <path d="M10 14c0-1.7.9-3 2-3s2 1.3 2 3" />
+        </svg>
+        Members
+      </button>
+
+      <button
+        v-if="workspaceId"
+        class="nav-item"
+        :class="{ active: route.name === 'SettingsRoles' }"
+        @click="navigate(`/workspaces/${workspaceId}/settings/roles`)"
+      >
+        <svg
+          class="nav-icon"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.7"
+        >
+          <path d="M8 1l1.8 4L14 5.8l-3 3 .7 4.2L8 11l-3.7 2 .7-4.2-3-3 4.2-.8z" />
+        </svg>
+        Roles
       </button>
 
       <button
@@ -370,7 +397,7 @@ onBeforeUnmount(() => {
           <rect x="1" y="9" width="6" height="6" rx="1.5" />
           <rect x="9" y="9" width="6" height="6" rx="1.5" />
         </svg>
-        Workspaces
+        All Workspaces
       </button>
 
       <button
@@ -395,11 +422,7 @@ onBeforeUnmount(() => {
 
     <!-- Footer: user + dark toggle -->
     <div class="rail-footer">
-      <div class="user-avatar">{{ avatarInitials }}</div>
-      <div class="user-info">
-        <div class="user-name">{{ currentUser?.full_name || "User" }}</div>
-        <div class="user-role">{{ currentWorkspace?.role_name || "Member" }}</div>
-      </div>
+      <AppUserMenu :workspace-id="workspaceId" />
       <button
         class="icon-btn"
         :title="theme === 'dark' ? 'Light mode' : 'Dark mode'"
@@ -663,36 +686,6 @@ onBeforeUnmount(() => {
   padding: 12px 12px 14px;
   border-top: 1px solid var(--line);
   flex-shrink: 0;
-}
-.user-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--brand-tint);
-  color: var(--brand-3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--t-xs);
-  font-weight: 700;
-  flex-shrink: 0;
-}
-.user-info {
-  flex: 1;
-  min-width: 0;
-}
-.user-name {
-  font-size: var(--t-sm);
-  font-weight: 600;
-  color: var(--ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.user-role {
-  font-size: var(--t-xs);
-  color: var(--ink-4);
-  margin-top: 1px;
 }
 .icon-btn {
   display: flex;
