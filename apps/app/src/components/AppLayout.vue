@@ -84,7 +84,7 @@ onUnmounted(() => window.removeEventListener("resize", onResize))
   position: sticky;
   top: 0;
   height: 100vh;
-  overflow-y: auto;
+  overflow: hidden; /* TODO: verify all views own their scroll container; was overflow-y: auto */
   background: var(--bg-2);
 }
 
