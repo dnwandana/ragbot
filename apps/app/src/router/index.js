@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router"
 import { useAuthStore } from "@/stores/auth"
+import { useWorkspacesStore } from "@/stores/workspaces"
 
 /** @type {import('vue-router').RouteRecordRaw[]} */
 const routes = [
@@ -46,7 +47,7 @@ const routes = [
     path: "/invitations",
     name: "MyInvitations",
     component: () => import("@/views/invitations/MyInvitationsView.vue"),
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, skipWorkspaceGuard: true },
   },
 
   // ── Workspace routes ──────────────────────────────────────────────────
@@ -125,12 +126,22 @@ const routes = [
     meta: { requiresAuth: true },
   },
 
+  // ── Onboarding ──────────────────────────────────────────────────────
+  {
+    path: "/onboarding",
+    name: "Onboarding",
+    component: () => import("@/views/onboarding/OnboardingView.vue"),
+    meta: { requiresAuth: true, skipWorkspaceGuard: true },
+  },
+
   // ── Catch-all ───────────────────────────────────────────────────────
   {
     path: "/:pathMatch(.*)*",
     redirect: "/workspaces",
   },
 ]
+
+let workspacesFetched = false
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -147,6 +158,7 @@ router.beforeEach(async (to, from, next) => {
   const isAuthenticated = authStore.isAuthenticated
 
   if (to.meta.requiresAuth && !isAuthenticated) {
+    workspacesFetched = false
     next({ path: "/login", query: { redirect: to.fullPath } })
     return
   }
@@ -154,6 +166,26 @@ router.beforeEach(async (to, from, next) => {
   if (to.meta.requiresGuest && isAuthenticated) {
     next({ path: "/workspaces" })
     return
+  }
+
+  // Workspace-existence guard (authenticated users on requiresAuth routes only)
+  if (isAuthenticated && to.meta.requiresAuth) {
+    const workspacesStore = useWorkspacesStore()
+    if (!workspacesFetched) {
+      await workspacesStore.fetchWorkspaces()
+      workspacesFetched = true
+    }
+    const hasWorkspaces = workspacesStore.workspaces.length > 0
+
+    if (to.name === "Onboarding" && hasWorkspaces) {
+      next({ path: "/workspaces" })
+      return
+    }
+
+    if (!hasWorkspaces && !to.meta.skipWorkspaceGuard) {
+      next({ path: "/onboarding" })
+      return
+    }
   }
 
   next()
