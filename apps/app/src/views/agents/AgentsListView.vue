@@ -26,6 +26,7 @@ const {
   closeDrawer,
   handleSubmit,
   handleDelete,
+  handleSetDefault,
 } = useAgents(workspaceId)
 
 const { SORT_OPTIONS, currentSortLabel, totalCount, paginationInfo, pageNumbers, showPagination } =
@@ -69,6 +70,12 @@ function openDelete(agent) {
 function handleEditClick(agent) {
   openEdit(agent)
   menuOpenId.value = null
+}
+
+/** @param {object} agent */
+async function handleSetDefaultClick(agent) {
+  menuOpenId.value = null
+  await handleSetDefault(agent.id)
 }
 
 /** @returns {Promise<void>} */
@@ -343,14 +350,20 @@ async function confirmDelete() {
         v-for="agent in agents"
         :key="agent.id"
         class="agent-card"
-        :class="{ 'agent-card--active': drawerAgent?.id === agent.id && isDrawerOpen }"
+        :class="{
+          'agent-card--active': drawerAgent?.id === agent.id && isDrawerOpen,
+          'agent-card--default': agent.is_default,
+        }"
         @click="openEdit(agent)"
       >
         <div class="card-top">
           <div class="card-name-row">
             <span class="card-name">{{ agent.name }}</span>
+            <span v-if="agent.is_default" class="chip chip--default">Default</span>
             <span v-if="agent.is_system" class="chip chip--sys">System</span>
-            <span v-else class="chip chip--ghost">{{ modelLabel(agent) }}</span>
+            <span v-else-if="!agent.is_default" class="chip chip--ghost">{{
+              modelLabel(agent)
+            }}</span>
           </div>
           <div class="menu-wrap" @click.stop>
             <button
@@ -361,6 +374,25 @@ async function confirmDelete() {
               ···
             </button>
             <div v-if="menuOpenId === agent.id" class="menu-popup">
+              <button
+                v-if="!agent.is_default"
+                class="menu-item menu-item--star"
+                @click="handleSetDefaultClick(agent)"
+              >
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polygon points="8 2 10 6 14 6.5 11 9.5 11.8 14 8 12 4.2 14 5 9.5 2 6.5 6 6" />
+                </svg>
+                Set as default
+              </button>
               <button class="menu-item" @click="handleEditClick(agent)">
                 <svg
                   width="13"
@@ -429,7 +461,10 @@ async function confirmDelete() {
         <div>
           <div class="tbl-name">
             {{ agent.name }}
-            <span v-if="agent.is_system" class="chip chip--sys" style="margin-left: 6px"
+            <span v-if="agent.is_default" class="chip chip--default" style="margin-left: 6px"
+              >Default</span
+            >
+            <span v-else-if="agent.is_system" class="chip chip--sys" style="margin-left: 6px"
               >System</span
             >
           </div>
@@ -448,6 +483,25 @@ async function confirmDelete() {
               ···
             </button>
             <div v-if="menuOpenId === agent.id" class="menu-popup">
+              <button
+                v-if="!agent.is_default"
+                class="menu-item menu-item--star"
+                @click="handleSetDefaultClick(agent)"
+              >
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polygon points="8 2 10 6 14 6.5 11 9.5 11.8 14 8 12 4.2 14 5 9.5 2 6.5 6 6" />
+                </svg>
+                Set as default
+              </button>
               <button class="menu-item" @click="handleEditClick(agent)">
                 <svg
                   width="13"
@@ -645,6 +699,11 @@ async function confirmDelete() {
   box-shadow: 0 0 0 3px var(--brand-tint);
 }
 
+.agent-card--default {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-tint);
+}
+
 .agent-card--skel {
   cursor: default;
   pointer-events: none;
@@ -708,6 +767,14 @@ async function confirmDelete() {
   border-radius: 20px;
   font-size: 11px;
   font-weight: 500;
+}
+
+.chip--default {
+  background: var(--brand-tint);
+  color: var(--brand);
+  border: 1px solid var(--brand);
+  font-size: 10.5px;
+  font-weight: 600;
 }
 
 .chip--ghost {
@@ -867,6 +934,14 @@ async function confirmDelete() {
 
 .menu-item:disabled:hover {
   background: transparent;
+}
+
+.menu-item--star {
+  color: var(--brand);
+}
+
+.menu-item--star:hover {
+  background: var(--brand-tint);
 }
 
 /* Skeleton */

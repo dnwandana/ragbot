@@ -105,6 +105,12 @@ export function useAgents(workspaceId) {
     await doFetch()
   }
 
+  /** @param {string} agentId */
+  async function handleSetDefault(agentId) {
+    await store.setDefaultAgent(workspaceId, agentId)
+    message.success("Default agent updated")
+  }
+
   return {
     agents: computed(() => store.agents),
     loading: computed(() => store.loading),
@@ -123,5 +129,6 @@ export function useAgents(workspaceId) {
     closeDrawer,
     handleSubmit,
     handleDelete,
+    handleSetDefault,
   }
 }

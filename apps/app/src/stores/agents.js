@@ -60,5 +60,28 @@ export const useAgentsStore = defineStore("agents", () => {
     agents.value = agents.value.filter((a) => a.id !== id)
   }
 
-  return { agents, pagination, loading, fetchAgents, createAgent, updateAgent, deleteAgent }
+  /**
+   * Set an agent as the workspace default.
+   * Optimistically updates the local list so the UI reflects the change immediately.
+   * @param {string} workspaceId
+   * @param {string} id
+   * @returns {Promise<Object>} Updated agent.
+   */
+  async function setDefaultAgent(workspaceId, id) {
+    const res = await agentsApi.updateAgent(workspaceId, id, { is_default: true })
+    const updated = res.data.data
+    agents.value = agents.value.map((a) => ({ ...a, is_default: a.id === id }))
+    return updated
+  }
+
+  return {
+    agents,
+    pagination,
+    loading,
+    fetchAgents,
+    createAgent,
+    updateAgent,
+    deleteAgent,
+    setDefaultAgent,
+  }
 })
