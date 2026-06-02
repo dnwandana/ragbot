@@ -1,0 +1,30 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro"
+import Nav from "../components/Nav.astro"
+import Hero from "../components/Hero.astro"
+import HowItWorks from "../components/HowItWorks.astro"
+import Benefits from "../components/Benefits.astro"
+import Reassurance from "../components/Reassurance.astro"
+import FinalCta from "../components/FinalCta.astro"
+import Footer from "../components/Footer.astro"
+---
+
+<BaseLayout
+  title="Ask your documents anything"
+  description="Upload your files and ask away. RAGBot gives you clear answers — in plain language, with the exact source — so you can stop scrolling through PDFs hunting for one line."
+>
+  <div class="blobs" aria-hidden="true">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+  <Nav />
+  <main id="top">
+    <Hero />
+    <HowItWorks />
+    <Benefits />
+    <Reassurance />
+    <FinalCta />
+  </main>
+  <Footer />
+</BaseLayout>

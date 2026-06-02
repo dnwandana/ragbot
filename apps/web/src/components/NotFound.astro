@@ -1,0 +1,41 @@
+---
+import Mark from "../icons/Mark.astro"
+import IconSearch from "../icons/IconSearch.astro"
+---
+
+<main class="nf-main">
+  <div class="wrap nf-wrap">
+    <span class="eyebrow nf-eyebrow reveal" data-d="0">Hmm — that's not in here</span>
+    <div class="nf-code reveal" data-d="1">4<span class="zero">0</span>4</div>
+    <h1 class="nf-title reveal" data-d="2">We looked everywhere. This page isn't in the stacks.</h1>
+    <p class="lead nf-lead reveal" data-d="3">
+      The link may be old, or the page may have moved. The good news: everything you came for is
+      just a click away.
+    </p>
+
+    <div class="nf-card reveal" data-d="3">
+      <div class="avatar avatar-bot"><Mark /></div>
+      <div class="nf-card-body">
+        <p class="nf-answer">
+          I searched every collection and couldn't find a page at this address. Want to head back
+          home and ask me something instead?
+        </p>
+        <span class="nf-miss">
+          <IconSearch />
+          No match found · 404
+        </span>
+      </div>
+    </div>
+
+    <div class="nf-actions reveal" data-d="4">
+      <a class="btn btn-primary btn-lg" href="/">Back to home</a>
+      <a class="btn btn-soft" href="/#how">See how it works</a>
+    </div>
+
+    <p class="nf-suggest reveal" data-d="5">
+      Looking for something specific? Try the <a href="/#why">benefits</a> or <a href="/#how"
+        >getting started</a
+      >.
+    </p>
+  </div>
+</main>

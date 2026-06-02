@@ -1,0 +1,31 @@
+---
+const { class: className, ...rest } = Astro.props
+---
+
+<svg viewBox="0 0 48 48" role="img" aria-label="RAGBot" class={className} {...rest}>
+  <rect width="48" height="48" rx="11" fill="var(--ink)"></rect>
+  <text
+    x="6"
+    y="33"
+    fill="var(--brand)"
+    font-size="28"
+    font-weight="700"
+    font-family="Geist, system-ui, sans-serif">[</text
+  >
+  <text
+    x="18"
+    y="33"
+    fill="#fafaf7"
+    font-size="28"
+    font-weight="700"
+    font-family="Geist, system-ui, sans-serif">R</text
+  >
+  <text
+    x="36"
+    y="33"
+    fill="var(--brand)"
+    font-size="28"
+    font-weight="700"
+    font-family="Geist, system-ui, sans-serif">]</text
+  >
+</svg>

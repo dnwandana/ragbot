@@ -1,0 +1,58 @@
+---
+import IconFile from "../icons/IconFile.astro"
+
+const appUrl = import.meta.env.PUBLIC_APP_URL || "http://localhost:8080"
+---
+
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <span class="eyebrow reveal" data-d="0">Chat with your documents</span>
+      <h1 class="display reveal" data-d="1">
+        Finally, documents<br />you can just talk to.
+      </h1>
+      <p class="lead reveal" data-d="2">
+        Upload your files and ask away. RAGBot gives you clear answers — in plain language, with the
+        exact source — so you can stop scrolling through PDFs hunting for one line.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-primary btn-lg reveal" data-d="3" href={`${appUrl}/signup`}
+          >Sign up free</a
+        >
+      </div>
+    </div>
+
+    <div class="hero-visual reveal" data-d="3">
+      <div class="chat-card" id="chat" aria-label="Example conversation with RAGBot">
+        <div class="chat-head">
+          <div class="chat-head-sub" id="chat-sub">Tenant handbook · 1 collection</div>
+          <div class="chat-dots"><i></i><i></i><i></i></div>
+        </div>
+        <div class="chat-body" id="chat-body">
+          <div class="msg msg-user" id="m-user">
+            <div class="bubble bubble-user">
+              <span id="q-text"></span><span class="caret" id="q-caret"></span>
+            </div>
+          </div>
+          <div class="msg" id="m-search" style="max-width:100%">
+            <div class="searching">
+              <span class="pulse"><i></i><i></i><i></i></span>
+              <span id="search-label">Searching your documents…</span>
+            </div>
+          </div>
+          <div class="msg" id="m-bot">
+            <div class="bubble bubble-bot">
+              <span class="answer-text" id="a-text"></span><span class="cite-idx" id="cite-idx"
+                >[1]</span
+              >
+              <span class="source-pill" id="src-pill">
+                <IconFile />
+                <span id="src-text">Tenant handbook.pdf</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

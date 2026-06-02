@@ -1,0 +1,28 @@
+{
+  "name": "@fullstack/web",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "astro dev --port 4321",
+    "build": "astro build",
+    "preview": "astro preview",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --check .",
+    "format:fix": "prettier --write ."
+  },
+  "dependencies": {
+    "@astrojs/sitemap": "^3.0.0",
+    "astro": "^6.4.2"
+  },
+  "devDependencies": {
+    "eslint": "^10.4.1",
+    "eslint-plugin-astro": "^1.0.0",
+    "prettier": "3.8.3",
+    "prettier-plugin-astro": "^0.14.0"
+  }
+}

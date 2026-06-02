@@ -1,0 +1,51 @@
+---
+import "../styles/colors_and_type.css"
+import "../styles/marketing.css"
+
+const { title, description } = Astro.props
+const siteUrl = import.meta.env.PUBLIC_SITE_URL || "http://localhost:4321"
+const canonicalUrl = new URL(Astro.url.pathname, siteUrl).toString()
+const fullTitle = `${title} — RAGBot`
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <script is:inline>
+      ;(function () {
+        var t = localStorage.getItem("theme") || "light"
+        document.documentElement.setAttribute("data-theme", t)
+      })()
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonicalUrl} />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:site_name" content="RAGBot" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={description} />
+  </head>
+  <body
+    data-headline="geist"
+    data-body="geist"
+    data-accent="orange"
+    data-secondary="sage"
+    data-texture="full"
+    data-corners="soft"
+  >
+    <slot />
+    <script src="/scripts/app.js" is:inline></script>
+  </body>
+</html>

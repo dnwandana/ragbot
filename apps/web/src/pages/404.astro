@@ -1,0 +1,20 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro"
+import Nav from "../components/Nav.astro"
+import NotFound from "../components/NotFound.astro"
+import Footer from "../components/Footer.astro"
+---
+
+<BaseLayout
+  title="Page not found"
+  description="We couldn't find that page. Head back home and ask RAGBot something instead."
+>
+  <div class="blobs" aria-hidden="true">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+  <Nav />
+  <NotFound />
+  <Footer />
+</BaseLayout>

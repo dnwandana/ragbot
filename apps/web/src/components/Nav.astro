@@ -1,0 +1,17 @@
+---
+import Logo from "../icons/Logo.astro"
+
+const appUrl = import.meta.env.PUBLIC_APP_URL || "http://localhost:8080"
+---
+
+<header class="nav" id="nav">
+  <div class="wrap nav-inner">
+    <a class="brand-logo" href="/" aria-label="RAGBot home">
+      <Logo />
+    </a>
+    <nav class="nav-right">
+      <a class="nav-link hide-sm" href="/#how">How it works</a>
+      <a class="btn btn-primary nav-cta" href={`${appUrl}/signup`}>Sign up free</a>
+    </nav>
+  </div>
+</header>
