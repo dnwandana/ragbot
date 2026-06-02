@@ -14,7 +14,7 @@ import * as citationModel from "../models/message-citations.js"
 /** Joi schema for creating a conversation. */
 const createSchema = joi
   .object({
-    agent_id: joi.string().uuid().required(),
+    agent_id: joi.string().uuid().optional(),
     dataset_ids: joi.array().items(joi.string().uuid()).default([]),
     title: joi.string().max(500).optional().allow(""),
   })
@@ -64,9 +64,11 @@ export const createConversation = async (req, res, next) => {
     const { error, value } = createSchema.validate(req.body)
     if (error) throw new HttpError(HTTP_STATUS_CODE.BAD_REQUEST, error.details[0].message)
 
-    const agent = await agentModel.findOne({ id: value.agent_id, workspace_id: req.workspace.id })
+    const agent = value.agent_id
+      ? await agentModel.findOne({ id: value.agent_id, workspace_id: req.workspace.id })
+      : await agentModel.findDefaultAgent(req.workspace.id)
     if (!agent)
-      throw new HttpError(HTTP_STATUS_CODE.BAD_REQUEST, "Agent not found in this workspace")
+      throw new HttpError(HTTP_STATUS_CODE.BAD_REQUEST, "No agent found for this workspace")
 
     await validateDatasetIds(req.workspace.id, value.dataset_ids)
 
@@ -77,7 +79,7 @@ export const createConversation = async (req, res, next) => {
           id: conversationId,
           workspace_id: req.workspace.id,
           user_id: req.user.id,
-          agent_id: value.agent_id,
+          agent_id: agent.id,
           title: value.title || null,
           created_at: new Date(),
           updated_at: new Date(),
