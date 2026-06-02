@@ -262,3 +262,129 @@ describe("POST /api/workspaces/:id/agents (validation)", () => {
     expect(res.status).toBe(400)
   })
 })
+
+describe("DELETE /api/workspaces/:id/agents/:agentId (default promotion)", () => {
+  it("promotes system agent to default when the default agent is deleted", async () => {
+    const user = await createTestUser()
+    const ws = await createTestWorkspace(user.id)
+
+    // Create a custom agent and set it as default
+    const createRes = await (
+      await request()
+    )
+      .post(`/api/workspaces/${ws.id}/agents`)
+      .set(await getAuthHeaders(user.id))
+      .send({
+        name: "Custom Default",
+        system_prompt: "Custom prompt",
+        model_config: { model: "openai/gpt-4.1" },
+      })
+    const customAgentId = createRes.body.data.id
+
+    await (
+      await request()
+    )
+      .put(`/api/workspaces/${ws.id}/agents/${customAgentId}`)
+      .set(await getAuthHeaders(user.id))
+      .send({ is_default: true })
+
+    // Delete the custom default agent
+    const deleteRes = await (await request())
+      .delete(`/api/workspaces/${ws.id}/agents/${customAgentId}`)
+      .set(await getAuthHeaders(user.id))
+
+    expect(deleteRes.status).toBe(200)
+
+    // System agent should now be default
+    const agentsRes = await (await request())
+      .get(`/api/workspaces/${ws.id}/agents`)
+      .set(await getAuthHeaders(user.id))
+    const systemAgent = agentsRes.body.data.find((a) => a.is_system)
+    expect(systemAgent.is_default).toBe(true)
+  })
+})
+
+describe("PUT /api/workspaces/:id/agents/:agentId (set default)", () => {
+  it("transfers is_default from system agent to custom agent", async () => {
+    const user = await createTestUser()
+    const ws = await createTestWorkspace(user.id)
+
+    // Create a custom agent
+    const createRes = await (
+      await request()
+    )
+      .post(`/api/workspaces/${ws.id}/agents`)
+      .set(await getAuthHeaders(user.id))
+      .send({
+        name: "Custom Agent",
+        system_prompt: "Custom prompt",
+        model_config: { model: "openai/gpt-4.1" },
+      })
+    const customAgentId = createRes.body.data.id
+
+    // Set custom agent as default
+    const res = await (
+      await request()
+    )
+      .put(`/api/workspaces/${ws.id}/agents/${customAgentId}`)
+      .set(await getAuthHeaders(user.id))
+      .send({ is_default: true })
+
+    expect(res.status).toBe(200)
+    expect(res.body.data.is_default).toBe(true)
+
+    // Verify old default (system agent) no longer has is_default
+    const agentsRes = await (await request())
+      .get(`/api/workspaces/${ws.id}/agents`)
+      .set(await getAuthHeaders(user.id))
+    const systemAgent = agentsRes.body.data.find((a) => a.is_system)
+    expect(systemAgent.is_default).toBe(false)
+  })
+
+  it("returns 400 when is_default is false", async () => {
+    const user = await createTestUser()
+    const ws = await createTestWorkspace(user.id)
+
+    const agentsRes = await (await request())
+      .get(`/api/workspaces/${ws.id}/agents`)
+      .set(await getAuthHeaders(user.id))
+    const systemAgentId = agentsRes.body.data.find((a) => a.is_system).id
+
+    const res = await (
+      await request()
+    )
+      .put(`/api/workspaces/${ws.id}/agents/${systemAgentId}`)
+      .set(await getAuthHeaders(user.id))
+      .send({ is_default: false })
+
+    expect(res.status).toBe(400)
+  })
+
+  it("applies name change alongside is_default when both are sent together", async () => {
+    const user = await createTestUser()
+    const ws = await createTestWorkspace(user.id)
+
+    const createRes = await (
+      await request()
+    )
+      .post(`/api/workspaces/${ws.id}/agents`)
+      .set(await getAuthHeaders(user.id))
+      .send({
+        name: "Original Name",
+        system_prompt: "Some prompt",
+        model_config: { model: "openai/gpt-4.1" },
+      })
+    const agentId = createRes.body.data.id
+
+    const res = await (
+      await request()
+    )
+      .put(`/api/workspaces/${ws.id}/agents/${agentId}`)
+      .set(await getAuthHeaders(user.id))
+      .send({ name: "Renamed", is_default: true })
+
+    expect(res.status).toBe(200)
+    expect(res.body.data.is_default).toBe(true)
+    expect(res.body.data.name).toBe("Renamed")
+  })
+})

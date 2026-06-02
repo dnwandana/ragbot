@@ -36,6 +36,28 @@ describe("POST /api/workspaces", () => {
     expect(res.body.data.name).toBe("My Workspace")
   })
 
+  it("seeds system agent with is_default true", async () => {
+    const user = await createTestUser()
+    const res = await (
+      await request()
+    )
+      .post("/api/workspaces")
+      .set(await getAuthHeaders(user.id))
+      .send({ name: "My Workspace" })
+
+    expect(res.status).toBe(201)
+    const wsId = res.body.data.id
+
+    const agentsRes = await (await request())
+      .get(`/api/workspaces/${wsId}/agents`)
+      .set(await getAuthHeaders(user.id))
+
+    expect(agentsRes.status).toBe(200)
+    const systemAgent = agentsRes.body.data.find((a) => a.is_system)
+    expect(systemAgent).toBeDefined()
+    expect(systemAgent.is_default).toBe(true)
+  })
+
   it("allows two workspaces with the same name", async () => {
     const user = await createTestUser()
     const headers = await getAuthHeaders(user.id)

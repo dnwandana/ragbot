@@ -1,5 +1,6 @@
 import crypto from "node:crypto"
 import { vi } from "vitest"
+import db from "../../src/config/database.js"
 import {
   request,
   createTestUser,
@@ -72,6 +73,41 @@ describe("POST /api/workspaces/:id/conversations", () => {
 
     expect(res.status).toBe(201)
     expect(res.body.data.dataset_ids).toContain(datasetId)
+  })
+
+  it("creates conversation without agent_id using default agent", async () => {
+    const user = await createTestUser()
+    const ws = await createTestWorkspace(user.id)
+
+    const res = await (
+      await request()
+    )
+      .post(`/api/workspaces/${ws.id}/conversations`)
+      .set(await getAuthHeaders(user.id))
+      .send({ title: "Auto Agent Chat" })
+
+    expect(res.status).toBe(201)
+    expect(res.body.data.title).toBe("Auto Agent Chat")
+    // agent_id should be the workspace default agent
+    expect(res.body.data.agent_id).toBeTruthy()
+  })
+
+  it("returns 400 when workspace has no default agent and no agent_id is supplied", async () => {
+    const user = await createTestUser()
+    const ws = await createTestWorkspace(user.id)
+
+    // Wipe all agents to simulate a workspace with no active default
+    await db("agents").where({ workspace_id: ws.id }).update({ deleted_at: new Date() })
+
+    const res = await (
+      await request()
+    )
+      .post(`/api/workspaces/${ws.id}/conversations`)
+      .set(await getAuthHeaders(user.id))
+      .send({ title: "No agent chat" })
+
+    expect(res.status).toBe(400)
+    expect(res.body.message).toBe("No agent found for this workspace")
   })
 
   it("returns 400 for invalid agent_id", async () => {
