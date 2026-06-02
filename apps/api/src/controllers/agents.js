@@ -6,6 +6,7 @@ import { HTTP_STATUS_CODE } from "../utils/constant.js"
 import { logAuditEvent } from "../utils/audit.js"
 import { validatePaginationQuery, executePaginatedQuery } from "../utils/pagination.js"
 import * as agentModel from "../models/agents.js"
+import db from "../config/database.js"
 
 /** Joi schema for the model_config JSONB field. */
 const MODEL_CONFIG_SCHEMA = joi.object({
@@ -32,6 +33,7 @@ const updateSchema = joi
     description: joi.string().max(1000).optional().allow(""),
     system_prompt: joi.string().min(1).max(10000).optional(),
     model_config: MODEL_CONFIG_SCHEMA.optional(),
+    is_default: joi.boolean().valid(true).optional(),
   })
   .options({ stripUnknown: true })
 
@@ -156,20 +158,31 @@ export const updateAgent = async (req, res, next) => {
     }
 
     const updateData = { updated_at: new Date() }
+    if (value.is_default) updateData.is_default = true
     if (value.name !== undefined) updateData.name = value.name
     if (value.description !== undefined) updateData.description = value.description || null
     if (value.system_prompt !== undefined) updateData.system_prompt = value.system_prompt
     if (value.model_config !== undefined)
       updateData.model_config = JSON.stringify(value.model_config)
 
-    const [updated] = await agentModel.update({ id: agent.id }, updateData)
+    let updated
+    if (value.is_default) {
+      const [result] = await db.transaction(async (trx) => {
+        await agentModel.clearDefault(req.workspace.id, trx)
+        return agentModel.update({ id: agent.id }, updateData, trx)
+      })
+      updated = result
+    } else {
+      const [result] = await agentModel.update({ id: agent.id }, updateData)
+      updated = result
+    }
 
     await logAuditEvent({
       workspace_id: req.workspace.id,
       user_id: req.user.id,
       entity_type: "agent",
       entity_id: agent.id,
-      action: "updated",
+      action: value.is_default ? "set_default" : "updated",
       changes: value,
       context: { request_id: req.id },
     })
@@ -200,7 +213,16 @@ export const deleteAgent = async (req, res, next) => {
     if (agent.is_system)
       throw new HttpError(HTTP_STATUS_CODE.FORBIDDEN, "Cannot delete the system agent")
 
-    await agentModel.softDelete(agent.id)
+    await db.transaction(async (trx) => {
+      await agentModel.softDelete(agent.id, trx)
+      if (agent.is_default) {
+        await agentModel.update(
+          { workspace_id: req.workspace.id, is_system: true },
+          { is_default: true, updated_at: new Date() },
+          trx,
+        )
+      }
+    })
 
     await logAuditEvent({
       workspace_id: req.workspace.id,
