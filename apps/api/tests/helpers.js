@@ -169,6 +169,7 @@ export async function createTestWorkspace(userId, overrides = {}) {
         max_tokens: 4096,
       }),
       is_system: true,
+      is_default: true,
       created_at: new Date(),
       updated_at: new Date(),
     })

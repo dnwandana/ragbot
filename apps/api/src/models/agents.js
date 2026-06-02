@@ -9,6 +9,7 @@ const COLUMNS = [
   "system_prompt",
   "model_config",
   "is_system",
+  "is_default",
   "created_by",
   "created_at",
   "updated_at",
@@ -41,6 +42,31 @@ export const findSystemAgent = (workspaceId) =>
     .where({ workspace_id: workspaceId, is_system: true })
     .whereNull("deleted_at")
     .first()
+
+/**
+ * Find the default agent for a workspace.
+ * @param {string} workspaceId
+ * @returns {Promise<Object|undefined>}
+ */
+export const findDefaultAgent = (workspaceId) =>
+  db
+    .select(COLUMNS)
+    .from(TABLE)
+    .where({ workspace_id: workspaceId, is_default: true })
+    .whereNull("deleted_at")
+    .first()
+
+/**
+ * Clear is_default on all agents in a workspace.
+ * @param {string} workspaceId
+ * @param {Object} [trx] - Optional Knex transaction.
+ * @returns {Promise<number>}
+ */
+export const clearDefault = (workspaceId, trx) =>
+  (trx || db)(TABLE)
+    .where({ workspace_id: workspaceId })
+    .whereNull("deleted_at")
+    .update({ is_default: false })
 
 /**
  * Count non-deleted agents in a workspace, optionally filtered by search.
@@ -80,15 +106,17 @@ export const findManyPaginated = (
  * Update non-deleted agent rows matching conditions.
  * @param {Object} conditions - Knex where conditions (e.g. { id }).
  * @param {Object} data - Column values to set.
+ * @param {Object} [trx] - Optional Knex transaction.
  * @returns {Promise<Object[]>} Array of updated rows.
  */
-export const update = (conditions, data) =>
-  db.update(data).table(TABLE).where(conditions).whereNull("deleted_at").returning(COLUMNS)
+export const update = (conditions, data, trx) =>
+  (trx || db).update(data).table(TABLE).where(conditions).whereNull("deleted_at").returning(COLUMNS)
 
 /**
  * Soft-delete an agent by setting deleted_at.
  * @param {string} id - Agent UUID.
+ * @param {Object} [trx] - Optional Knex transaction.
  * @returns {Promise<number>} Number of affected rows.
  */
-export const softDelete = (id) =>
-  db(TABLE).where({ id }).whereNull("deleted_at").update({ deleted_at: new Date() })
+export const softDelete = (id, trx) =>
+  (trx || db)(TABLE).where({ id }).whereNull("deleted_at").update({ deleted_at: new Date() })

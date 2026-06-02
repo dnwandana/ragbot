@@ -170,6 +170,7 @@ export const createWorkspace = async (req, res, next) => {
           max_tokens: 4096,
         }),
         is_system: true,
+        is_default: true,
         created_by: userId,
         created_at: now,
         updated_at: now,
