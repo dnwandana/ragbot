@@ -1,5 +1,9 @@
 <script setup>
-import { reactive, watch } from "vue"
+import { reactive, ref, watch } from "vue"
+import { useAgentsStore } from "@/stores/agents"
+const agentsStore = useAgentsStore()
+
+const settingDefault = ref(false)
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -70,6 +74,17 @@ function onSubmit() {
   }
   if (!props.agent?.is_system) payload.name = form.name
   emit("submit", payload)
+}
+
+/** Immediately sets this agent as the workspace default. */
+async function handleToggleDefault() {
+  if (!props.agent || props.agent.is_default || settingDefault.value) return
+  settingDefault.value = true
+  try {
+    await agentsStore.setDefaultAgent(props.workspaceId, props.agent.id)
+  } finally {
+    settingDefault.value = false
+  }
 }
 </script>
 
@@ -182,6 +197,36 @@ function onSubmit() {
                 />
               </a-form-item>
             </div>
+
+            <!-- Default agent toggle — only shown when editing an existing agent -->
+            <template v-if="agent">
+              <div class="section-divider" />
+              <div
+                class="default-toggle-row"
+                :class="{ 'default-toggle-row--on': agent.is_default }"
+              >
+                <div class="default-toggle-info">
+                  <div class="default-toggle-label">Default agent</div>
+                  <div class="default-toggle-sub">
+                    {{
+                      agent.is_default
+                        ? "This agent is currently the default"
+                        : "Pre-selected when starting a new conversation"
+                    }}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  class="toggle-switch"
+                  :class="{ 'toggle-switch--on': agent.is_default }"
+                  :disabled="agent.is_default || settingDefault"
+                  :aria-label="agent.is_default ? 'This agent is the default' : 'Set as default'"
+                  @click="handleToggleDefault"
+                >
+                  <span class="toggle-knob" />
+                </button>
+              </div>
+            </template>
 
             <!-- Sticky footer (inside form so submit button triggers @finish) -->
             <div class="drawer-foot">
@@ -358,5 +403,81 @@ function onSubmit() {
 
 .btn-cancel:hover {
   background: var(--bg-2);
+}
+
+.default-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  gap: 12px;
+}
+
+.default-toggle-row--on {
+  background: var(--brand-tint);
+  border-color: var(--brand);
+}
+
+.default-toggle-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.default-toggle-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.default-toggle-sub {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  margin-top: 2px;
+}
+
+.default-toggle-row--on .default-toggle-sub {
+  color: var(--brand);
+}
+
+.toggle-switch {
+  width: 38px;
+  height: 22px;
+  border-radius: 11px;
+  background: var(--line-2);
+  border: none;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  transition: background var(--dur) var(--ease);
+  padding: 0;
+}
+
+.toggle-switch--on {
+  background: var(--brand);
+  cursor: default;
+}
+
+.toggle-switch:disabled {
+  cursor: default;
+}
+
+.toggle-knob {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform var(--dur) var(--ease);
+}
+
+.toggle-switch--on .toggle-knob {
+  transform: translateX(16px);
 }
 </style>
