@@ -7,17 +7,21 @@
     "dev": "turbo run dev",
     "dev:api": "turbo run dev --filter=@fullstack/api",
     "dev:app": "turbo run dev --filter=@fullstack/app",
+    "dev:web": "turbo run dev --filter=@fullstack/web",
     "build": "turbo run build",
     "build:api": "turbo run build --filter=@fullstack/api",
     "build:app": "turbo run build --filter=@fullstack/app",
+    "build:web": "turbo run build --filter=@fullstack/web",
     "lint": "turbo run lint",
     "lint:api": "turbo run lint --filter=@fullstack/api",
     "lint:app": "turbo run lint --filter=@fullstack/app",
+    "lint:web": "turbo run lint --filter=@fullstack/web",
     "test": "turbo run test",
     "test:api": "turbo run test --filter=@fullstack/api",
     "format": "turbo run format",
     "format:api": "turbo run format --filter=@fullstack/api",
-    "format:app": "turbo run format --filter=@fullstack/app"
+    "format:app": "turbo run format --filter=@fullstack/app",
+    "format:web": "turbo run format --filter=@fullstack/web"
   },
   "devDependencies": {
     "pnpm": "^10.33.0",
