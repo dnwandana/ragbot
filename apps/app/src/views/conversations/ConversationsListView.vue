@@ -1,30 +1,18 @@
 <script setup>
-import { reactive, ref, computed, onMounted } from "vue"
-import { useRoute } from "vue-router"
+import { ref, computed, onMounted } from "vue"
+import { useRoute, useRouter } from "vue-router"
 import { useConversations } from "@/composables/useConversations"
 import { useAgentsStore } from "@/stores/agents"
-import { useDatasetsStore } from "@/stores/datasets"
 import { relativeTime } from "@/utils/time"
 
 const route = useRoute()
+const router = useRouter()
 const workspaceId = route.params.workspaceId
 
-const {
-  conversations,
-  loading,
-  isModalVisible,
-  openCreateModal,
-  closeModal,
-  handleCreate,
-  handleDelete,
-  fetchConversations,
-} = useConversations(workspaceId)
+const { conversations, loading, handleDelete, fetchConversations } = useConversations(workspaceId)
 
 const agentsStore = useAgentsStore()
-const datasetsStore = useDatasetsStore()
 const agents = ref([])
-const datasets = ref([])
-const form = reactive({ agent_id: null, dataset_ids: [], title: "" })
 
 onMounted(async () => {
   await Promise.all([
@@ -32,12 +20,7 @@ onMounted(async () => {
     agentsStore.fetchAgents(workspaceId).then(() => {
       agents.value = agentsStore.agents
     }),
-    datasetsStore.fetchDatasets(workspaceId).then(() => {
-      datasets.value = datasetsStore.datasets
-    }),
   ])
-  const systemAgent = agents.value.find((a) => a.is_system)
-  if (systemAgent) form.agent_id = systemAgent.id
 })
 
 /** @param {string} agentId */
@@ -45,7 +28,9 @@ function agentName(agentId) {
   return agents.value.find((a) => a.id === agentId)?.name || "Unknown agent"
 }
 
-/** @param {string} dateStr */
+function startNewConversation() {
+  router.push({ name: "NewChat", params: { workspaceId } })
+}
 
 const grouped = computed(() => {
   const now = Date.now()
@@ -74,7 +59,7 @@ const grouped = computed(() => {
         <div class="page-title">Conversations</div>
         <div class="page-sub">Chat with your knowledge bases using AI agents.</div>
       </div>
-      <button class="btn-brand" @click="openCreateModal">
+      <button class="btn-brand" @click="startNewConversation">
         <svg
           width="13"
           height="13"
@@ -102,7 +87,7 @@ const grouped = computed(() => {
       <div class="empty-icon">💬</div>
       <div class="empty-title">No conversations yet</div>
       <p class="empty-text">Start a conversation to chat with your knowledge base using AI.</p>
-      <button class="btn-brand" @click="openCreateModal">Start conversation</button>
+      <button class="btn-brand" @click="startNewConversation">Start conversation</button>
     </div>
 
     <!-- Grouped conversation list -->
@@ -163,7 +148,7 @@ const grouped = computed(() => {
       </template>
 
       <!-- New conversation prompt row -->
-      <button class="conv-new" @click="openCreateModal">
+      <button class="conv-new" @click="startNewConversation">
         <svg
           width="13"
           height="13"
@@ -177,44 +162,6 @@ const grouped = computed(() => {
         Start a new conversation…
       </button>
     </div>
-
-    <!-- New conversation modal -->
-    <a-modal
-      :open="isModalVisible"
-      title="New Conversation"
-      @cancel="closeModal"
-      :footer="null"
-      :width="480"
-    >
-      <a-form :model="form" layout="vertical" @finish="handleCreate(form)">
-        <a-form-item
-          label="Agent"
-          name="agent_id"
-          :rules="[{ required: true, message: 'Please select an agent' }]"
-        >
-          <a-select v-model:value="form.agent_id" placeholder="Select an agent">
-            <a-select-option v-for="a in agents" :key="a.id" :value="a.id">
-              {{ a.name }}{{ a.is_system ? " (Default)" : "" }}
-            </a-select-option>
-          </a-select>
-        </a-form-item>
-        <a-form-item label="Datasets (optional)">
-          <a-select
-            v-model:value="form.dataset_ids"
-            mode="multiple"
-            placeholder="Select datasets to search"
-          >
-            <a-select-option v-for="d in datasets" :key="d.id" :value="d.id">{{
-              d.name
-            }}</a-select-option>
-          </a-select>
-        </a-form-item>
-        <a-form-item label="Title (optional)">
-          <a-input v-model:value="form.title" placeholder="Auto-set after first message" />
-        </a-form-item>
-        <button type="submit" class="btn-brand btn-block">Start Conversation</button>
-      </a-form>
-    </a-modal>
   </div>
 </template>
 
@@ -257,13 +204,6 @@ const grouped = computed(() => {
 .btn-brand:hover {
   background: var(--brand-2);
 }
-.btn-block {
-  width: 100%;
-  padding: 10px;
-  justify-content: center;
-  margin-top: 4px;
-}
-
 .group-label {
   font-size: 10.5px;
   font-weight: 600;

@@ -120,6 +120,12 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: "/workspaces/:workspaceId/conversations/new",
+    name: "NewChat",
+    component: () => import("@/views/conversations/ChatView.vue"),
+    meta: { requiresAuth: true },
+  },
+  {
     path: "/workspaces/:workspaceId/conversations/:conversationId",
     name: "Chat",
     component: () => import("@/views/conversations/ChatView.vue"),

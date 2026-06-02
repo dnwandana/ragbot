@@ -157,6 +157,15 @@ function openDrawer() {
   drawerOpen.value = true
 }
 
+/** Navigate to blank chat with this dataset pre-selected. */
+function startChatFromDataset() {
+  router.push({
+    name: "NewChat",
+    params: { workspaceId },
+    query: { dataset: datasetId },
+  })
+}
+
 function openDetail(file) {
   drawerOpen.value = false
   detailFile.value = file
@@ -278,6 +287,21 @@ const visiblePages = computed(() => {
             </button>
           </div>
         </div>
+        <button class="btn-brand" @click="startChatFromDataset">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M2 2h12a1 1 0 011 1v8a1 1 0 01-1 1H5l-3 2V3a1 1 0 011-1z" />
+          </svg>
+          Start chat
+        </button>
         <button class="btn-primary" @click="openDrawer">
           <plus-outlined />
           Add source
@@ -697,6 +721,26 @@ const visiblePages = computed(() => {
 
 .btn-primary:hover {
   background: var(--brand-2);
+}
+
+.btn-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background: var(--brand-tint);
+  color: var(--brand-3);
+  border: 1px solid rgba(255, 107, 53, 0.25);
+  border-radius: var(--r-sm);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-brand:hover {
+  background: rgba(255, 107, 53, 0.15);
+  border-color: var(--brand);
+  color: var(--brand-2);
 }
 
 .btn-block {

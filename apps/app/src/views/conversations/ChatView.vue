@@ -20,8 +20,12 @@
       :streaming="chatStore.isStreaming"
       :loading="chatStore.isStreaming && !hasStreamingContent"
       :datasets="linkedDatasetIds"
+      :agents="agentsStore.agents"
+      :selected-agent-id="isNew ? pendingAgentId : conversation?.agent_id"
+      :agent-picker-interactive="isNew"
       @send="onSend"
       @abort="chat.abort"
+      @agent-change="(id) => (pendingAgentId = id)"
     />
 
     <!-- Sources panel (right overlay) — scoped to the active message -->
@@ -72,11 +76,12 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from "vue"
-import { useRoute } from "vue-router"
+import { ref, computed, watch, nextTick, onMounted } from "vue"
+import { useRoute, useRouter } from "vue-router"
 import { CloseOutlined } from "@ant-design/icons-vue"
 import { useConversationsStore } from "@/stores/conversations"
 import { useChatStore } from "@/stores/chat"
+import { useAgentsStore } from "@/stores/agents"
 import { useChat } from "@/composables/useChat"
 import { useChatActions } from "@/composables/useChatActions"
 import { useTheme } from "@/composables/useTheme"
@@ -85,13 +90,26 @@ import ChatComposer from "@/components/chat/ChatComposer.vue"
 import MarkdownRenderer from "@/components/chat/MarkdownRenderer.vue"
 
 const route = useRoute()
+const router = useRouter()
 const conversationsStore = useConversationsStore()
 const chatStore = useChatStore()
+const agentsStore = useAgentsStore()
 const workspaceId = computed(() => route.params.workspaceId)
 const conversationId = computed(() => route.params.conversationId)
 const chat = useChat(workspaceId, conversationId)
 const chatActions = useChatActions()
 const { theme } = useTheme()
+
+const isNew = computed(() => route.name === "NewChat")
+const pendingAgentId = ref(null)
+const pendingDatasetIds = ref([])
+
+function initPendingConfig() {
+  chatStore.reset()
+  const defaultAgent = agentsStore.agents.find((a) => a.is_default) || agentsStore.agents[0] || null
+  pendingAgentId.value = defaultAgent?.id || null
+  pendingDatasetIds.value = route.query.dataset ? [route.query.dataset] : []
+}
 
 // Local state
 const sourcesPanelOpen = ref(false)
@@ -113,8 +131,27 @@ watch(
   { immediate: true },
 )
 
+onMounted(async () => {
+  await agentsStore.fetchAgents(workspaceId.value)
+  if (isNew.value) initPendingConfig()
+})
+
+watch(
+  isNew,
+  async (val) => {
+    if (!val) return
+    if (!agentsStore.agents.length) {
+      await agentsStore.fetchAgents(workspaceId.value)
+    }
+    initPendingConfig()
+  },
+  { immediate: false },
+)
+
 const conversation = computed(() => conversationsStore.currentConversation)
-const linkedDatasetIds = computed(() => conversationsStore.currentConversation?.dataset_ids || [])
+const linkedDatasetIds = computed(() =>
+  isNew.value ? pendingDatasetIds.value : conversationsStore.currentConversation?.dataset_ids || [],
+)
 const messages = computed(() => conversation.value?.messages || [])
 
 // Filter to input + final_answer only (matching current behavior)
@@ -222,6 +259,17 @@ const activeMsgIndex = computed(() => {
 
 // Actions
 async function onSend(text) {
+  if (isNew.value) {
+    const conv = await conversationsStore.createConversation(workspaceId.value, {
+      agent_id: pendingAgentId.value,
+      dataset_ids: pendingDatasetIds.value,
+    })
+    await router.replace({
+      name: "Chat",
+      params: { workspaceId: workspaceId.value, conversationId: conv.id },
+    })
+    await nextTick()
+  }
   await chat.sendMessage(text)
 }
 

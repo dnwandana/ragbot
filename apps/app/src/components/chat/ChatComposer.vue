@@ -4,7 +4,11 @@
       <!-- Dataset drawer (floating above) -->
       <DatasetDrawer v-if="drawerOpen" :count="selCount" @close="drawerOpen = false" />
 
-      <div class="chat-composer__card" :class="{ 'chat-composer__card--focused': focused }">
+      <div
+        class="chat-composer__card"
+        :class="{ 'chat-composer__card--focused': focused }"
+        @click="agentPickerOpen = false"
+      >
         <textarea
           ref="textareaRef"
           v-model="value"
@@ -21,6 +25,94 @@
         />
 
         <div class="chat-composer__row">
+          <!-- Agent selector — only shown when agents list is provided -->
+          <template v-if="agents.length">
+            <div class="agent-picker-wrap" @click.stop>
+              <button
+                data-agent
+                class="chat-composer__icon-btn"
+                :class="{ 'chat-composer__icon-btn--active': selectedAgentId }"
+                :title="agentLabel"
+                :disabled="!agentPickerInteractive"
+                @click="agentPickerInteractive && (agentPickerOpen = !agentPickerOpen)"
+              >
+                <svg
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <rect x="3" y="11" width="18" height="11" rx="2" />
+                  <circle cx="8.5" cy="16.5" r="1.5" fill="currentColor" stroke="none" />
+                  <circle cx="15.5" cy="16.5" r="1.5" fill="currentColor" stroke="none" />
+                  <path d="M12 11V7" />
+                  <path d="M8 7h8" />
+                </svg>
+              </button>
+
+              <button
+                class="chat-composer__chip chat-composer__chip--agent"
+                :disabled="!agentPickerInteractive"
+                @click="agentPickerInteractive && (agentPickerOpen = !agentPickerOpen)"
+              >
+                {{ agentLabel }}
+                <svg
+                  v-if="agentPickerInteractive"
+                  width="9"
+                  height="9"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.2"
+                  stroke-linecap="round"
+                >
+                  <polyline points="4 6 8 10 12 6" />
+                </svg>
+              </button>
+
+              <!-- Agent picker popup -->
+              <div v-if="agentPickerOpen && agentPickerInteractive" class="agent-picker-popup">
+                <div class="agent-picker-header">Select agent</div>
+                <button
+                  v-for="a in agents"
+                  :key="a.id"
+                  class="agent-picker-row"
+                  :class="{ 'agent-picker-row--active': a.id === selectedAgentId }"
+                  @click="selectAgent(a.id)"
+                >
+                  <div class="agent-picker-info">
+                    <div class="agent-picker-name">{{ a.name }}</div>
+                    <div class="agent-picker-sub">
+                      {{
+                        a.is_default
+                          ? "Default"
+                          : a.is_system
+                            ? "System"
+                            : a.model_config?.model?.split("/").pop()
+                      }}
+                    </div>
+                  </div>
+                  <svg
+                    v-if="a.id === selectedAgentId"
+                    width="13"
+                    height="13"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.4"
+                    stroke-linecap="round"
+                  >
+                    <polyline points="2 8 6 12 14 4" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </template>
+
           <button
             data-attach
             class="chat-composer__icon-btn"
@@ -82,13 +174,17 @@ const props = defineProps({
   loading: { type: Boolean, default: false },
   /** IDs of datasets linked to this conversation (read-only). */
   datasets: { type: Array, default: () => [] },
+  agents: { type: Array, default: () => [] },
+  selectedAgentId: { type: [String, null], default: null },
+  agentPickerInteractive: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(["send", "abort"])
+const emit = defineEmits(["send", "abort", "agent-change"])
 
 const value = ref("")
 const focused = ref(false)
 const drawerOpen = ref(false)
+const agentPickerOpen = ref(false)
 const textareaRef = ref(null)
 
 const busy = computed(() => props.streaming || props.loading)
@@ -99,6 +195,8 @@ const canSend = computed(() => value.value.trim().length > 0 && !over.value && !
 const meterColor = computed(() =>
   over.value ? "var(--err)" : tokens.value > MAX_TOKENS * 0.8 ? "var(--warn)" : "var(--ink-4)",
 )
+const selectedAgent = computed(() => props.agents.find((a) => a.id === props.selectedAgentId))
+const agentLabel = computed(() => selectedAgent.value?.name || "Agent")
 
 function autoGrow(e) {
   const el = e.target
@@ -118,6 +216,11 @@ function submit() {
   emit("send", value.value.trim())
   value.value = ""
   if (textareaRef.value) textareaRef.value.style.height = "auto"
+}
+
+function selectAgent(agentId) {
+  emit("agent-change", agentId)
+  agentPickerOpen.value = false
 }
 </script>
 
@@ -258,5 +361,79 @@ function submit() {
   margin-top: 8px;
   font-size: 11px;
   color: var(--ink-4);
+}
+
+.agent-picker-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-composer__chip--agent {
+  background: var(--brand-tint);
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+.chat-composer__chip--agent:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.agent-picker-popup {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-2);
+  min-width: 240px;
+  padding: 6px;
+  z-index: 30;
+}
+
+.agent-picker-header {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding: 4px 8px 8px;
+}
+
+.agent-picker-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  background: transparent;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  text-align: left;
+}
+
+.agent-picker-row:hover {
+  background: var(--bg-2);
+}
+
+.agent-picker-row--active {
+  background: var(--brand-tint);
+}
+
+.agent-picker-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.agent-picker-sub {
+  font-size: 11px;
+  color: var(--ink-3);
+  margin-top: 1px;
 }
 </style>
