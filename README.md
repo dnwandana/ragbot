@@ -8,6 +8,7 @@ A workspace-based RAG (Retrieval-Augmented Generation) chatbot platform. Users u
 | ---------- | --------------------------------------------------------- | --------------------------------- |
 | `apps/api` | Express 5, PostgreSQL + pgvector, Knex.js, OpenRouter API | REST API with auth, RAG pipeline  |
 | `apps/app` | Vue 3, Pinia, Ant Design Vue, Vite                        | Single-page app consuming the API |
+| `apps/web` | Astro 6, `@astrojs/sitemap`                               | Static marketing/landing site     |
 
 ## Architecture at a glance
 
@@ -105,6 +106,17 @@ cp apps/app/.env.example apps/app/.env
 VITE_API_BASE_URL=http://localhost:3000/api
 ```
 
+### Web (`apps/web`)
+
+```bash
+cp apps/web/.env.example apps/web/.env
+```
+
+```bash
+PUBLIC_SITE_URL=http://localhost:4321   # canonical/OG/sitemap/robots base URL
+PUBLIC_APP_URL=http://localhost:8080    # CTA "Sign up free" → ${PUBLIC_APP_URL}/signup
+```
+
 ## Database setup
 
 Requires PostgreSQL with the `pgvector` extension installed. Run migrations and (optional) seed data:
@@ -118,25 +130,26 @@ corepack pnpm seed           # seeds permissions + 2 test users
 ## Development
 
 ```bash
-# Start both apps
+# Start all apps
 corepack pnpm dev
 
 # Start individually
 corepack pnpm dev:api   # http://localhost:3000
 corepack pnpm dev:app   # http://localhost:8080
+corepack pnpm dev:web   # http://localhost:4321  (apps/web Astro dev server)
 ```
 
 ## Scripts
 
 | Command       | Description                        |
 | ------------- | ---------------------------------- |
-| `pnpm dev`    | Start both apps in watch mode      |
-| `pnpm build`  | Build both apps                    |
-| `pnpm lint`   | Lint both apps                     |
+| `pnpm dev`    | Start all apps in watch mode       |
+| `pnpm build`  | Build all apps                     |
+| `pnpm lint`   | Lint all apps                      |
 | `pnpm test`   | Run all tests (API only currently) |
-| `pnpm format` | Format both apps with Prettier     |
+| `pnpm format` | Format all apps with Prettier      |
 
-Append `:api` or `:app` to target a single workspace (e.g. `pnpm test:api`).
+Append `:api`, `:app`, or `:web` to target a single workspace (e.g. `pnpm build:web` for `apps/web` only).
 
 ## Current API endpoints
 
@@ -526,6 +539,16 @@ rag-chatbot/
 │           │   └── RoleFormModal.vue
 │           ├── router/             # Vue Router + auth guards
 │           └── utils/              # Fetch client, localStorage helpers
+│   │
+│   └── web/                        # Astro 6 static marketing site
+│       ├── astro.config.mjs        # output: 'static' + sitemap
+│       ├── public/scripts/app.js   # vanilla-JS interactions (nav, reveal, hero chat, theme)
+│       └── src/
+│           ├── pages/              # index.astro, 404.astro, robots.txt.js
+│           ├── layouts/            # BaseLayout.astro (SEO + anti-flash theme)
+│           ├── components/         # Nav, Hero, HowItWorks, Benefits, Footer, …
+│           ├── icons/              # static .astro SVG components
+│           └── styles/             # colors_and_type.css, marketing.css
 │
 ├── plans/                          # Feature implementation plans (F1–F7)
 ├── docs/superpowers/specs/         # Design specifications
@@ -537,10 +560,10 @@ rag-chatbot/
 
 ## Code style
 
-Both apps use the same conventions:
+All apps use the same conventions:
 
 - **Formatter**: Prettier — no semicolons, 2-space indent, 100-char width
-- **Linter**: Oxlint (API), Oxlint + ESLint (app)
+- **Linter**: Oxlint (API), Oxlint + ESLint (app), ESLint + `eslint-plugin-astro` (web)
 - **Modules**: ES modules (`"type": "module"`)
 - **File naming**: kebab-case
 

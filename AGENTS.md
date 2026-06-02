@@ -6,17 +6,19 @@ Monorepo root guidance. Each app has its own detailed `CLAUDE.md` — this file 
 
 - **Package manager**: pnpm with Corepack (`corepack pnpm <command>`)
 - **Build orchestration**: Turborepo (`turbo.json`)
-- **Packages**: `apps/api` (Express), `apps/app` (Vue 3)
+- **Packages**: `apps/api` (Express), `apps/app` (Vue 3), `apps/web` (Astro static marketing site)
 
 ## Root commands
 
 ```bash
-corepack pnpm dev           # Start both apps (nodemon + Vite)
+corepack pnpm dev           # Start all apps (nodemon + Vite + apps/web Astro)
 corepack pnpm dev:api       # API only  (port 3000)
 corepack pnpm dev:app       # App only  (port 8080)
-corepack pnpm build         # Build both
-corepack pnpm lint          # Lint both
-corepack pnpm format        # Format both (Prettier)
+corepack pnpm dev:web       # Web only  (port 4321, Astro)
+corepack pnpm build         # Build all (api, app, web)
+corepack pnpm lint          # Lint all
+corepack pnpm format        # Format all (Prettier)
+corepack pnpm build:web     # Web only  (Astro static build)
 corepack pnpm test          # Test both (API only has tests currently)
 corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 ```
@@ -71,6 +73,19 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 
 - Org/project/todo views, stores, composables, and API modules were removed in the schema migration. These need to be replaced with workspace/dataset/agent/conversation equivalents when the corresponding API features are built.
 
+### Web (`apps/web`)
+
+**Wired and working:**
+
+- Astro 6 static marketing site — public landing page (`/`) and 404 page
+- `BaseLayout` with SEO meta (canonical, Open Graph, Twitter), `@astrojs/sitemap`, prerendered `robots.txt`
+- Anti-flash dark-mode toggle (CSS-driven icon swap), scroll-reveal, animated hero chat demo (`public/scripts/app.js`)
+- CTAs deep-link to `${PUBLIC_APP_URL}/signup`
+
+**Not yet wired:**
+
+- Not part of the Docker/nginx compose stack — builds to a standalone static `dist/`
+
 ### Tests
 
 **Passing (138 tests):** health (5), auth (10), workspaces (32), webhooks (5), agents (12), conversations (9), datasets (14), chat (7), redis (5), http-error (3), pagination (9), request-id (4), sanitize (6), permissions (13)
@@ -101,7 +116,7 @@ SQL functions: `trigger_set_updated_at()` (9 tables), `search_chunks()` (cosine 
 
 ## App-specific details
 
-See [`apps/api/CLAUDE.md`](apps/api/CLAUDE.md) and [`apps/app/CLAUDE.md`](apps/app/CLAUDE.md).
+See [`apps/api/CLAUDE.md`](apps/api/CLAUDE.md), [`apps/app/CLAUDE.md`](apps/app/CLAUDE.md), and [`apps/web/CLAUDE.md`](apps/web/CLAUDE.md).
 
 ## Docker deployment
 
