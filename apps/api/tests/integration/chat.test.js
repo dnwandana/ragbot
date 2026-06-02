@@ -80,6 +80,50 @@ const setupConversation = async () => {
   return { user, ws, conversation: convRes.body.data }
 }
 
+const toolCallStream = () => {
+  const sseChunks = [
+    `data: ${JSON.stringify({
+      choices: [
+        {
+          delta: {
+            tool_calls: [
+              {
+                index: 0,
+                function: { name: "search_knowledge_base", arguments: '{"query":"topic"}' },
+              },
+            ],
+          },
+          finish_reason: null,
+        },
+      ],
+    })}\n\n`,
+    `data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: "tool_calls" }] })}\n\n`,
+    "data: [DONE]\n\n",
+  ]
+  let i = 0
+  return new ReadableStream({
+    pull(controller) {
+      if (i < sseChunks.length) controller.enqueue(new TextEncoder().encode(sseChunks[i++]))
+      else controller.close()
+    },
+  })
+}
+
+const finalAnswerStream = () => {
+  const sseChunks = [
+    `data: ${JSON.stringify({ choices: [{ delta: { content: "Here is the answer [1]." }, finish_reason: null }] })}\n\n`,
+    `data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: "stop" }], usage: { prompt_tokens: 50, completion_tokens: 10, total_tokens: 60 } })}\n\n`,
+    "data: [DONE]\n\n",
+  ]
+  let i = 0
+  return new ReadableStream({
+    pull(controller) {
+      if (i < sseChunks.length) controller.enqueue(new TextEncoder().encode(sseChunks[i++]))
+      else controller.close()
+    },
+  })
+}
+
 describe("POST /api/workspaces/:id/conversations/:conv_id/messages (non-streaming)", () => {
   it("stores user + assistant messages and returns events", async () => {
     const { user, ws, conversation } = await setupConversation()
@@ -230,48 +274,6 @@ describe("POST .../messages — ReAct tool-call + citation linkage", () => {
     ])
 
     // First completion: a tool call. Second: the final answer.
-    const toolCallStream = () => {
-      const sseChunks = [
-        `data: ${JSON.stringify({
-          choices: [
-            {
-              delta: {
-                tool_calls: [
-                  {
-                    index: 0,
-                    function: { name: "search_knowledge_base", arguments: '{"query":"topic"}' },
-                  },
-                ],
-              },
-              finish_reason: null,
-            },
-          ],
-        })}\n\n`,
-        `data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: "tool_calls" }] })}\n\n`,
-        "data: [DONE]\n\n",
-      ]
-      let i = 0
-      return new ReadableStream({
-        pull(controller) {
-          if (i < sseChunks.length) controller.enqueue(new TextEncoder().encode(sseChunks[i++]))
-          else controller.close()
-        },
-      })
-    }
-    const finalAnswerStream = () => {
-      const sseChunks = [
-        `data: ${JSON.stringify({ choices: [{ delta: { content: "Here is the answer [1]." }, finish_reason: null }] })}\n\n`,
-        `data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: "stop" }], usage: { prompt_tokens: 50, completion_tokens: 10, total_tokens: 60 } })}\n\n`,
-        "data: [DONE]\n\n",
-      ]
-      let i = 0
-      return new ReadableStream({
-        pull(controller) {
-          if (i < sseChunks.length) controller.enqueue(new TextEncoder().encode(sseChunks[i++]))
-          else controller.close()
-        },
-      })
-    }
     openrouterService.chatCompletionStream
       .mockImplementationOnce(async () => toolCallStream())
       .mockImplementationOnce(async () => finalAnswerStream())

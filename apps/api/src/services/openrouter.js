@@ -20,8 +20,8 @@ export const embedText = async (text, model = process.env.DEFAULT_EMBEDDINGS_MOD
     body: JSON.stringify({ model, input: text }),
   })
   if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`OpenRouter embeddings error ${res.status}: ${text}`)
+    const errorText = await res.text()
+    throw new Error(`OpenRouter embeddings error ${res.status}: ${errorText}`)
   }
   const json = await res.json()
   return json.data[0].embedding
@@ -45,8 +45,8 @@ export const embedBatch = async (texts, model = process.env.DEFAULT_EMBEDDINGS_M
       body: JSON.stringify({ model, input: texts.slice(i, i + BATCH) }),
     })
     if (!res.ok) {
-      const text = await res.text()
-      throw new Error(`OpenRouter embeddings error ${res.status}: ${text}`)
+      const errorText = await res.text()
+      throw new Error(`OpenRouter embeddings error ${res.status}: ${errorText}`)
     }
     const json = await res.json()
     results.push(...json.data.map((d) => d.embedding))
@@ -85,8 +85,8 @@ export const chatCompletion = async (messages, options = {}) => {
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`OpenRouter chat error ${res.status}: ${text}`)
+    const errorText = await res.text()
+    throw new Error(`OpenRouter chat error ${res.status}: ${errorText}`)
   }
   return res.json()
 }
@@ -125,8 +125,8 @@ export const chatCompletionStream = async (messages, options = {}) => {
     signal: AbortSignal.timeout(Number(process.env.OPENROUTER_STREAM_TIMEOUT_MS)),
   })
   if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`OpenRouter stream error ${res.status}: ${text}`)
+    const errorText = await res.text()
+    throw new Error(`OpenRouter stream error ${res.status}: ${errorText}`)
   }
   return res.body
 }
