@@ -10,7 +10,6 @@ const props = defineProps({
   ctx: { type: Object, required: true },
 })
 const ctx = props.ctx
-
 </script>
 
 <template>
@@ -50,7 +49,6 @@ const ctx = props.ctx
       </div>
       <div v-else class="ob-hint">Letters, numbers and spaces.</div>
     </div>
-
   </div>
 
   <div class="ob-actions">
