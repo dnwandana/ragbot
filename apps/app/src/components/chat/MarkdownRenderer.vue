@@ -175,6 +175,9 @@ function onContainerClick(event) {
 
 /* ── Tables ── */
 .md-prose :deep(table) {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
