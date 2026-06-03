@@ -13,7 +13,7 @@ node_modules/
 # Coding agents
 .agents/
 .superpowers/
-docs/
+/docs/
 skills-lock.json
 
 # Environment files
