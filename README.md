@@ -137,6 +137,7 @@ corepack pnpm dev
 corepack pnpm dev:api   # http://localhost:3000
 corepack pnpm dev:app   # http://localhost:8080
 corepack pnpm dev:web   # http://localhost:4321  (apps/web Astro dev server)
+corepack pnpm dev:docs  # http://localhost:4173  (apps/docs VitePress dev server)
 ```
 
 ## Scripts
@@ -149,7 +150,7 @@ corepack pnpm dev:web   # http://localhost:4321  (apps/web Astro dev server)
 | `pnpm test`   | Run all tests (API only currently) |
 | `pnpm format` | Format all apps with Prettier      |
 
-Append `:api`, `:app`, or `:web` to target a single workspace (e.g. `pnpm build:web` for `apps/web` only).
+Append `:api`, `:app`, `:web`, or `:docs` to target a single workspace (e.g. `pnpm build:web` for `apps/web` only).
 
 ## Current API endpoints
 
@@ -312,7 +313,7 @@ The test suite uses real PostgreSQL (no mocks). Vitest runs migrations once befo
 
 ## Deployment
 
-Production deployment uses Docker Compose with nginx as the sole entry point. Four containers run on the host VM — the nginx edge plus one container each for `web`, `app`, and `api`; PostgreSQL remains an external service.
+Production deployment uses Docker Compose with nginx as the sole entry point. Five containers run on the host VM — the nginx edge plus one container each for `web`, `app`, `api`, and `docs`; PostgreSQL remains an external service.
 
 ### How it works
 
@@ -320,6 +321,7 @@ Production deployment uses Docker Compose with nginx as the sole entry point. Fo
 nginx edge (ports 80/443) — name-based virtual hosts (pure reverse proxy)
   ├── example.com      → proxies to the web container (Astro static site)
   ├── app.example.com  → proxies to the app container (Vue SPA static)
+  ├── docs.example.com → proxies to the docs container (VitePress static site)
   └── api.example.com  → proxies to the api container (adds /api upstream,
                           rewrites Set-Cookie paths, /health at root)
 
@@ -356,7 +358,7 @@ docker compose -f docker-compose.local.yml up --build -d
 docker compose -f docker-compose.local.yml run --rm api sh -c "node_modules/.bin/knex migrate:latest"
 ```
 
-App available at `http://localhost`. Marketing site at `http://localhost:4321`.
+App available at `http://localhost`. Marketing site at `http://localhost:4321`. Docs at `http://localhost:4173`.
 
 **Useful commands**
 

@@ -6,7 +6,7 @@ Monorepo root guidance. Each app has its own detailed `CLAUDE.md` — this file 
 
 - **Package manager**: pnpm with Corepack (`corepack pnpm <command>`)
 - **Build orchestration**: Turborepo (`turbo.json`)
-- **Packages**: `apps/api` (Express), `apps/app` (Vue 3), `apps/web` (Astro static marketing site)
+- **Packages**: `apps/api` (Express), `apps/app` (Vue 3), `apps/web` (Astro static marketing site), `apps/docs` (VitePress documentation site)
 
 ## Root commands
 
@@ -15,10 +15,12 @@ corepack pnpm dev           # Start all apps (nodemon + Vite + apps/web Astro)
 corepack pnpm dev:api       # API only  (port 3000)
 corepack pnpm dev:app       # App only  (port 8080)
 corepack pnpm dev:web       # Web only  (port 4321, Astro)
-corepack pnpm build         # Build all (api, app, web)
+corepack pnpm dev:docs      # Docs only (port 4173, VitePress)
+corepack pnpm build         # Build all (api, app, web, docs)
 corepack pnpm lint          # Lint all
 corepack pnpm format        # Format all (Prettier)
 corepack pnpm build:web     # Web only  (Astro static build)
+corepack pnpm build:docs    # Docs only (VitePress static build)
 corepack pnpm test          # Test both (API only has tests currently)
 corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 ```
@@ -117,7 +119,7 @@ See [`apps/api/CLAUDE.md`](apps/api/CLAUDE.md), [`apps/app/CLAUDE.md`](apps/app/
 
 ## Docker deployment
 
-Two compose files. Production runs four containers (nginx edge + `web` + `app` + `api`); local runs three (`web` + `app` + `api`, no edge). PostgreSQL is always external.
+Two compose files. Production runs **five** containers (nginx edge + `web` + `app` + `api` + `docs`); local runs **four** (`web` + `app` + `api` + `docs`, no edge). PostgreSQL is always external.
 
 ### Production (`docker-compose.yml`)
 
@@ -132,9 +134,10 @@ docker compose ps             # check status
   - `${DOMAIN}` → proxies to the `web` container (Astro static site, `apps/web/Dockerfile`)
   - `app.${DOMAIN}` → proxies to the `app` container (Vue SPA, `apps/app/Dockerfile`)
   - `api.${DOMAIN}` → proxies to the `api` container (`http://api:3000`)
+  - `docs.${DOMAIN}` → proxies to the `docs` container (VitePress static site, `apps/docs/Dockerfile`)
 - **The edge builds nothing** — it only removes the stock `default.conf` so the mounted per-vhost templates are the only servers. Each app builds and serves its own static content; the edge owns TLS + routing only. **Header ownership:** HSTS is set by the edge; `nosniff`/`X-Frame-Options` by each app's own `nginx.conf`.
 - nginx on ports 80 + 443; `:80` 301-redirects all hosts to HTTPS
-- Config is templated and split per vhost: `nginx/templates/{web,app,api}.conf.template` (each self-contained — its own `:80` redirect + `:443` server) use `${DOMAIN}`, rendered at container start via nginx's envsubst (the whole `nginx/templates/` dir mounts into `/etc/nginx/templates/`). The stock `default.conf` is removed in the image so only these vhosts are served. Set `DOMAIN` in `.env`.
+- Config is templated and split per vhost: `nginx/templates/{web,app,api,docs}.conf.template` (each self-contained — its own `:80` redirect + `:443` server) use `${DOMAIN}`, rendered at container start via nginx's envsubst (the whole `nginx/templates/` dir mounts into `/etc/nginx/templates/`). The stock `default.conf` is removed in the image so only these vhosts are served. Set `DOMAIN` in `.env`.
 - TLS via `certs/` (gitignored, mounted read-only) — a single cert covering **both** the apex and wildcard (`-d example.com -d *.example.com`), named `${DOMAIN}.fullchain.pem` / `${DOMAIN}.privkey.pem`
 - **API uses clean URLs** (`api.${DOMAIN}/*`): nginx re-adds the `/api` prefix upstream and rewrites `Set-Cookie` paths (`/api/auth → /auth`, `/api → /`) via `proxy_cookie_path`, so the Express app and its cookie code are unchanged
 - Frontend↔API is **cross-origin same-site**: `SameSite=Strict` cookies still flow; CORS is owned by Express (`CORS_ALLOWED_ORIGINS=https://app.${DOMAIN}`), not nginx
@@ -148,8 +151,8 @@ docker compose -f docker-compose.local.yml logs -f
 docker compose -f docker-compose.local.yml down
 ```
 
-- Three services: `web` (Astro marketing site, `apps/web/Dockerfile`, `http://localhost:4321`), `app` (Vue SPA on port 80, proxies `/api`), `api` (Express, no published port)
-- nginx on port 80 (app) and 4321 (web), no TLS
+- Four services: `web` (Astro marketing site, `apps/web/Dockerfile`, `http://localhost:4321`), `docs` (VitePress docs, `apps/docs/Dockerfile`, `http://localhost:4173`), `app` (Vue SPA on port 80, proxies `/api`), `api` (Express, no published port)
+- nginx on port 80 (app), 4321 (web), and 4173 (docs), no TLS
 - Uses `nginx/local.conf` (HTTP-only)
 - Env from `.env.local` (copy from `.env.example`; set `NODE_ENV=development`, `JWT_ISSUER/AUDIENCE=http://localhost`, `CORS_ALLOWED_ORIGINS=http://localhost`)
 - `NODE_ENV=development` is required locally — the API sets `Secure` cookies only in production, which browsers reject over plain HTTP
