@@ -36,42 +36,7 @@
                 :disabled="!agentPickerInteractive"
                 @click="agentPickerInteractive && (agentPickerOpen = !agentPickerOpen)"
               >
-                <svg
-                  width="15"
-                  height="15"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <rect x="3" y="11" width="18" height="11" rx="2" />
-                  <circle cx="8.5" cy="16.5" r="1.5" fill="currentColor" stroke="none" />
-                  <circle cx="15.5" cy="16.5" r="1.5" fill="currentColor" stroke="none" />
-                  <path d="M12 11V7" />
-                  <path d="M8 7h8" />
-                </svg>
-              </button>
-
-              <button
-                class="chat-composer__chip chat-composer__chip--agent"
-                :disabled="!agentPickerInteractive"
-                @click="agentPickerInteractive && (agentPickerOpen = !agentPickerOpen)"
-              >
-                {{ agentLabel }}
-                <svg
-                  v-if="agentPickerInteractive"
-                  width="9"
-                  height="9"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2.2"
-                  stroke-linecap="round"
-                >
-                  <polyline points="4 6 8 10 12 6" />
-                </svg>
+                <RobotOutlined style="font-size: 15px" />
               </button>
 
               <!-- Agent picker popup -->
@@ -96,18 +61,7 @@
                       }}
                     </div>
                   </div>
-                  <svg
-                    v-if="a.id === selectedAgentId"
-                    width="13"
-                    height="13"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2.4"
-                    stroke-linecap="round"
-                  >
-                    <polyline points="2 8 6 12 14 4" />
-                  </svg>
+                  <CheckOutlined v-if="a.id === selectedAgentId" style="font-size: 13px" />
                 </button>
               </div>
             </div>
@@ -164,6 +118,8 @@ import {
   DownOutlined,
   ArrowUpOutlined,
   StopOutlined,
+  RobotOutlined,
+  CheckOutlined,
 } from "@ant-design/icons-vue"
 import DatasetDrawer from "./DatasetDrawer.vue"
 
@@ -367,18 +323,6 @@ function selectAgent(agentId) {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-}
-
-.chat-composer__chip--agent {
-  background: var(--brand-tint);
-  border-color: var(--brand);
-  color: var(--brand);
-}
-
-.chat-composer__chip--agent:disabled {
-  cursor: default;
-  opacity: 1;
 }
 
 .agent-picker-popup {

@@ -4,6 +4,7 @@ import { useRoute, useRouter } from "vue-router"
 import { useConversations } from "@/composables/useConversations"
 import { useAgentsStore } from "@/stores/agents"
 import { relativeTime } from "@/utils/time"
+import { PlusOutlined, MessageOutlined, DeleteOutlined } from "@ant-design/icons-vue"
 
 const route = useRoute()
 const router = useRouter()
@@ -60,16 +61,7 @@ const grouped = computed(() => {
         <div class="page-sub">Chat with your knowledge bases using AI agents.</div>
       </div>
       <button class="btn-brand" @click="startNewConversation">
-        <svg
-          width="13"
-          height="13"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.2"
-        >
-          <path d="M8 3v10M3 8h10" stroke-linecap="round" />
-        </svg>
+        <PlusOutlined style="font-size: 13px" />
         New conversation
       </button>
     </div>
@@ -102,19 +94,7 @@ const grouped = computed(() => {
           @click="$router.push(`/workspaces/${workspaceId}/conversations/${conv.id}`)"
         >
           <div class="conv-icon">
-            <svg
-              width="17"
-              height="17"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.7"
-            >
-              <path
-                d="M2 2h12a1 1 0 011 1v8a1 1 0 01-1 1H5l-3 2V3a1 1 0 011-1z"
-                stroke-linejoin="round"
-              />
-            </svg>
+            <MessageOutlined style="font-size: 17px" />
           </div>
           <div class="conv-body">
             <div class="conv-title">{{ conv.title || "Untitled conversation" }}</div>
@@ -129,36 +109,14 @@ const grouped = computed(() => {
           </div>
           <span class="conv-time">{{ relativeTime(conv.last_message_at || conv.created_at) }}</span>
           <button class="conv-more" @click.stop="handleDelete(conv.id)" title="Delete conversation">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.7"
-            >
-              <path
-                d="M3 4h10M5 4V3h6v1M6 7v5M10 7v5M4 4l1 9h6l1-9"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
+            <DeleteOutlined style="font-size: 14px" />
           </button>
         </div>
       </template>
 
       <!-- New conversation prompt row -->
       <button class="conv-new" @click="startNewConversation">
-        <svg
-          width="13"
-          height="13"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.2"
-        >
-          <path d="M8 3v10M3 8h10" stroke-linecap="round" />
-        </svg>
+        <PlusOutlined style="font-size: 13px" />
         Start a new conversation…
       </button>
     </div>
