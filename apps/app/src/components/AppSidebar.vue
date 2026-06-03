@@ -50,7 +50,6 @@ function handleLogout() {
 const conversationsStore = useConversationsStore()
 
 const conversationSearch = ref("")
-const hoveredConvoId = ref(null)
 const menuConvoId = ref(null)
 const menuAnchor = ref(null)
 const modalState = ref(null)
@@ -116,16 +115,27 @@ function openKebabMenu(e, convoId) {
   e.stopPropagation()
   const rect = e.currentTarget.getBoundingClientRect()
   menuConvoId.value = menuConvoId.value === convoId ? null : convoId
-  menuAnchor.value = { bottom: rect.bottom, right: rect.right }
+  menuAnchor.value = {
+    top: Math.min(rect.bottom + 4, window.innerHeight - 96),
+    left: Math.min(rect.right - 168, window.innerWidth - 176),
+  }
 }
 
 function openRenameModal(convo) {
+  if (!convo) {
+    menuConvoId.value = null
+    return
+  }
   renameValue.value = convo.title
   modalState.value = { type: "rename", convo }
   menuConvoId.value = null
 }
 
 function openDeleteModal(convo) {
+  if (!convo) {
+    menuConvoId.value = null
+    return
+  }
   modalState.value = { type: "delete", convo }
   menuConvoId.value = null
 }
@@ -158,10 +168,12 @@ watch(
 
 onMounted(() => {
   document.addEventListener("click", onDocumentClick)
+  window.addEventListener("resize", onDocumentClick)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener("click", onDocumentClick)
+  window.removeEventListener("resize", onDocumentClick)
 })
 </script>
 
@@ -290,21 +302,24 @@ onBeforeUnmount(() => {
             v-for="c in groupedConversations[group]"
             :key="c.id"
             class="sidebar-convo-item"
-            :class="{ 'sidebar-convo-item--active': route.params.conversationId === c.id }"
+            :class="{
+              'sidebar-convo-item--active': route.params.conversationId === c.id,
+              'sidebar-convo-item--menu-open': menuConvoId === c.id,
+            }"
             @click="onSelectConversation(c.id)"
-            @mouseenter="hoveredConvoId = c.id"
-            @mouseleave="hoveredConvoId = null"
           >
             <MessageOutlined class="sidebar-convo-item__icon" />
             <span class="sidebar-convo-item__title">{{ c.title }}</span>
-            <button
-              v-if="hoveredConvoId === c.id || menuConvoId === c.id"
-              class="sidebar-convo-item__kebab"
-              @click.stop="openKebabMenu($event, c.id)"
-            >
-              <EllipsisOutlined />
-            </button>
-            <span v-else class="sidebar-convo-item__time">{{ relativeTime(c.created_at) }}</span>
+            <div class="sidebar-convo-item__trail">
+              <span class="sidebar-convo-item__time">{{ relativeTime(c.created_at) }}</span>
+              <button
+                class="sidebar-convo-item__kebab"
+                aria-label="Conversation options"
+                @click.stop="openKebabMenu($event, c.id)"
+              >
+                <EllipsisOutlined />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -473,87 +488,90 @@ onBeforeUnmount(() => {
       </button>
     </div>
     <!-- Kebab dropdown -->
-    <div
-      v-if="menuConvoId && menuAnchor"
-      class="sidebar-menu"
-      :style="{
-        top: Math.min(menuAnchor.bottom + 4, window.innerHeight - 96) + 'px',
-        left: Math.min(menuAnchor.right - 168, window.innerWidth - 176) + 'px',
-      }"
-    >
+    <Teleport to="body">
       <div
-        class="sidebar-menu__item"
-        @click.stop="
-          openRenameModal(conversationsStore.conversations.find((c) => c.id === menuConvoId))
-        "
+        v-if="menuConvoId && menuAnchor"
+        class="sidebar-menu"
+        :style="{ top: menuAnchor.top + 'px', left: menuAnchor.left + 'px' }"
       >
-        <EditOutlined /> Rename
+        <div
+          class="sidebar-menu__item"
+          @click.stop="
+            openRenameModal(conversationsStore.conversations.find((c) => c.id === menuConvoId))
+          "
+        >
+          <EditOutlined /> Rename
+        </div>
+        <div
+          class="sidebar-menu__item sidebar-menu__item--danger"
+          @click.stop="
+            openDeleteModal(conversationsStore.conversations.find((c) => c.id === menuConvoId))
+          "
+        >
+          <DeleteOutlined /> Delete
+        </div>
       </div>
-      <div
-        class="sidebar-menu__item sidebar-menu__item--danger"
-        @click.stop="
-          openDeleteModal(conversationsStore.conversations.find((c) => c.id === menuConvoId))
-        "
-      >
-        <DeleteOutlined /> Delete
-      </div>
-    </div>
+    </Teleport>
 
     <!-- Rename modal -->
-    <div
-      v-if="modalState?.type === 'rename'"
-      class="sidebar-scrim"
-      @mousedown.self="modalState = null"
-    >
-      <div class="sidebar-modal">
-        <div class="sidebar-modal__title">Rename conversation</div>
-        <div class="sidebar-modal__body">
-          Give this conversation a clear name so it's easy to find later.
-        </div>
-        <input
-          v-model="renameValue"
-          class="sidebar-modal__input"
-          maxlength="80"
-          autofocus
-          @keydown.enter="confirmRename"
-          @keydown.escape="modalState = null"
-        />
-        <div class="sidebar-modal__actions">
-          <button class="sidebar-modal__btn-ghost" @click="modalState = null">Cancel</button>
-          <button
-            class="sidebar-modal__btn-primary"
-            :disabled="!renameValue.trim()"
-            @click="confirmRename"
-          >
-            Save
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Delete modal -->
-    <div
-      v-if="modalState?.type === 'delete'"
-      class="sidebar-scrim"
-      @mousedown.self="modalState = null"
-    >
-      <div class="sidebar-modal">
-        <div style="display: flex; gap: 13px; align-items: flex-start">
-          <span class="sidebar-modal__error-icon"><DeleteOutlined /></span>
-          <div>
-            <div class="sidebar-modal__title">Delete conversation?</div>
-            <div class="sidebar-modal__body">
-              This permanently removes "{{ modalState.convo?.title }}" and all of its messages. This
-              can't be undone.
-            </div>
+    <Teleport to="body">
+      <div
+        v-if="modalState?.type === 'rename'"
+        class="sidebar-scrim"
+        @mousedown.self="modalState = null"
+      >
+        <div class="sidebar-modal">
+          <div class="sidebar-modal__title">Rename conversation</div>
+          <div class="sidebar-modal__body">
+            Give this conversation a clear name so it's easy to find later.
+          </div>
+          <input
+            v-model="renameValue"
+            class="sidebar-modal__input"
+            maxlength="80"
+            autofocus
+            @keydown.enter="confirmRename"
+            @keydown.escape="modalState = null"
+          />
+          <div class="sidebar-modal__actions">
+            <button class="sidebar-modal__btn-ghost" @click="modalState = null">Cancel</button>
+            <button
+              class="sidebar-modal__btn-primary"
+              :disabled="!renameValue.trim()"
+              @click="confirmRename"
+            >
+              Save
+            </button>
           </div>
         </div>
-        <div class="sidebar-modal__actions">
-          <button class="sidebar-modal__btn-ghost" @click="modalState = null">Cancel</button>
-          <button class="sidebar-modal__btn-danger" @click="confirmDelete">Delete</button>
+      </div>
+    </Teleport>
+
+    <!-- Delete modal -->
+    <Teleport to="body">
+      <div
+        v-if="modalState?.type === 'delete'"
+        class="sidebar-scrim"
+        @mousedown.self="modalState = null"
+      >
+        <div class="sidebar-modal">
+          <div style="display: flex; gap: 13px; align-items: flex-start">
+            <span class="sidebar-modal__error-icon"><DeleteOutlined /></span>
+            <div>
+              <div class="sidebar-modal__title">Delete conversation?</div>
+              <div class="sidebar-modal__body">
+                This permanently removes "{{ modalState.convo?.title }}" and all of its messages.
+                This can't be undone.
+              </div>
+            </div>
+          </div>
+          <div class="sidebar-modal__actions">
+            <button class="sidebar-modal__btn-ghost" @click="modalState = null">Cancel</button>
+            <button class="sidebar-modal__btn-danger" @click="confirmDelete">Delete</button>
+          </div>
         </div>
       </div>
-    </div>
+    </Teleport>
   </div>
 </template>
 
@@ -829,13 +847,30 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
+.sidebar-convo-item__trail {
+  position: relative;
+  width: 60px;
+  height: 24px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
 .sidebar-convo-item__time {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
   font-size: var(--t-xs);
   color: var(--ink-4);
   font-family: var(--font-mono);
+  white-space: nowrap;
+  transition: opacity var(--dur) var(--ease);
 }
 
 .sidebar-convo-item__kebab {
+  position: absolute;
+  top: 0;
+  right: 0;
   width: 24px;
   height: 24px;
   border-radius: 5px;
@@ -846,13 +881,42 @@ onBeforeUnmount(() => {
   background: transparent;
   border: none;
   cursor: pointer;
-  flex-shrink: 0;
   font-size: 16px;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity var(--dur) var(--ease),
+    background var(--dur) var(--ease),
+    color var(--dur) var(--ease);
 }
 
 .sidebar-convo-item__kebab:hover {
   background: var(--bg-2);
   color: var(--ink);
+}
+
+.sidebar-convo-item:hover .sidebar-convo-item__time,
+.sidebar-convo-item:focus-within .sidebar-convo-item__time,
+.sidebar-convo-item--menu-open .sidebar-convo-item__time {
+  opacity: 0;
+}
+
+.sidebar-convo-item:hover .sidebar-convo-item__kebab,
+.sidebar-convo-item:focus-within .sidebar-convo-item__kebab,
+.sidebar-convo-item--menu-open .sidebar-convo-item__kebab {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (hover: none) {
+  .sidebar-convo-item__time {
+    opacity: 0;
+  }
+
+  .sidebar-convo-item__kebab {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 .sidebar-menu {
