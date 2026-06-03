@@ -1,29 +1,21 @@
-# dependencies
-node_modules
+# Build context exclusions — context is the repo root for every Dockerfile.
 **/node_modules
-
-# build outputs
-apps/app/dist
-apps/api/dist
+**/dist
+**/.astro
+**/.turbo
+.git
+.gitignore
+**/.env
+**/.env.*
+!**/.env.example
+certs/
+docs/
+plans/
+*.md
+**/*.md
 
 # test artifacts
 coverage
-**/.turbo
-
-# env / secrets
-.env
-.env.local
-apps/api/.env
-apps/api/.env.test
-apps/app/.env
-
-# git
-.git
-.gitignore
-
-# docs
-docs
-*.md
 
 # editor
 .vscode
