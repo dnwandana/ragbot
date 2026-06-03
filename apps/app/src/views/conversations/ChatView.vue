@@ -11,7 +11,6 @@
       :theme="theme"
       @send="onSend"
       @copy="chatActions.copyMessage"
-      @rate="onRate"
       @cite="onCite"
       @open-panel="onOpenPanel"
     />
@@ -271,10 +270,6 @@ async function onSend(text) {
     await nextTick()
   }
   await chat.sendMessage(text)
-}
-
-function onRate(msg, rating) {
-  chatActions.rateMessage(msg, rating)
 }
 
 function onCite(msgId, n) {

@@ -2,9 +2,9 @@ import { ref, onBeforeUnmount } from "vue"
 
 /**
  * Composable for chat message-level actions.
- * Handles client-side actions (copy, highlight) and provides stubs for future API-backed actions.
+ * Handles client-side actions (copy, highlight).
  *
- * @returns {{ highlightedSource: import('vue').Ref<{msgId: string, n: number}|null>, copiedId: import('vue').Ref<string|null>, copyMessage: (msg: Object) => Promise<void>, rateMessage: (msg: Object, rating: string|null) => void, setHighlight: (msgId: string|null, n: number|null) => void }}
+ * @returns {{ highlightedSource: import('vue').Ref<{msgId: string, n: number}|null>, copiedId: import('vue').Ref<string|null>, copyMessage: (msg: Object) => Promise<void>, setHighlight: (msgId: string|null, n: number|null) => void }}
  */
 export function useChatActions() {
   const highlightedSource = ref(null)
@@ -36,16 +36,6 @@ export function useChatActions() {
   }
 
   /**
-   * Rate a message (optimistic — no backend yet).
-   *
-   * @param {Object} msg - Message to rate.
-   * @param {string|null} rating - "up", "down", or null to clear.
-   */
-  function rateMessage(_msg, _rating) {
-    // TODO: Call API when endpoint exists
-  }
-
-  /**
    * Set the highlighted source citation.
    *
    * @param {string|null} msgId - Message ID.
@@ -68,7 +58,6 @@ export function useChatActions() {
     highlightedSource,
     copiedId,
     copyMessage,
-    rateMessage,
     setHighlight,
   }
 }

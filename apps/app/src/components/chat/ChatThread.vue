@@ -39,7 +39,6 @@
         :msg="m"
         :re-act-steps="m.streaming ? reActSteps : null"
         @copy="emit('copy', $event)"
-        @rate="(r) => emit('rate', m, r)"
         @cite="(n) => emit('cite', m.id, n)"
         @open-panel="emit('open-panel', m.id)"
       />
@@ -83,7 +82,7 @@ const props = defineProps({
   density: { type: String, default: "comfortable" },
 })
 
-const emit = defineEmits(["send", "copy", "rate", "cite", "open-panel"])
+const emit = defineEmits(["send", "copy", "cite", "open-panel"])
 
 const scrollRef = ref(null)
 

@@ -1,12 +1,14 @@
 <template>
   <!-- User message -->
   <div v-if="isUser" class="chat-message chat-message--user">
-    <div class="chat-message__meta chat-message__meta--user">
-      <span class="chat-message__role">you</span>
-      <span>· {{ msg.time }}</span>
-    </div>
     <div class="chat-message__bubble chat-message__bubble--user">{{ msg.text }}</div>
-    <div class="chat-message__user-actions">
+    <div
+      v-if="!msg.streaming && !msg.error"
+      class="chat-message__actions chat-message__actions--user"
+    >
+      <span class="chat-message__role">you</span>
+      <span class="chat-message__dot">·</span>
+      <span class="chat-message__time">{{ msg.time }}</span>
       <button class="chat-message__tool-btn" title="Copy" @click="handleCopy">
         <CheckOutlined v-if="copyActive" />
         <CopyOutlined v-else />
@@ -16,11 +18,6 @@
 
   <!-- Agent message -->
   <div v-else class="chat-message chat-message--agent">
-    <div class="chat-message__meta">
-      <span class="chat-message__role">RAGBot</span>
-      <span>· {{ msg.time }}</span>
-    </div>
-
     <div class="chat-message__bubble chat-message__bubble--agent">
       <MarkdownRenderer
         :text="msg.text"
@@ -85,24 +82,11 @@
       </div>
     </div>
 
-    <!-- Toolbar (only when not streaming and no error) -->
-    <div v-if="!msg.streaming && !msg.error" class="chat-message__toolbar">
-      <button
-        class="chat-message__tool-btn"
-        :class="{ 'chat-message__tool-btn--active': msg.rating === 'up' }"
-        title="Good response"
-        @click="emit('rate', msg.rating === 'up' ? null : 'up')"
-      >
-        <LikeOutlined />
-      </button>
-      <button
-        class="chat-message__tool-btn"
-        :class="{ 'chat-message__tool-btn--active': msg.rating === 'down' }"
-        title="Bad response"
-        @click="emit('rate', msg.rating === 'down' ? null : 'down')"
-      >
-        <DislikeOutlined />
-      </button>
+    <!-- Meta + copy (hover-revealed, not during streaming/error) -->
+    <div v-if="!msg.streaming && !msg.error" class="chat-message__actions">
+      <span class="chat-message__role">RAGBot</span>
+      <span class="chat-message__dot">·</span>
+      <span class="chat-message__time">{{ msg.time }}</span>
       <button class="chat-message__tool-btn" title="Copy" @click="handleCopy">
         <CheckOutlined v-if="copyActive" />
         <CopyOutlined v-else />
@@ -113,24 +97,18 @@
 
 <script setup>
 import { ref, onUnmounted } from "vue"
-import {
-  CheckOutlined,
-  CopyOutlined,
-  LikeOutlined,
-  DislikeOutlined,
-  ExclamationCircleOutlined,
-} from "@ant-design/icons-vue"
+import { CheckOutlined, CopyOutlined, ExclamationCircleOutlined } from "@ant-design/icons-vue"
 import MarkdownRenderer from "./MarkdownRenderer.vue"
 import SourceCitations from "./SourceCitations.vue"
 
 const props = defineProps({
-  /** Message object: { id, role, text, time, sources, streaming, error, errorMsg, rating } */
+  /** Message object: { id, role, text, time, sources, streaming, error, errorMsg } */
   msg: { type: Object, required: true },
   /** ReAct steps for streaming state: { thoughts: [], observations: [] } */
   reActSteps: { type: Object, default: null },
 })
 
-const emit = defineEmits(["copy", "rate", "cite", "open-panel"])
+const emit = defineEmits(["copy", "cite", "open-panel"])
 
 const isUser = props.msg.role === "user"
 
@@ -168,26 +146,6 @@ onUnmounted(() => clearTimeout(copyTimer))
   align-items: flex-start;
 }
 
-/* ── Meta line ── */
-.chat-message__meta {
-  font-size: 11.5px;
-  color: var(--ink-4);
-  font-family: var(--font-mono);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 4px;
-}
-
-.chat-message__meta--user {
-  padding-right: 4px;
-}
-
-.chat-message__role {
-  font-weight: 600;
-  color: var(--ink-3);
-}
-
 /* ── Bubbles ── */
 .chat-message__bubble--user {
   max-width: 560px;
@@ -207,13 +165,6 @@ onUnmounted(() => clearTimeout(copyTimer))
   border-radius: var(--r-lg);
   background: var(--surface);
   border: 1px solid var(--line);
-}
-
-/* ── User actions ── */
-.chat-message__user-actions {
-  display: flex;
-  gap: 2px;
-  height: 24px;
 }
 
 /* ── Tool buttons ── */
@@ -237,17 +188,41 @@ onUnmounted(() => clearTimeout(copyTimer))
   color: var(--ink-2);
 }
 
-.chat-message__tool-btn--active {
-  background: var(--brand-tint);
-  color: var(--brand-3);
+/* ── Meta + actions row (hover-revealed) ── */
+.chat-message__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 11.5px;
+  font-family: var(--font-mono);
+  color: var(--ink-4);
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
 }
 
-/* ── Toolbar ── */
-.chat-message__toolbar {
-  display: flex;
-  gap: 2px;
-  margin-top: 6px;
+.chat-message:hover .chat-message__actions,
+.chat-message:has(:focus-visible) .chat-message__actions {
+  opacity: 1;
+}
+
+.chat-message--agent .chat-message__actions {
   margin-left: -4px;
+}
+
+.chat-message__actions--user {
+  justify-content: flex-end;
+  margin-right: -4px;
+}
+
+.chat-message__role {
+  font-weight: 600;
+  color: var(--ink-3);
+}
+
+.chat-message__dot,
+.chat-message__time {
+  color: var(--ink-4);
 }
 
 /* ── ReAct steps ── */
