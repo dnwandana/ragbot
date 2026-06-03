@@ -13,6 +13,8 @@ docs/
 plans/
 *.md
 **/*.md
+# apps/docs is a VitePress site — its content IS markdown, so keep it in the build context
+!apps/docs/**/*.md
 
 # test artifacts
 coverage
