@@ -8,6 +8,7 @@ export async function up(knex) {
       system_prompt TEXT NOT NULL DEFAULT '',
       model_config JSONB NOT NULL DEFAULT '{"model":"openai/gpt-4.1","temperature":0.7,"top_p":1,"max_tokens":4096}',
       is_system BOOLEAN NOT NULL DEFAULT FALSE,
+      is_default BOOLEAN NOT NULL DEFAULT FALSE,
       created_by UUID REFERENCES users(id) ON DELETE SET NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -20,6 +21,10 @@ export async function up(knex) {
   await knex.raw(`
     CREATE UNIQUE INDEX idx_agents_workspace_system
       ON agents (workspace_id) WHERE is_system = TRUE AND deleted_at IS NULL
+  `)
+  await knex.raw(`
+    CREATE UNIQUE INDEX idx_agents_workspace_default
+      ON agents (workspace_id) WHERE is_default = TRUE AND deleted_at IS NULL
   `)
 }
 

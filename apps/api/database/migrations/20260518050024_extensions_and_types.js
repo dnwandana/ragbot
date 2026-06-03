@@ -23,7 +23,7 @@ export async function up(knex) {
     CREATE TYPE audit_action AS ENUM (
       'created', 'updated', 'deleted', 'invited', 'joined', 'suspended',
       'role_changed', 'permission_granted', 'permission_revoked',
-      'uploaded', 'reprocessed', 'attached', 'detached'
+      'uploaded', 'reprocessed', 'attached', 'detached', 'set_default'
     )
   `)
 }
