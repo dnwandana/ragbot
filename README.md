@@ -312,15 +312,16 @@ The test suite uses real PostgreSQL (no mocks). Vitest runs migrations once befo
 
 ## Deployment
 
-Production deployment uses Docker Compose with nginx as the sole entry point. Two containers run on the host VM; PostgreSQL remains an external service.
+Production deployment uses Docker Compose with nginx as the sole entry point. Four containers run on the host VM — the nginx edge plus one container each for `web`, `app`, and `api`; PostgreSQL remains an external service.
 
 ### How it works
 
 ```
-nginx (ports 80/443)
-  ├── / → serves Vue static files (built into the image)
-  ├── /api → proxies to Express container
-  └── /health → proxies to Express container
+nginx edge (ports 80/443) — name-based virtual hosts (pure reverse proxy)
+  ├── example.com      → proxies to the web container (Astro static site)
+  ├── app.example.com  → proxies to the app container (Vue SPA static)
+  └── api.example.com  → proxies to the api container (adds /api upstream,
+                          rewrites Set-Cookie paths, /health at root)
 
 api (internal only)
   ├── connects to external PostgreSQL via DATABASE_URL
@@ -355,7 +356,7 @@ docker compose -f docker-compose.local.yml up --build -d
 docker compose -f docker-compose.local.yml run --rm api sh -c "node_modules/.bin/knex migrate:latest"
 ```
 
-App available at `http://localhost`.
+App available at `http://localhost`. Marketing site at `http://localhost:4321`.
 
 **Useful commands**
 
@@ -372,12 +373,14 @@ docker compose -f docker-compose.local.yml down           # stop and remove cont
 
 ```bash
 mkdir certs
-# Copy or symlink your certs — nginx expects these exact filenames:
-# certs/fullchain.pem
-# certs/privkey.pem
+# Use ONE cert covering both the apex and wildcard:
+#   certbot certonly ... -d example.com -d *.example.com
+# nginx expects these exact filenames (DOMAIN from your .env):
+# certs/<DOMAIN>.fullchain.pem
+# certs/<DOMAIN>.privkey.pem
 # Typical symlink approach (if using certbot on the host):
-ln -s /etc/letsencrypt/live/<domain>/fullchain.pem certs/fullchain.pem
-ln -s /etc/letsencrypt/live/<domain>/privkey.pem certs/privkey.pem
+ln -s /etc/letsencrypt/live/<domain>/fullchain.pem "certs/<DOMAIN>.fullchain.pem"
+ln -s /etc/letsencrypt/live/<domain>/privkey.pem "certs/<DOMAIN>.privkey.pem"
 ```
 
 **2. Configure environment**
@@ -419,13 +422,14 @@ docker compose run --rm api sh -c "node_modules/.bin/knex seed:run"
 
 | Variable                    | Required | Description                                                                                         |
 | --------------------------- | -------- | --------------------------------------------------------------------------------------------------- |
-| `VITE_API_BASE_URL`         | No       | Build-time API base URL. Defaults to `/api` (same-origin, recommended).                             |
+| `DOMAIN`                    | Yes      | Registrable domain for the prod stack. Compose derives `app.<DOMAIN>` and `api.<DOMAIN>`.           |
+| `VITE_API_BASE_URL`         | No       | Build-time API base URL. In the prod stack it is derived from `DOMAIN` (`https://api.<DOMAIN>`).    |
 | `DATABASE_URL`              | Yes      | PostgreSQL connection string                                                                        |
 | `REDIS_URL`                 | Yes      | Redis connection string (`redis://localhost:6379` or `redis://:pass@host:6379`)                     |
 | `ACCESS_TOKEN_SECRET`       | Yes      | JWT secret, min 32 chars                                                                            |
 | `REFRESH_TOKEN_SECRET`      | Yes      | JWT secret, min 32 chars, must differ from access secret                                            |
-| `JWT_ISSUER`                | Yes      | e.g. `https://yourdomain.com`                                                                       |
-| `JWT_AUDIENCE`              | Yes      | e.g. `https://yourdomain.com`                                                                       |
+| `JWT_ISSUER`                | Yes      | API origin that issues tokens, e.g. `https://api.<DOMAIN>`                                          |
+| `JWT_AUDIENCE`              | Yes      | SPA origin the tokens are for, e.g. `https://app.<DOMAIN>`                                          |
 | `OPENROUTER_API_KEY`        | Yes      | API key for OpenRouter (LLM + embedding inference)                                                  |
 | `BREVO_API_KEY`             | Yes      | API key for Brevo (transactional email)                                                             |
 | `S3_BUCKET`                 | Yes      | Cloudflare R2 bucket name for file storage                                                          |
@@ -435,7 +439,7 @@ docker compose run --rm api sh -c "node_modules/.bin/knex seed:run"
 | `LLAMAINDEX_API_KEY`        | Yes      | API key for LlamaIndex (document parsing)                                                           |
 | `FIRECRAWL_API_KEY`         | Yes      | API key for Firecrawl (URL scraping)                                                                |
 | `LLAMAINDEX_PARSE_TIER`     | No       | LlamaParse tier: `fast`, `cost_effective`, `agentic`, `agentic_plus`. Defaults to `cost_effective`. |
-| `CORS_ALLOWED_ORIGINS`      | No       | Defaults to `http://localhost:8080`. Set to `https://yourdomain.com` in production.                 |
+| `CORS_ALLOWED_ORIGINS`      | No       | Defaults to `http://localhost:8080`. Set to `https://app.<DOMAIN>` in production (SPA origin).      |
 
 See `apps/api/.env.example` for the full list with defaults.
 

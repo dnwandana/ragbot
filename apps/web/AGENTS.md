@@ -67,4 +67,6 @@ A single IIFE handling all client interactions, loaded via `<script src="/script
 
 ## Deployment
 
-**Not yet wired into Docker/nginx.** The production/local `docker-compose*` stack serves only `apps/app` (Vue) + `apps/api` (Express). This marketing site currently builds to a standalone static `dist/`.
+- **Local** — runs as its own container via `apps/web/Dockerfile` (multi-stage: Astro build → nginx serves the static `dist/`). Wired into `docker-compose.local.yml` as the `web` service on host port **4321** (`http://localhost:4321`). nginx serves the static files with a baked-in `apps/web/nginx.conf` (security headers re-asserted on assets, `try_files $uri $uri/ =404` + `error_page 404 /404.html`, asset caching).
+- **Production** — runs as its own `web` container from the **same** `apps/web/Dockerfile`, with no published ports; the nginx edge reverse-proxies the apex domain (`${DOMAIN}`) to it via `nginx/templates/web.conf.template`. The edge no longer bakes the static `dist/`.
+- **Build args** — `PUBLIC_SITE_URL` (default `http://localhost:4321`) and `PUBLIC_APP_URL` (default `http://localhost:8080`); production passes `https://${DOMAIN}` and `https://app.${DOMAIN}`.

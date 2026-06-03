@@ -81,10 +81,7 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 - `BaseLayout` with SEO meta (canonical, Open Graph, Twitter), `@astrojs/sitemap`, prerendered `robots.txt`
 - Anti-flash dark-mode toggle (CSS-driven icon swap), scroll-reveal, animated hero chat demo (`public/scripts/app.js`)
 - CTAs deep-link to `${PUBLIC_APP_URL}/signup`
-
-**Not yet wired:**
-
-- Not part of the Docker/nginx compose stack — builds to a standalone static `dist/`
+- Runs as its own `web` container from `apps/web/Dockerfile` in **both** stacks. Production: no published ports, reverse-proxied at `${DOMAIN}` by the nginx edge. Local: published on host port 4321 via `docker-compose.local.yml`
 
 ### Tests
 
@@ -120,7 +117,7 @@ See [`apps/api/CLAUDE.md`](apps/api/CLAUDE.md), [`apps/app/CLAUDE.md`](apps/app/
 
 ## Docker deployment
 
-Two compose files — same two-container architecture, PostgreSQL always external.
+Two compose files. Production runs four containers (nginx edge + `web` + `app` + `api`); local runs three (`web` + `app` + `api`, no edge). PostgreSQL is always external.
 
 ### Production (`docker-compose.yml`)
 
@@ -131,8 +128,16 @@ docker compose logs -f        # tail logs
 docker compose ps             # check status
 ```
 
-- nginx on ports 80 + 443, TLS via `certs/` (gitignored, mounted read-only)
-- Uses `nginx/default.conf` (HTTP→HTTPS redirect + TLS block)
+- **Name-based virtual hosts** — one nginx edge container (built from `nginx/Dockerfile`) is a pure reverse proxy for three hostnames, each backed by its own container:
+  - `${DOMAIN}` → proxies to the `web` container (Astro static site, `apps/web/Dockerfile`)
+  - `app.${DOMAIN}` → proxies to the `app` container (Vue SPA, `apps/app/Dockerfile`)
+  - `api.${DOMAIN}` → proxies to the `api` container (`http://api:3000`)
+- **The edge builds nothing** — it only removes the stock `default.conf` so the mounted per-vhost templates are the only servers. Each app builds and serves its own static content; the edge owns TLS + routing only. **Header ownership:** HSTS is set by the edge; `nosniff`/`X-Frame-Options` by each app's own `nginx.conf`.
+- nginx on ports 80 + 443; `:80` 301-redirects all hosts to HTTPS
+- Config is templated and split per vhost: `nginx/templates/{web,app,api}.conf.template` (each self-contained — its own `:80` redirect + `:443` server) use `${DOMAIN}`, rendered at container start via nginx's envsubst (the whole `nginx/templates/` dir mounts into `/etc/nginx/templates/`). The stock `default.conf` is removed in the image so only these vhosts are served. Set `DOMAIN` in `.env`.
+- TLS via `certs/` (gitignored, mounted read-only) — a single cert covering **both** the apex and wildcard (`-d example.com -d *.example.com`), named `${DOMAIN}.fullchain.pem` / `${DOMAIN}.privkey.pem`
+- **API uses clean URLs** (`api.${DOMAIN}/*`): nginx re-adds the `/api` prefix upstream and rewrites `Set-Cookie` paths (`/api/auth → /auth`, `/api → /`) via `proxy_cookie_path`, so the Express app and its cookie code are unchanged
+- Frontend↔API is **cross-origin same-site**: `SameSite=Strict` cookies still flow; CORS is owned by Express (`CORS_ALLOWED_ORIGINS=https://app.${DOMAIN}`), not nginx
 - Env from `.env`
 
 ### Local (`docker-compose.local.yml`)
@@ -143,7 +148,8 @@ docker compose -f docker-compose.local.yml logs -f
 docker compose -f docker-compose.local.yml down
 ```
 
-- nginx on port 80 only, no TLS
+- Three services: `web` (Astro marketing site, `apps/web/Dockerfile`, `http://localhost:4321`), `app` (Vue SPA on port 80, proxies `/api`), `api` (Express, no published port)
+- nginx on port 80 (app) and 4321 (web), no TLS
 - Uses `nginx/local.conf` (HTTP-only)
 - Env from `.env.local` (copy from `.env.example`; set `NODE_ENV=development`, `JWT_ISSUER/AUDIENCE=http://localhost`, `CORS_ALLOWED_ORIGINS=http://localhost`)
 - `NODE_ENV=development` is required locally — the API sets `Secure` cookies only in production, which browsers reject over plain HTTP
