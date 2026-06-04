@@ -35,6 +35,16 @@ const updateRoleSchema = joi
   .options({ stripUnknown: true })
 
 /**
+ * Joi schema for validating role deletion request bodies.
+ * An optional reassign target moves members off the role before it is removed.
+ */
+const deleteRoleSchema = joi
+  .object({
+    reassign_to_role_id: joi.string().uuid().optional(),
+  })
+  .options({ stripUnknown: true })
+
+/**
  * Validates that a role_id route parameter is a well-formed UUID.
  * Throws HttpError if invalid.
  *
@@ -271,7 +281,14 @@ export const updateRole = async (req, res, next) => {
  *
  * Guards:
  * - Cannot delete system roles (owner, admin, editor, viewer)
- * - Cannot delete a role that is currently assigned to any workspace member
+ * - If the role is still referenced by ANY member — active OR removed (soft-deleted) — a
+ *   `reassign_to_role_id` must be supplied. The DB foreign key
+ *   (`workspace_members.role_id,workspace_id → roles(id,workspace_id) ON DELETE RESTRICT`)
+ *   blocks deletion while any referencing row exists, including tombstoned ones, since member
+ *   removal soft-deletes the row but keeps its `role_id`. All referencing members are reassigned
+ *   to the target role and the deletion proceeds in one transaction.
+ * - Reassigning members requires the `member:manage_role` permission (a member-role mutation),
+ *   and the `owner` role can never be a reassign target.
  *
  * @param {Object} req - Express request object (req.workspace.id set by resolveWorkspace middleware)
  * @param {Object} res - Express response object
@@ -281,30 +298,76 @@ export const deleteRole = async (req, res, next) => {
   try {
     const roleId = validateRoleIdParam(req.params.role_id)
 
-    // Fetch the role, scoped to the current workspace
+    const { error, value } = deleteRoleSchema.validate(req.body ?? {})
+    if (error) {
+      throw new HttpError(HTTP_STATUS_CODE.BAD_REQUEST, error.details[0].message)
+    }
+    const { reassign_to_role_id: reassignToRoleId } = value
+
     const role = await roleModel.findOne({ id: roleId, workspace_id: req.workspace.id })
     if (!role) {
       throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "Role not found")
     }
-
-    // System roles cannot be deleted
     if (role.is_system) {
       throw new HttpError(HTTP_STATUS_CODE.BAD_REQUEST, "Cannot delete a system role")
     }
 
-    // Check if the role is in use by any workspace members
-    const memberUsingRole = await db("workspace_members")
+    // Count ALL referencing members — active AND soft-deleted. Any referencing row blocks the
+    // FK ON DELETE RESTRICT, so a reassign target is required whenever any row exists.
+    const { count } = await db("workspace_members")
       .where({ role_id: roleId })
-      .whereNull("deleted_at")
+      .count("id as count")
       .first()
-    if (memberUsingRole) {
-      throw new HttpError(
-        HTTP_STATUS_CODE.BAD_REQUEST,
-        "Cannot delete a role that is currently assigned to members",
-      )
-    }
+    const memberCount = Number(count)
 
-    await roleModel.remove({ id: roleId, workspace_id: req.workspace.id })
+    if (memberCount > 0) {
+      // Reassigning members between roles is a member-role mutation, so it requires
+      // member:manage_role in addition to role:delete. Without this, role:delete alone
+      // could move members onto any role (including owner) — a privilege-escalation path.
+      if (!req.permissions.includes("member:manage_role")) {
+        throw new HttpError(
+          HTTP_STATUS_CODE.FORBIDDEN,
+          "Reassigning members to another role requires the member:manage_role permission",
+        )
+      }
+      if (!reassignToRoleId) {
+        throw new HttpError(
+          HTTP_STATUS_CODE.BAD_REQUEST,
+          "Reassign members to another role before deleting",
+        )
+      }
+      if (reassignToRoleId === roleId) {
+        throw new HttpError(
+          HTTP_STATUS_CODE.BAD_REQUEST,
+          "Cannot reassign members to the role being deleted",
+        )
+      }
+      const targetRole = await roleModel.findOne({
+        id: reassignToRoleId,
+        workspace_id: req.workspace.id,
+      })
+      if (!targetRole) {
+        throw new HttpError(HTTP_STATUS_CODE.BAD_REQUEST, "Reassignment target role not found")
+      }
+      // The owner role is never a valid reassign target — it would escalate members to owner.
+      if (targetRole.is_system && targetRole.name === "owner") {
+        throw new HttpError(
+          HTTP_STATUS_CODE.BAD_REQUEST,
+          "Cannot reassign members to the owner role",
+        )
+      }
+
+      await db.transaction(async (trx) => {
+        // Move ALL referencing members (active AND soft-deleted) to the target role so no
+        // tombstoned row is left pointing at the role and the FK delete can succeed.
+        await trx("workspace_members")
+          .where({ role_id: roleId })
+          .update({ role_id: reassignToRoleId, updated_at: new Date() })
+        await trx("roles").where({ id: roleId, workspace_id: req.workspace.id }).delete()
+      })
+    } else {
+      await roleModel.remove({ id: roleId, workspace_id: req.workspace.id })
+    }
 
     return res.json(
       apiResponse({

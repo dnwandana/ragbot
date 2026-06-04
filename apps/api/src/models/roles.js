@@ -32,13 +32,33 @@ export const create = (role) => db.insert(role).into(TABLE).returning(COLUMNS)
 export const findOne = (conditions) => db.select(COLUMNS).from(TABLE).where(conditions).first()
 
 /**
- * Find all roles matching the given conditions, ordered by system roles first then by name.
+ * Find all roles for a workspace with a count of active members holding each role
+ * (invited, suspended, and removed/soft-deleted members are excluded from the count),
+ * ordered by system roles first then by name.
  *
- * @param {Object} conditions - Key-value pairs to filter by (e.g., { workspace_id })
- * @returns {Promise<Object[]>} Array of matched roles
+ * @param {Object} conditions - Filter conditions; must include workspace_id
+ * @param {string} conditions.workspace_id - UUID of the workspace
+ * @returns {Promise<Object[]>} Array of roles, each with an integer member_count
  */
-export const findMany = (conditions) =>
-  db.select(COLUMNS).from(TABLE).where(conditions).orderBy("is_system", "desc").orderBy("name")
+export const findMany = ({ workspace_id }) =>
+  db({ r: TABLE })
+    .leftJoin({ wm: "workspace_members" }, function joinActiveMembers() {
+      this.on("wm.role_id", "r.id").andOnNull("wm.deleted_at").andOnVal("wm.status", "=", "active")
+    })
+    .where("r.workspace_id", workspace_id)
+    .groupBy("r.id")
+    .select(
+      "r.id",
+      "r.workspace_id",
+      "r.name",
+      "r.description",
+      "r.is_system",
+      "r.created_at",
+      "r.updated_at",
+      db.raw("COUNT(wm.id)::int AS member_count"),
+    )
+    .orderBy("r.is_system", "desc")
+    .orderBy("r.name")
 
 /**
  * Update a role matching the given conditions.
