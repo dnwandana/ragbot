@@ -1,6 +1,7 @@
 /**
- * Roles composable - helpers for role CRUD operations and modal management
- * Manages create/edit modal state, validation rules, and delegates actions to the roles store
+ * Roles composable — drives the Roles settings panel: the list ↔ editor view state,
+ * create/edit/view transitions, submit, and the delete-with-reassign flow.
+ * Delegates all data operations to the roles store.
  */
 
 import { ref, computed } from "vue"
@@ -9,63 +10,81 @@ import { useRolesStore } from "@/stores/roles"
 export function useRoles() {
   const rolesStore = useRolesStore()
 
-  // Local state for the create/edit role modal
-  const isModalVisible = ref(false)
-  const editingRole = ref(null)
+  // Panel view: { mode: "list" } | { mode: "create" } | { mode: "edit", role } | { mode: "view", role }
+  const view = ref({ mode: "list" })
 
-  // Derived state: true when editing an existing role, false when creating
-  const isEditing = computed(() => !!editingRole.value)
+  // Role pending deletion (drives DeleteRoleModal), or null when the dialog is closed
+  const deletingRole = ref(null)
 
-  // Validation rules for the role form
-  const nameRules = [{ required: true, message: "Please enter a role name" }]
-
-  /**
-   * Open the modal for creating a new role
-   * Resets editingRole to null to indicate creation mode
-   * @returns {void}
-   */
-  function openCreateModal() {
-    editingRole.value = null
-    isModalVisible.value = true
+  /** Switch the panel to the create editor (blank role). */
+  function openCreate() {
+    rolesStore.clearCurrentRole()
+    view.value = { mode: "create" }
   }
 
   /**
-   * Open the modal for editing an existing role
-   * Clones the role object to avoid mutating store state directly
-   * @param {Object} role - Role object to edit
-   * @returns {void}
-   */
-  function openEditModal(role) {
-    editingRole.value = { ...role }
-    isModalVisible.value = true
-  }
-
-  /**
-   * Close the modal and reset editing state
-   * @returns {void}
-   */
-  function closeModal() {
-    isModalVisible.value = false
-    editingRole.value = null
-  }
-
-  /**
-   * Handle form submission for creating or updating a role
-   * Determines the correct store action based on whether we are editing or creating
+   * Load a role's permissions and open the editable editor.
    * @param {string} workspaceId - Workspace UUID
-   * @param {Object} formData - Role form data
-   * @param {string} formData.name - Role name
-   * @param {string} [formData.description] - Optional role description
-   * @param {string[]} formData.permissions - Array of permission UUIDs to assign
+   * @param {Object} role - Role list row to edit
+   * @returns {Promise<void>}
+   */
+  async function openEdit(workspaceId, role) {
+    await rolesStore.fetchRoleById(workspaceId, role.id)
+    view.value = { mode: "edit", role }
+  }
+
+  /**
+   * Load a role's permissions and open the read-only editor (system roles or no permission).
+   * @param {string} workspaceId - Workspace UUID
+   * @param {Object} role - Role list row to view
+   * @returns {Promise<void>}
+   */
+  async function openView(workspaceId, role) {
+    await rolesStore.fetchRoleById(workspaceId, role.id)
+    view.value = { mode: "view", role }
+  }
+
+  /** Return to the role list. */
+  function backToList() {
+    view.value = { mode: "list" }
+  }
+
+  /**
+   * Create or update a role based on the current view mode, returning to the list
+   * only on success so a failed save keeps the editor open with the user's input.
+   * @param {string} workspaceId - Workspace UUID
+   * @param {Object} formData - { name, description, permission_ids }
    * @returns {Promise<void>}
    */
   async function handleSubmit(workspaceId, formData) {
-    if (isEditing.value) {
-      await rolesStore.updateRole(workspaceId, editingRole.value.id, formData)
-    } else {
-      await rolesStore.createRole(workspaceId, formData)
-    }
-    closeModal()
+    const result =
+      view.value.mode === "edit"
+        ? await rolesStore.updateRole(workspaceId, view.value.role.id, formData)
+        : await rolesStore.createRole(workspaceId, formData)
+    if (result) backToList()
+  }
+
+  /** Open the delete dialog for a role. */
+  function openDelete(role) {
+    deletingRole.value = role
+  }
+
+  /** Close the delete dialog. */
+  function closeDelete() {
+    deletingRole.value = null
+  }
+
+  /**
+   * Confirm deletion, optionally reassigning members, then close the dialog
+   * only on success so a failed delete keeps the dialog open.
+   * @param {string} workspaceId - Workspace UUID
+   * @param {string} [reassignToRoleId] - Role to move members to before deletion
+   * @returns {Promise<void>}
+   */
+  async function confirmDelete(workspaceId, reassignToRoleId) {
+    if (!deletingRole.value) return
+    const result = await rolesStore.deleteRole(workspaceId, deletingRole.value.id, reassignToRoleId)
+    if (result) closeDelete()
   }
 
   return {
@@ -74,22 +93,20 @@ export function useRoles() {
     currentRole: computed(() => rolesStore.currentRole),
     allPermissions: computed(() => rolesStore.allPermissions),
     loading: computed(() => rolesStore.loading),
-    // Local modal state
-    isModalVisible,
-    editingRole,
-    isEditing,
-    // Validation rules
-    nameRules,
-    // Delegated store actions
+    // View + delete state
+    view,
+    deletingRole,
+    // Delegated store fetches
     fetchRoles: rolesStore.fetchRoles,
-    fetchRoleById: rolesStore.fetchRoleById,
-    deleteRole: rolesStore.deleteRole,
     fetchAllPermissions: rolesStore.fetchAllPermissions,
-    clearRoles: rolesStore.clearRoles,
     // Composable actions
-    openCreateModal,
-    openEditModal,
-    closeModal,
+    openCreate,
+    openEdit,
+    openView,
+    backToList,
     handleSubmit,
+    openDelete,
+    closeDelete,
+    confirmDelete,
   }
 }

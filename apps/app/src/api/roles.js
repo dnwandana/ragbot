@@ -25,7 +25,7 @@ export function getRole(workspaceId, roleId) {
  * @param {Object} data - Role data
  * @param {string} data.name - Role name (required)
  * @param {string} [data.description] - Optional role description
- * @param {string[]} data.permissions - Array of permission UUIDs to assign
+ * @param {string[]} data.permission_ids - Array of permission UUIDs to assign
  * @returns {Promise<Object>} API response with created role data
  */
 export function createRole(workspaceId, data) {
@@ -39,7 +39,7 @@ export function createRole(workspaceId, data) {
  * @param {Object} data - Updated role data
  * @param {string} data.name - Role name (required)
  * @param {string} [data.description] - Optional role description
- * @param {string[]} data.permissions - Array of permission UUIDs to assign
+ * @param {string[]} data.permission_ids - Array of permission UUIDs to assign
  * @returns {Promise<Object>} API response with updated role data
  */
 export function updateRole(workspaceId, roleId, data) {
@@ -47,11 +47,13 @@ export function updateRole(workspaceId, roleId, data) {
 }
 
 /**
- * Delete a custom role from a workspace.
+ * Delete a custom role from a workspace, optionally reassigning its members first.
  * @param {string} workspaceId - Workspace UUID
  * @param {string} roleId - Role UUID to delete
+ * @param {string} [reassignToRoleId] - Role UUID to move current members to before deletion
  * @returns {Promise<Object>} API response
  */
-export function deleteRole(workspaceId, roleId) {
-  return request.del(`/workspaces/${workspaceId}/roles/${roleId}`)
+export function deleteRole(workspaceId, roleId, reassignToRoleId) {
+  const options = reassignToRoleId ? { body: { reassign_to_role_id: reassignToRoleId } } : {}
+  return request.del(`/workspaces/${workspaceId}/roles/${roleId}`, options)
 }

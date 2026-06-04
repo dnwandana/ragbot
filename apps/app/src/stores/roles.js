@@ -95,15 +95,16 @@ export const useRolesStore = defineStore("roles", () => {
   }
 
   /**
-   * Delete a custom role from a workspace.
+   * Delete a custom role from a workspace, optionally reassigning members first.
    * @param {string} workspaceId - Workspace UUID
    * @param {string} roleId - Role UUID
+   * @param {string} [reassignToRoleId] - Role UUID to move members to before deletion
    * @returns {Promise<Object>} API response data
    */
-  async function deleteRole(workspaceId, roleId) {
+  async function deleteRole(workspaceId, roleId, reassignToRoleId) {
     loading.value = true
     try {
-      const response = await apiDeleteRole(workspaceId, roleId)
+      const response = await apiDeleteRole(workspaceId, roleId, reassignToRoleId)
       message.success("Role deleted successfully!")
       await fetchRoles(workspaceId)
       return response.data
@@ -137,6 +138,11 @@ export const useRolesStore = defineStore("roles", () => {
     currentRole.value = null
   }
 
+  /** Clear the loaded role detail (e.g. when opening the create editor). */
+  function clearCurrentRole() {
+    currentRole.value = null
+  }
+
   return {
     roles,
     currentRole,
@@ -149,5 +155,6 @@ export const useRolesStore = defineStore("roles", () => {
     deleteRole,
     fetchAllPermissions,
     clearRoles,
+    clearCurrentRole,
   }
 })
