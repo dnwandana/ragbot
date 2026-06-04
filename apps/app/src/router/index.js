@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router"
 import { useAuthStore } from "@/stores/auth"
 import { useWorkspacesStore } from "@/stores/workspaces"
+import { shouldFetchWorkspace } from "@/router/workspaceGuard"
 
 /** @type {import('vue-router').RouteRecordRaw[]} */
 const routes = [
@@ -197,6 +198,11 @@ router.beforeEach(async (to, from, next) => {
     if (!hasWorkspaces && !to.meta.skipWorkspaceGuard) {
       next({ path: "/onboarding" })
       return
+    }
+
+    const targetWorkspaceId = to.params.workspaceId
+    if (shouldFetchWorkspace(workspacesStore.currentWorkspace?.id, targetWorkspaceId)) {
+      await workspacesStore.fetchWorkspaceById(targetWorkspaceId)
     }
   }
 
