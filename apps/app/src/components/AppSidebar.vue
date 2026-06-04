@@ -15,6 +15,7 @@ import { useWorkspacesStore } from "@/stores/workspaces"
 import { useConversationsStore } from "@/stores/conversations"
 import { useInvitations } from "@/composables/useInvitations"
 import { useTheme } from "@/composables/useTheme"
+import { usePermissions } from "@/composables/usePermissions"
 import { relativeTime } from "@/utils/time"
 
 const route = useRoute()
@@ -23,6 +24,7 @@ const authStore = useAuthStore()
 const workspacesStore = useWorkspacesStore()
 const { pendingCount } = useInvitations()
 const { theme, toggleTheme } = useTheme()
+const { can } = usePermissions()
 
 const workspaceId = computed(() => route.params.workspaceId || null)
 const currentWorkspace = computed(() =>
@@ -393,6 +395,25 @@ onBeforeUnmount(() => {
           <path d="M8 1l1.8 4L14 5.8l-3 3 .7 4.2L8 11l-3.7 2 .7-4.2-3-3 4.2-.8z" />
         </svg>
         Roles
+      </button>
+
+      <button
+        v-if="workspaceId && can('audit:read')"
+        class="nav-item"
+        :class="{ active: isActive(`/workspaces/${workspaceId}/audit-logs`) }"
+        @click="navigate(`/workspaces/${workspaceId}/audit-logs`)"
+      >
+        <svg
+          class="nav-icon"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.7"
+        >
+          <path d="M3 1.5h7l3 3v10H3z" stroke-linejoin="round" />
+          <path d="M5.5 7.5h5M5.5 10h5M5.5 5h2" stroke-linecap="round" />
+        </svg>
+        Audit logs
       </button>
 
       <button

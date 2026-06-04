@@ -114,6 +114,12 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: "/workspaces/:workspaceId/audit-logs",
+    name: "AuditLogs",
+    component: () => import("@/views/audit-logs/AuditLogsView.vue"),
+    meta: { requiresAuth: true },
+  },
+  {
     path: "/workspaces/:workspaceId/conversations",
     name: "ConversationsList",
     component: () => import("@/views/conversations/ConversationsListView.vue"),
