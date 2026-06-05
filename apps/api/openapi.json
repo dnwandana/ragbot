@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "RAG Chatbot API",
-    "description": "Workspace-scoped REST API for a RAG chatbot platform. Multi-tenant via workspace_id isolation. Auth uses httpOnly cookies (access_token, refresh_token). RBAC enforced via 30 permissions across 8 resources.\n\nEmail verification is required before signin. Account lockout applies after 5 consecutive failed signin attempts (15 minutes).\n\n**Auth convention**: Protected routes read `access_token` cookie. Workspace-scoped routes also require valid workspace membership; the permission required is noted in each endpoint description.",
+    "description": "Workspace-scoped REST API for a RAG chatbot platform. Multi-tenant via workspace_id isolation. Auth uses httpOnly cookies (access_token, refresh_token). RBAC enforced via 31 permissions across 8 resources.\n\nEmail verification is required before signin. Account lockout applies after 5 consecutive failed signin attempts (15 minutes).\n\n**Auth convention**: Protected routes read `access_token` cookie. Workspace-scoped routes also require valid workspace membership; the permission required is noted in each endpoint description.",
     "version": "3.0.0"
   },
   "servers": [
@@ -30,7 +30,7 @@
     },
     {
       "name": "Permissions",
-      "description": "Read-only reference list of all 30 permissions"
+      "description": "Read-only reference list of all 31 permissions"
     },
     {
       "name": "Datasets",
@@ -55,10 +55,6 @@
     {
       "name": "Audit Logs",
       "description": "Paginated audit log list"
-    },
-    {
-      "name": "Webhooks",
-      "description": "LlamaIndex async processing callback"
     },
     {
       "name": "Health",
@@ -656,7 +652,7 @@
       "get": {
         "tags": ["Permissions"],
         "summary": "List all permissions",
-        "description": "Returns all 30 available permissions that can be assigned to roles. Read-only reference endpoint.",
+        "description": "Returns all 31 available permissions that can be assigned to roles. Read-only reference endpoint.",
         "operationId": "listPermissions",
         "security": [
           {
@@ -750,7 +746,7 @@
       "post": {
         "tags": ["Workspaces"],
         "summary": "Create workspace",
-        "description": "Creates a new workspace. The authenticated user becomes the owner with all 30 permissions. A system agent is automatically created.",
+        "description": "Creates a new workspace. The authenticated user becomes the owner with all 31 permissions. A system agent is automatically created.",
         "operationId": "createWorkspace",
         "security": [
           {
@@ -3423,84 +3419,6 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
-          }
-        }
-      }
-    },
-    "/api/webhooks/llamaindex/callback": {
-      "post": {
-        "tags": ["Webhooks"],
-        "summary": "LlamaIndex processing callback",
-        "description": "Called by LlamaIndex when async file parsing completes or fails. Requires `X-Webhook-Secret` header matching `LLAMAINDEX_WEBHOOK_SECRET` env var. Triggers BullMQ job for embedding pipeline on `parse.success`. Unknown event types are silently ignored (returns 200).",
-        "operationId": "llamaIndexCallback",
-        "security": [],
-        "parameters": [
-          {
-            "name": "X-Webhook-Secret",
-            "in": "header",
-            "required": true,
-            "description": "Must match LLAMAINDEX_WEBHOOK_SECRET environment variable",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "event_type": {
-                    "type": "string",
-                    "enum": ["parse.success", "parse.error", "parse.running"]
-                  },
-                  "data": {
-                    "type": "object",
-                    "description": "LlamaIndex job payload",
-                    "properties": {
-                      "id": {
-                        "type": "string",
-                        "description": "LlamaIndex job ID"
-                      },
-                      "job_id": {
-                        "type": "string",
-                        "description": "Alias for id — LlamaIndex sends both"
-                      }
-                    }
-                  }
-                },
-                "required": ["event_type", "data"]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Webhook received",
-            "headers": {
-              "X-Request-Id": {
-                "$ref": "#/components/headers/X-Request-Id"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                },
-                "example": {
-                  "message": "OK",
-                  "data": null
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
           }
         }
       }
