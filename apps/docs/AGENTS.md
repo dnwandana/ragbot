@@ -7,7 +7,7 @@
 - **VitePress static site** (`^1.6.4`, bundles Vue 3.5) — prerendered to `.vitepress/dist`, no server runtime.
 - Scope: end-user docs (Overview, Quick Start, Workspaces, Members & Roles, Datasets, Agents, Chatting, FAQ). Not the product UI (`apps/app`) or marketing site (`apps/web`).
 - **Theme:** VitePress default theme, restyled to the RAGBot design tokens in `.vitepress/theme/styles/tokens.css` (+ `components.css`). Dark mode uses VitePress's `.dark` selector.
-- **Components:** six product mockups + doc primitives (`Cards`, `Steps`, `Faq`, …) in `.vitepress/theme/components/`, registered globally via `enhanceApp`. Icons from `lucide-vue-next`.
+- **Components:** four product mockups (`ChatMock`, `DatasetMock`, `AgentMock`, `WorkspaceMock`) on a shared `MockFrame`, plus doc primitives (`Cards`/`Card`, `Steps`/`Step`, `Faq`, `RolesTable`) in `.vitepress/theme/components/`, registered globally via `enhanceApp`. Icons from `lucide-vue-next`.
 
 ## Commands
 

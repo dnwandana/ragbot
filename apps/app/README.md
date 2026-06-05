@@ -20,6 +20,12 @@ You can still run package-local commands from `apps/app` with `pnpm`.
 
 - **Cookie-Based Auth**: JWT tokens in httpOnly cookies set by the server, automatic refresh on 401, request queuing during refresh
 - **RBAC-Aware UI**: Permission-gated components via `can()` / `canAny()` composables
+- **Workspaces & Members**: Workspace CRUD, member management, role editor with a permission matrix, and invitations
+- **Onboarding**: Guided multi-step wizard (workspace → source → agent → invite) for new users
+- **Datasets**: Dataset list and detail views with file upload and URL-scrape sources
+- **Agents**: Agent CRUD via a side drawer with model configuration
+- **Conversations & Chat**: Conversation list plus a chat view with SSE streaming, citations, and a linked-datasets drawer
+- **Audit Logs**: Filterable workspace audit-log view with a detail drawer
 - **Ant Design Vue**: Full component library with icons
 - **Layered Architecture**: API → Store → Composable → View separation
 
@@ -83,39 +89,82 @@ npm run format    # Format code with Prettier
 src/
 ├── api/           # API service layer - pure HTTP calls
 │   ├── auth.js
-│   ├── chat.js         # SSE chat via native fetch
+│   ├── chat.js          # SSE chat via native fetch
+│   ├── conversations.js
+│   ├── datasets.js
+│   ├── datasetFiles.js
+│   ├── agents.js
+│   ├── workspaces.js
+│   ├── members.js
 │   ├── invitations.js
+│   ├── roles.js
 │   ├── permissions.js
-│   └── roles.js
+│   ├── auditLogs.js
+│   ├── account.js
+│   └── profile.js
 ├── stores/        # Pinia stores - business logic and state
 │   ├── auth.js
-│   ├── chat.js         # Chat streaming state
-│   ├── invitations.js
+│   ├── chat.js          # Chat streaming state
+│   ├── conversations.js
+│   ├── datasets.js
+│   ├── datasetFiles.js
+│   ├── agents.js
+│   ├── workspaces.js
 │   ├── members.js
-│   └── roles.js
+│   ├── invitations.js
+│   ├── roles.js
+│   └── auditLogs.js
 ├── composables/   # Composables - form handling, UI state
 │   ├── useAuth.js
-│   ├── useChat.js      # Chat sendMessage + abort
-│   ├── useInvitations.js
+│   ├── useChat.js       # Chat sendMessage + abort
+│   ├── useChatActions.js
+│   ├── useMarkdown.js
+│   ├── useConversations.js
+│   ├── useDatasets.js
+│   ├── useDatasetFiles.js
+│   ├── useAgents.js
+│   ├── useWorkspaces.js
 │   ├── useMembers.js
+│   ├── useInvitations.js
+│   ├── useRoles.js
 │   ├── usePermissions.js
-│   └── useRoles.js
+│   ├── useAuditLogs.js
+│   ├── useProfile.js
+│   ├── useAccount.js
+│   ├── usePaginationUI.js
+│   └── useTheme.js
 ├── views/         # Page components - *View.vue naming
-│   ├── auth/           # LoginView, SignupView, VerifyEmailView, ForgotPasswordView, ResetPasswordView
-│   ├── conversations/  # ConversationsListView, ChatView
-│   └── invitations/    # MyInvitationsView
+│   ├── auth/            # LoginView, SignupView, VerifyEmailView, ForgotPasswordView, ResetPasswordView
+│   ├── workspaces/      # WorkspacesListView
+│   ├── settings/        # WorkspaceSettingsView + SettingsGeneral/Members/Roles/Profile/Account
+│   ├── datasets/        # DatasetsListView, DatasetDetailView
+│   ├── agents/          # AgentsListView
+│   ├── conversations/   # ConversationsListView, ChatView
+│   ├── audit-logs/      # AuditLogsView
+│   ├── onboarding/      # OnboardingView + steps/
+│   └── invitations/     # MyInvitationsView
 ├── components/    # Reusable components
 │   ├── AppLayout.vue
 │   ├── AppSidebar.vue
+│   ├── AppUserMenu.vue
+│   ├── AuthShell.vue
+│   ├── WorkspaceFormModal.vue
 │   ├── InviteFormModal.vue
 │   ├── InvitationsTable.vue
 │   ├── MembersTable.vue
-│   └── RoleFormModal.vue
+│   ├── agents/          # AgentFormDrawer
+│   ├── audit/           # AuditTable, AuditFilterBar, AuditDetailDrawer, auditIcons, auditMaps
+│   ├── chat/            # ChatComposer, ChatMessage, ChatThread, ChatTopBar, CiteRef, DatasetDrawer, MarkdownRenderer, SourceCitations
+│   ├── datasets/        # AddSourceDrawer, FileDetailPanel
+│   ├── onboarding/      # OnboardingProgress, OnboardingToast
+│   └── roles/           # RoleEditor, DeleteRoleModal, RolePermissionMatrix
 ├── router/        # Vue Router configuration with auth guards
-└── utils/         # Utilities (fetch-based HTTP client, localStorage, time helpers)
+└── utils/         # Utilities (fetch-based HTTP client, localStorage, time/file helpers)
     ├── http.js
     ├── storage.js
-    └── time.js
+    ├── time.js
+    ├── files.js
+    └── permissionCatalog.js
 ```
 
 ### Layer Architecture

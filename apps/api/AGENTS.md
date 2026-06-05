@@ -83,17 +83,15 @@ No content is stored in Redis — the worker re-fetches markdown from the source
 
 Authorization middleware sets `req.user = { id }` from decoded JWT. `requirePermission(name)` checks `req.permissions.includes(name)`.
 
-**Planned (not yet implemented)**:
-
-- `resolveWorkspace` middleware: validates workspace_id, verifies membership, loads permissions → sets `req.workspace` and `req.permissions`
-- Permission resolution per workspace scope
+**`resolveWorkspace` (wired)** — `src/middlewares/resolve-workspace.js` is mounted in `src/routes/workspaces.js` via `router.use("/:workspace_id", resolveWorkspace)`, so it runs for every workspace-scoped route. It validates `req.params.workspace_id` is a well-formed UUID (400 if not), loads the workspace excluding soft-deleted rows (404 if missing), then loads the authenticated user's permission names via their active `workspace_members` role chain (403 if no membership). On success it sets `req.workspace` (the workspace record) and `req.permissions` (the resolved permission names array consumed by `requirePermission`).
 
 **Current request properties**:
 
 ```
 req.id          // Request ID (from requestId middleware)
 req.user        // { id } from JWT
-req.permissions // [] (not yet populated — no resolveWorkspace middleware)
+req.workspace   // workspace record (set by resolveWorkspace on workspace-scoped routes)
+req.permissions // [] of permission names (populated by resolveWorkspace)
 ```
 
 ### Authentication Flow
@@ -128,12 +126,12 @@ Validation: email (required, lowercase, valid format), password 8–72 chars (72
 
 **Isolation**: Composite foreign keys like `(id, workspace_id)` prevent cross-tenant references at the DB level. Partial unique indexes (`WHERE deleted_at IS NULL`) enforce uniqueness among active rows only.
 
-**RBAC**: 30 permissions across 8 resources (workspace, role, member, audit, dataset, file, agent, conversation). 4 system roles per workspace (owner, admin, editor, viewer) with custom role support.
+**RBAC**: 31 permissions across 8 resources (workspace, role, member, audit, dataset, file, agent, conversation). 4 system roles per workspace (owner, admin, editor, viewer) with custom role support.
 
 **System Roles**:
 | Role | Description |
 | ------ | ------------------------------------------ |
-| owner | All 30 permissions |
+| owner | All 31 permissions |
 | admin | All except workspace:delete, role:delete |
 | editor | Read + create/update on datasets, files, agents, conversations; no member/role management |
 | viewer | Read-only on all resources |
@@ -201,21 +199,34 @@ The chat feature uses a server-side ReAct (Reason-Act-Observe) loop with dual-mo
 | DELETE | `/api/workspaces/:workspace_id/conversations/:conversation_id`          | `conversations.deleteConversation`       | `conversation:delete` |
 | POST   | `/api/workspaces/:workspace_id/datasets/:dataset_id/conversations`      | `datasets.createConversationFromDataset` | `conversation:create` |
 | POST   | `/api/workspaces/:workspace_id/conversations/:conversation_id/messages` | `chat.sendMessage`                       | `conversation:chat`   |
+| GET    | `/api/workspaces/:workspace_id/audit-logs`                              | `audit-logs.listAuditLogs`               | `audit:read`          |
+
+> The workspace-scoped table above is illustrative, not exhaustive — workspaces, roles, members, datasets, dataset-files, and agents are also mounted under `/api/workspaces/:workspace_id/*`. See `apps/api/openapi.json` for the full REST reference, or the route files in `src/routes/`.
+
+## Audit Logging (wired)
+
+Audit logging is implemented and wired (not planned). `src/utils/audit.js` exports `logAuditEvent`, which inserts an immutable row into `audit_logs` for a workspace-scoped action. It is called from the datasets, workspaces, members, and dataset-files controllers on mutating operations. Entries are exposed read-only via `GET /api/workspaces/:workspace_id/audit-logs` (`controllers/audit-logs.js` → `listAuditLogs`, guarded by `audit:read`), with `models/audit-logs.js` providing `findMany`/`count` for paginated retrieval.
 
 ## Model Catalog
 
-| File                       | Exports                                                                                          |
-| -------------------------- | ------------------------------------------------------------------------------------------------ |
-| `users.js`                 | `create`, `findOne`, `findOneWithPassword`, `update`, `softDelete`                               |
-| `email-tokens.js`          | `hashToken`, `create`, `findActiveByHash`, `markUsed`, `deleteExpired`, `deleteByUser`           |
-| `refresh-tokens.js`        | `hashToken`, `create`, `findActiveByHash`, `revokeById`, `revokeAllForUser`, `purgeOld`          |
-| `roles.js`                 | `create`, `findOne`, `findMany`, `update`, `remove`, `findPermissionsByRoleId`, `setPermissions` |
-| `permissions.js`           | `findAll`, `findOne`, `findByIds`                                                                |
-| `agents.js`                | `create`, `findOne`, `findSystemAgent`, `count`, `findManyPaginated`, `update`, `softDelete`     |
-| `conversations.js`         | `create`, `findOne`, `count`, `findManyPaginated`, `update`, `softDelete`                        |
-| `conversation-datasets.js` | `create`, `findByConversationId`, `findDatasetIds`, `remove`, `removeByConversationId`           |
-| `messages.js`              | `create`, `findOne`, `findByConversationId`, `findVisibleByConversationId`                       |
-| `message-citations.js`     | `bulkInsert`, `findByMessageId`, `findByConversationId`                                          |
+| File                       | Exports                                                                                                         |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `users.js`                 | `create`, `findOne`, `findOneWithPassword`, `update`, `softDelete`                                              |
+| `email-tokens.js`          | `hashToken`, `create`, `findActiveByHash`, `markUsed`, `deleteExpired`, `deleteByUser`                          |
+| `refresh-tokens.js`        | `hashToken`, `create`, `findActiveByHash`, `revokeById`, `revokeAllForUser`, `purgeOld`                         |
+| `roles.js`                 | `create`, `findOne`, `findMany`, `update`, `remove`, `findPermissionsByRoleId`, `setPermissions`                |
+| `permissions.js`           | `findAll`, `findOne`, `findByIds`                                                                               |
+| `agents.js`                | `create`, `findOne`, `findSystemAgent`, `count`, `findManyPaginated`, `update`, `softDelete`                    |
+| `conversations.js`         | `create`, `findOne`, `count`, `findManyPaginated`, `update`, `softDelete`                                       |
+| `conversation-datasets.js` | `create`, `findByConversationId`, `findDatasetIds`, `remove`, `removeByConversationId`                          |
+| `messages.js`              | `create`, `findOne`, `findByConversationId`, `findVisibleByConversationId`                                      |
+| `message-citations.js`     | `bulkInsert`, `findByMessageId`, `findByConversationId`                                                         |
+| `workspaces.js`            | `create`, `findOne`, `findManyByUserId`, `update`, `softDelete`                                                 |
+| `workspace-members.js`     | `create`, `findOne`, `findManyByWorkspaceId`, `getPermissions`, `countActiveOwners`, `updateRole`, `softDelete` |
+| `datasets.js`              | `create`, `findOne`, `count`, `findManyPaginated`, `update`, `softDelete`                                       |
+| `dataset-files.js`         | `create`, `findOne`, `count`, `findManyPaginated`, `update`, `softDelete`, `softDeleteByDataset`                |
+| `document-chunks.js`       | `bulkInsert`, `deleteByFileId`, `countByDatasetFileId`, `deleteByDatasetId`                                     |
+| `audit-logs.js`            | `findMany`, `count`                                                                                             |
 
 ## Controller Catalog
 
@@ -229,17 +240,21 @@ The chat feature uses a server-side ReAct (Reason-Act-Observe) loop with dual-mo
 | `datasets.js`       | `createDataset`, `listDatasets`, `getDataset`, `updateDataset`, `deleteDataset`, `createConversationFromDataset`                    |
 | `chat.js`           | `sendMessage`                                                                                                                       |
 | `members.js`        | `listMembers`, `getMember`, `inviteMember`, `changeRole`, `removeMember`, `acceptInvitation`, `previewInvitation`                   |
+| `workspaces.js`     | `createWorkspace`, `getWorkspaces`, `getWorkspace`, `updateWorkspace`, `deleteWorkspace`                                            |
+| `dataset-files.js`  | `upload` (Multer middleware), `uploadFile`, `scrapeUrl`, `listFiles`, `getFile`, `updateFile`, `deleteFile`, `reprocessFile`        |
+| `audit-logs.js`     | `listAuditLogs`                                                                                                                     |
 
 ## Middleware Catalog
 
-| File                    | Exports                                     |
-| ----------------------- | ------------------------------------------- |
-| `request-id.js`         | `requestId`                                 |
-| `authorization.js`      | `requireAccessToken`, `requireRefreshToken` |
-| `require-permission.js` | `requirePermission`                         |
-| `rate-limit.js`         | `authLimiter`, `generalLimiter`             |
-| `logger.js`             | `httpLogger`, `requestLogger`               |
-| `error.js`              | `errorHandler`, `notFoundHandler`           |
+| File                    | Exports                                                                                                  |
+| ----------------------- | -------------------------------------------------------------------------------------------------------- |
+| `request-id.js`         | `requestId`                                                                                              |
+| `authorization.js`      | `requireAccessToken`, `requireRefreshToken`                                                              |
+| `resolve-workspace.js`  | `resolveWorkspace` — validates `workspace_id`, loads workspace, sets `req.workspace` + `req.permissions` |
+| `require-permission.js` | `requirePermission`                                                                                      |
+| `rate-limit.js`         | `authLimiter`, `generalLimiter`                                                                          |
+| `logger.js`             | `httpLogger`, `requestLogger`                                                                            |
+| `error.js`              | `errorHandler`, `notFoundHandler`                                                                        |
 
 **Note**: `cookie-parser` is also loaded as middleware (NPM package, not a custom file) to populate `req.cookies` for reading auth tokens from httpOnly cookies.
 
@@ -257,15 +272,28 @@ The chat feature uses a server-side ReAct (Reason-Act-Observe) loop with dual-mo
 | `constant.js`     | `HTTP_STATUS_CODE`, `HTTP_STATUS_MESSAGE`                                                |
 | `logger.js`       | `logger` (default, Winston instance)                                                     |
 | `redis.js`        | `parseRedisUrl`                                                                          |
+| `audit.js`        | `logAuditEvent` — inserts an immutable audit_logs row for a workspace-scoped action      |
 | `validate-env.js` | `validateEnv` (default)                                                                  |
 
 ## Service Catalog
 
-| File            | Exports                                                             | Description                                                  |
-| --------------- | ------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `email.js`      | `sendEmail`                                                         | Brevo transactional email via inline HTML templates          |
-| `openrouter.js` | `embedText`, `embedBatch`, `chatCompletion`, `chatCompletionStream` | OpenRouter LLM inference for embeddings, chat, and streaming |
-| `rag.js`        | `searchChunks`, `buildSystemMessage`                                | RAG pipeline: embed query, vector search, build context      |
+| File                    | Exports                                                             | Description                                                              |
+| ----------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `email.js`              | `sendEmail`                                                         | Brevo transactional email via inline HTML templates                      |
+| `openrouter.js`         | `embedText`, `embedBatch`, `chatCompletion`, `chatCompletionStream` | OpenRouter LLM inference for embeddings, chat, and streaming             |
+| `rag.js`                | `searchChunks`, `buildSystemMessage`                                | RAG pipeline: embed query, vector search, build context                  |
+| `firecrawl.js`          | `scrapeUrl`                                                         | Scrape a URL to markdown via the Firecrawl API                           |
+| `llamaindex.js`         | `submitParseJob`, `pollForMarkdown`                                 | Submit files to LlamaIndex Cloud for async parsing and poll for markdown |
+| `question-generator.js` | `generateQuestions`                                                 | Generate 5–10 exploration questions for a document via OpenRouter chat   |
+| `storage.js`            | `uploadFile`, `deleteFile`, `getSignedDownloadUrl`                  | S3/R2 object storage: upload, delete, presigned download URLs            |
+| `text-splitter.js`      | `splitText`                                                         | Recursive character text splitting into overlapping chunks (LangChain)   |
+
+## Queue & Worker Catalog
+
+| File                         | Exports                                   | Description                                                                                                     |
+| ---------------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `queues/file-processing.js`  | `fileProcessingQueue`, `addProcessingJob` | BullMQ queue (`file-processing`); enqueues `{ datasetFileId, datasetId }` jobs (3 retries, exponential backoff) |
+| `workers/file-processing.js` | `startWorker`                             | BullMQ worker (concurrency 2) running the split → embed → store → generate-questions pipeline                   |
 
 ## Code Style
 
@@ -287,7 +315,7 @@ Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_E
 ## Database
 
 - **Config**: `knexfile.js` — loads `.env.test` when `NODE_ENV=test`, connection pool min 2, max 10
-- **Migrations**: `database/migrations/` — 8 migration files using raw SQL:
+- **Migrations**: `database/migrations/` — 9 migration files using raw SQL:
   - 001: Extensions (pgcrypto, vector) + 5 ENUM types
   - 002: Core tenancy (workspaces, users, email_tokens, refresh_tokens)
   - 003: Roles & permissions (permissions, roles, role_permissions, workspace_members)
@@ -296,8 +324,9 @@ Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_E
   - 006: Conversations & messages (conversations, conversation_datasets, messages, message_citations)
   - 007: Functions (trigger_set_updated_at on 9 tables, search_chunks SQL function)
   - 008: Audit logs (append-only, immutable)
+  - 009: Expiry indexes (email_tokens, refresh_tokens)
 - **Seeds**: `database/seeds/` — 2 seed files:
-  - 01: 30 permissions across 8 resources (workspace, role, member, audit, dataset, file, agent, conversation)
+  - 01: 31 permissions across 8 resources (workspace, role, member, audit, dataset, file, agent, conversation)
   - 02: 2 test users (alice@example.com, bob@example.com, password: "Password123!")
 - 15 tables total, workspace-scoped via `workspace_id` with composite FKs
 - Soft delete pattern on 8 tables via `deleted_at` column with partial unique indexes
@@ -318,9 +347,10 @@ Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_E
   - `createTestWorkspace(userId)` — creates workspace + 4 system roles + permissions + adds creator as owner + creates system agent
   - `addWorkspaceMember(workspaceId, userId, roleId)` — adds member with active status
   - `cleanAllTables()` — truncates all 15 tables in dependency order
-  - `seedPermissions()` — seeds 30 RAG permissions
-- **Current test status**:
-  - Passing (136): health (5), http-error (3), pagination (9), request-id (4), sanitize (6), redis (5), auth (10), workspaces (32), llamaindex-poll (4), datasets (14), agents (12), conversations (9), chat (7), permissions (13)
+  - `seedPermissions()` — seeds 31 RAG permissions
+- **Current test status** — 181 test cases total (static count from the test files; live passing count comes from `corepack pnpm test:api`):
+  - Integration: agents (16), auth (38), chat (7), conversations (11), dataset-files (11), datasets (14), health (5), members (6), permissions (13), roles (11), workspaces (6)
+  - Unit: email-render (4), http-error (3), llamaindex-poll (6), pagination (11), redis (5), request-id (4), sanitize (6), validate-env (4)
   - Skipped (0)
   - No Redis required for local test runs (queue module mocked via `tests/setup.js`)
 

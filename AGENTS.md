@@ -29,10 +29,10 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 
 - **Auth cookies**: `access_token` and `refresh_token` — httpOnly, Secure, SameSite=Strict cookies set by the server
 - **Multi-tenancy**: Shared database, tenant isolation via `workspace_id` columns with composite foreign keys enforcing isolation at the DB level
-- **RBAC**: `requirePermission(name)` middleware, permissions resolved on `req.permissions`. 30 permissions across 8 resources (workspace, role, member, audit, dataset, file, agent, conversation)
-- **Request context**: `req.id` (request ID), `req.user` (from JWT), `req.permissions` (from RBAC). `req.workspace` planned but not yet implemented
+- **RBAC**: `requirePermission(name)` middleware, permissions resolved on `req.permissions`. 31 permissions across 8 resources (workspace, role, member, audit, dataset, file, agent, conversation)
+- **Request context**: `req.id` (request ID), `req.user` (from JWT). `req.workspace` and `req.permissions` are set by `resolveWorkspace` (`src/middlewares/resolve-workspace.js`), mounted via `router.use("/:workspace_id", resolveWorkspace)` in `routes/workspaces.js` — it loads the workspace and resolves the caller's permissions for RBAC
 - **Error handling**: Controllers throw `HttpError(status, msg)`, caught by centralized `errorHandler`
-- **Env validation**: API fails fast at startup if required vars are missing (expected behavior). 16 service-level env vars required (OpenRouter, Brevo, S3/R2, LlamaIndex, Firecrawl, Redis)
+- **Env validation**: API fails fast at startup if required vars are missing (expected behavior). The authoritative schema is `src/utils/validate-env.js` — 31 validated env vars (16 required; the rest have defaults), including `REDIS_URL`, scheme `redis://` or `rediss://`), covering OpenRouter, Brevo, S3/R2, LlamaIndex, Firecrawl, and Redis
 - **Async processing**: BullMQ job queue backed by Redis — dataset file processing (upload, scrape, reprocess) runs in an inline worker started alongside Express
 
 ## Current implementation state
@@ -46,16 +46,13 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 - Health check (database connectivity, request ID)
 - Roles CRUD (workspace-scoped)
 - Full middleware stack (helmet, CORS, rate limiting, request ID, cookie parser, error handling)
-- Database schema — 8 migrations, 15 tables, pgvector HNSW index, `search_chunks()` SQL function
+- Database schema — 9 migrations, 15 tables, pgvector HNSW index, `search_chunks()` SQL function
 - Workspace CRUD + RBAC + member management (F3)
 - Datasets + file upload (LlamaIndex) + URL scraping (Firecrawl) + BullMQ processing pipeline (F4)
 - Agent management — CRUD with system agent protection (F5)
 - Conversation CRUD + dataset linking + dataset shortcut endpoint (F6)
 - Chat with ReAct loop + SSE streaming (F7) — RAG search, message persistence, citations
-
-**Planned but not wired:**
-
-- Audit logging middleware (schema exists, no middleware yet)
+- Audit logging — workspace-scoped read endpoint plus append-only event writes via `utils/audit.js` (`logAuditEvent`), backed by `controllers/audit-logs.js`, `routes/audit-logs.js`, and `models/audit-logs.js`
 
 ### Frontend (`apps/app`)
 
@@ -63,7 +60,7 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 
 - Auth views (Login, Signup, VerifyEmail, ForgotPassword, ResetPassword)
 - Invitations view (MyInvitationsView)
-- AppLayout, AppSidebar, RoleFormModal, InviteFormModal, MembersTable, InvitationsTable
+- AppLayout, AppSidebar, RoleEditor, InviteFormModal, MembersTable, InvitationsTable
 - Auth, roles, invitations, members, permissions stores and composables
 - HTTP client with automatic token refresh and 401 retry queue
 - Vue Router with auth guards
@@ -87,17 +84,16 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 
 ### Tests
 
-**Passing (138 tests):** health (5), auth (10), workspaces (32), webhooks (5), agents (12), conversations (9), datasets (14), chat (7), redis (5), http-error (3), pagination (9), request-id (4), sanitize (6), permissions (13)
-**Skipped (0)**
+**181 static test cases** (live passing count via `corepack pnpm test:api`). Integration: agents, auth, chat, conversations, dataset-files, datasets, health, members, permissions, roles, workspaces. Unit: email-render, http-error, llamaindex-poll, pagination, redis, request-id, sanitize, validate-env.
 **No Redis required locally:** queue module mocked via `tests/setup.js`
 
 ### Database schema
 
-15 tables across 8 migrations. Key entity tree:
+15 tables across 9 migrations. Key entity tree:
 
 ```
 workspaces (tenant root)
-  +-- roles → role_permissions → permissions (global, 30 entries)
+  +-- roles → role_permissions → permissions (global, 31 entries)
   +-- workspace_members (with role, soft delete)
   +-- datasets → dataset_files → document_chunks (vector(1536) + HNSW index)
   +-- agents (system prompt + model config)
@@ -115,7 +111,7 @@ SQL functions: `trigger_set_updated_at()` (9 tables), `search_chunks()` (cosine 
 
 ## App-specific details
 
-See [`apps/api/CLAUDE.md`](apps/api/CLAUDE.md), [`apps/app/CLAUDE.md`](apps/app/CLAUDE.md), and [`apps/web/CLAUDE.md`](apps/web/CLAUDE.md).
+See [`apps/api/CLAUDE.md`](apps/api/CLAUDE.md), [`apps/app/CLAUDE.md`](apps/app/CLAUDE.md), [`apps/web/CLAUDE.md`](apps/web/CLAUDE.md), and [`apps/docs/CLAUDE.md`](apps/docs/CLAUDE.md).
 
 ## Docker deployment
 

@@ -37,7 +37,7 @@ You can still run package-local commands from `apps/api` with `pnpm`.
 
 - **Workspace model**: Flat workspace-based tenancy (no org/project nesting)
 - **Data isolation**: Shared database with `workspace_id` columns and composite foreign keys enforcing isolation at the DB level
-- **RBAC**: 30 permissions across 8 resources, 4 system roles (owner/admin/editor/viewer) + custom roles
+- **RBAC**: 31 permissions across 8 resources, 4 system roles (owner/admin/editor/viewer) + custom roles
 - **Soft delete**: `deleted_at` columns with partial unique indexes for safe deletion and recovery
 
 ### Database
@@ -143,6 +143,8 @@ npm run test:coverage # Run tests with coverage report
 
 Tests require a PostgreSQL test database with pgvector. Copy `.env.example` to `.env.test` and configure a separate database.
 
+The suite contains 181 test cases (integration + unit). The live passing count comes from running `corepack pnpm test:api`.
+
 ### Linting & Formatting
 
 ```bash
@@ -246,7 +248,7 @@ Authentication uses **httpOnly cookies** set by the server. Tokens are never exp
 | Method | Endpoint                                                 | Description    | Permission     |
 | ------ | -------------------------------------------------------- | -------------- | -------------- |
 | POST   | `/api/workspaces/:id/datasets/:did/files/upload`         | Upload file    | file:upload    |
-| POST   | `/api/workspaces/:id/datasets/:did/files/scrape`         | Scrape URL     | file:upload    |
+| POST   | `/api/workspaces/:id/datasets/:did/files/scrape-url`     | Scrape URL     | file:upload    |
 | GET    | `/api/workspaces/:id/datasets/:did/files`                | List files     | file:read      |
 | PUT    | `/api/workspaces/:id/datasets/:did/files/:fid`           | Update file    | file:update    |
 | DELETE | `/api/workspaces/:id/datasets/:did/files/:fid`           | Delete file    | file:delete    |
@@ -278,9 +280,17 @@ Authentication uses **httpOnly cookies** set by the server. Tokens are never exp
 | ------ | ------------------------------------------------- | ------------ | ----------------- | ------------------ |
 | POST   | `/api/workspaces/:id/conversations/:cid/messages` | Send message | conversation:chat | SSE stream or JSON |
 
+### Audit Logs
+
+| Method | Endpoint                         | Description                         | Permission |
+| ------ | -------------------------------- | ----------------------------------- | ---------- |
+| GET    | `/api/workspaces/:id/audit-logs` | List paginated workspace audit logs | audit:read |
+
+> The full REST reference — every endpoint, request/response schema, and parameter — is documented in [`apps/api/openapi.json`](./openapi.json).
+
 ## System Roles & Permissions
 
-4 built-in system roles per workspace. 30 permissions across 8 resources.
+4 built-in system roles per workspace. 31 permissions across 8 resources.
 
 | Resource     | Actions                                 |
 | ------------ | --------------------------------------- |
@@ -301,10 +311,17 @@ apps/api/
 │   ├── config/
 │   │   └── database.js          # Knex instance
 │   ├── controllers/
+│   │   ├── agents.js            # Agent CRUD (system agent protection)
+│   │   ├── audit-logs.js        # List paginated workspace audit logs
 │   │   ├── authentication.js    # Signup, verify-email, signin, forgot/reset password, refresh, logout, me
 │   │   ├── chat.js              # SSE ReAct loop for chat messaging
+│   │   ├── conversations.js     # Conversation CRUD
+│   │   ├── dataset-files.js     # File upload, URL scrape, list/update/delete, reprocess
+│   │   ├── datasets.js          # Dataset CRUD + conversation-from-dataset shortcut
+│   │   ├── members.js           # Members + invitations (invite, accept, change role, remove)
 │   │   ├── permissions.js       # Permission reference endpoint
-│   │   └── roles.js             # CRUD roles (needs workspace re-scoping)
+│   │   ├── roles.js             # Role CRUD (workspace-scoped)
+│   │   └── workspaces.js        # Workspace CRUD
 │   ├── emails/
 │   │   ├── render.js            # Template loader with {{var}} substitution
 │   │   └── templates/           # verify-email.html, reset-password.html, workspace-invitation.html
@@ -314,23 +331,52 @@ apps/api/
 │   │   ├── logger.js            # httpLogger (Morgan), requestLogger (Winston)
 │   │   ├── rate-limit.js        # authLimiter, generalLimiter
 │   │   ├── request-id.js        # X-Request-Id tracking
-│   │   └── require-permission.js # Permission gate
+│   │   ├── require-permission.js # Permission gate
+│   │   └── resolve-workspace.js # Loads workspace, sets req.workspace + req.permissions
 │   ├── models/
+│   │   ├── agents.js
+│   │   ├── audit-logs.js        # findMany, count for paginated audit retrieval
+│   │   ├── conversation-datasets.js
+│   │   ├── conversations.js
+│   │   ├── dataset-files.js
+│   │   ├── datasets.js
+│   │   ├── document-chunks.js   # Vector chunk bulk insert + delete by file/dataset
 │   │   ├── email-tokens.js      # SHA-256 token hashing, CRUD for email_tokens
+│   │   ├── message-citations.js
+│   │   ├── messages.js
 │   │   ├── permissions.js
 │   │   ├── refresh-tokens.js
 │   │   ├── roles.js
-│   │   └── users.js
+│   │   ├── users.js
+│   │   ├── workspace-members.js
+│   │   └── workspaces.js
 │   ├── services/
 │   │   ├── email.js             # Brevo transactional email via inline HTML templates
+│   │   ├── firecrawl.js         # Scrape a URL to markdown via Firecrawl
+│   │   ├── llamaindex.js        # Submit files to LlamaIndex Cloud, poll for parsed markdown
 │   │   ├── openrouter.js        # LLM inference + streaming chat completions
-│   │   └── rag.js               # RAG pipeline: embed query, vector search, build context
+│   │   ├── question-generator.js # Generate exploration questions for a document
+│   │   ├── rag.js               # RAG pipeline: embed query, vector search, build context
+│   │   ├── storage.js           # S3/R2 upload, delete, presigned download URLs
+│   │   └── text-splitter.js     # Recursive character chunking (LangChain)
+│   ├── queues/
+│   │   └── file-processing.js   # BullMQ queue + addProcessingJob
+│   ├── workers/
+│   │   └── file-processing.js   # BullMQ worker: split → embed → store → questions pipeline
 │   ├── routes/
+│   │   ├── agents.js
+│   │   ├── audit-logs.js        # GET workspace audit logs
 │   │   ├── authentication.js
 │   │   ├── conversations.js     # Conversation CRUD + chat messages route
+│   │   ├── dataset-files.js     # Upload, scrape-url, list/update/delete, reprocess
+│   │   ├── datasets.js
 │   │   ├── health.js
 │   │   ├── index.js             # Route aggregator
-│   │   └── permissions.js
+│   │   ├── permissions.js
+│   │   ├── roles.js
+│   │   ├── workspace-invitations.js
+│   │   ├── workspace-members.js
+│   │   └── workspaces.js
 │   ├── utils/
 │   │   ├── argon2.js            # Password hashing
 │   │   ├── constant.js          # HTTP constants
@@ -345,11 +391,11 @@ apps/api/
 │   ├── app.js                   # Express app (middleware + routes)
 │   └── index.js                 # Entry point (env validation + server start)
 ├── database/
-│   ├── migrations/              # 8 Knex migrations (15 tables)
-│   └── seeds/                   # 2 seed files (permissions + test users)
+│   ├── migrations/              # 9 Knex migrations (15 tables)
+│   └── seeds/                   # 2 seed files (31 permissions + test users)
 ├── tests/
-│   ├── integration/             # auth, health, permissions, chat
-│   ├── unit/                    # http-error, pagination, request-id, sanitize
+│   ├── integration/             # agents, auth, chat, conversations, dataset-files, datasets, health, members, permissions, roles, workspaces
+│   ├── unit/                    # email-render, http-error, llamaindex-poll, pagination, redis, request-id, sanitize, validate-env
 │   ├── helpers.js               # Test factories and utilities
 │   ├── global-setup.js
 │   └── global-teardown.js
@@ -375,6 +421,6 @@ npm start         # Start production server
 - Account lockout after 5 failed attempts (15-minute lock)
 - Helmet enforces strict CSP, no-referrer, HSTS with preload
 - CORS restricted to explicit origins
-- Rate limiting on auth (10 req/15min) and globally (100 req/15min)
+- Rate limiting on auth (10 req/15min default, `RATE_LIMIT_AUTH_MAX` capped at 50) and globally (100 req/15min)
 - Request body capped at 100kb
 - Never commit `.env` file to version control

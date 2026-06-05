@@ -4,11 +4,14 @@ A workspace-based RAG (Retrieval-Augmented Generation) chatbot platform. Users u
 
 ## What's inside
 
-| App        | Stack                                                     | Purpose                           |
-| ---------- | --------------------------------------------------------- | --------------------------------- |
-| `apps/api` | Express 5, PostgreSQL + pgvector, Knex.js, OpenRouter API | REST API with auth, RAG pipeline  |
-| `apps/app` | Vue 3, Pinia, Ant Design Vue, Vite                        | Single-page app consuming the API |
-| `apps/web` | Astro 6, `@astrojs/sitemap`                               | Static marketing/landing site     |
+A pnpm + Turborepo monorepo of 4 apps:
+
+| App         | Stack                                                     | Purpose                           |
+| ----------- | --------------------------------------------------------- | --------------------------------- |
+| `apps/api`  | Express 5, PostgreSQL + pgvector, Knex.js, OpenRouter API | REST API with auth, RAG pipeline  |
+| `apps/app`  | Vue 3, Pinia, Ant Design Vue, Vite                        | Single-page app consuming the API |
+| `apps/web`  | Astro 6, `@astrojs/sitemap`                               | Static marketing/landing site     |
+| `apps/docs` | VitePress                                                 | Static documentation site         |
 
 ## Architecture at a glance
 
@@ -25,7 +28,7 @@ Workspace (tenant boundary)
 ```
 
 - **Multi-tenancy**: Shared PostgreSQL database, tenant-scoped via `workspace_id` columns with composite foreign keys enforcing isolation at the DB level
-- **RBAC**: 4 system roles (owner / admin / editor / viewer) + custom roles, 30 granular permissions across 8 resources
+- **RBAC**: 4 system roles (owner / admin / editor / viewer) + custom roles, 31 granular permissions across 8 resources
 - **Auth**: Dual-token JWT via httpOnly cookies, Argon2 password hashing, account lockout after 5 failed attempts
 - **RAG pipeline**: File upload → parsing (LlamaIndex) → chunking (LangChain) → embedding (OpenRouter) → vector search (pgvector HNSW)
 - **AI chat**: ReAct loop with OpenRouter, SSE streaming, citation tracking back to source chunks
@@ -156,15 +159,15 @@ Append `:api`, `:app`, `:web`, or `:docs` to target a single workspace (e.g. `pn
 
 ### Health (public, not rate-limited)
 
-| Method | Path      | Description                                        |
-| ------ | --------- | -------------------------------------------------- |
-| GET    | `/health` | Health check — `{ status, database }` (DB ping)   |
+| Method | Path      | Description                                     |
+| ------ | --------- | ----------------------------------------------- |
+| GET    | `/health` | Health check — `{ status, database }` (DB ping) |
 
 ### Authentication
 
 | Method | Path                            | Auth          | Description                                              |
 | ------ | ------------------------------- | ------------- | -------------------------------------------------------- |
-| POST   | `/api/auth/signup`              | —             | Register — sends verification email                     |
+| POST   | `/api/auth/signup`              | —             | Register — sends verification email                      |
 | POST   | `/api/auth/verify-email`        | —             | Verify email via token from email link                   |
 | POST   | `/api/auth/resend-verification` | —             | Resend verification email (always returns 200)           |
 | POST   | `/api/auth/signin`              | —             | Sign in — requires verified email, sets httpOnly cookies |
@@ -185,90 +188,90 @@ Append `:api`, `:app`, `:web`, or `:docs` to target a single workspace (e.g. `pn
 
 ### Invitations
 
-| Method | Path                           | Auth         | Description                          |
-| ------ | ------------------------------ | ------------ | ------------------------------------ |
-| GET    | `/api/invitations/:token`      | —            | Preview invitation details (public)  |
-| POST   | `/api/invitations/accept`      | Access Token | Accept a workspace invitation        |
+| Method | Path                      | Auth         | Description                         |
+| ------ | ------------------------- | ------------ | ----------------------------------- |
+| GET    | `/api/invitations/:token` | —            | Preview invitation details (public) |
+| POST   | `/api/invitations/accept` | Access Token | Accept a workspace invitation       |
 
 ### Workspaces
 
-| Method | Path                    | Auth         | Permission         |
-| ------ | ----------------------- | ------------ | ------------------ |
-| GET    | `/api/workspaces`       | Access Token | —                  |
-| POST   | `/api/workspaces`       | Access Token | —                  |
-| GET    | `/api/workspaces/:id`   | Access Token | `workspace:read`   |
-| PUT    | `/api/workspaces/:id`   | Access Token | `workspace:update` |
-| DELETE | `/api/workspaces/:id`   | Access Token | `workspace:delete` |
+| Method | Path                  | Auth         | Permission         |
+| ------ | --------------------- | ------------ | ------------------ |
+| GET    | `/api/workspaces`     | Access Token | —                  |
+| POST   | `/api/workspaces`     | Access Token | —                  |
+| GET    | `/api/workspaces/:id` | Access Token | `workspace:read`   |
+| PUT    | `/api/workspaces/:id` | Access Token | `workspace:update` |
+| DELETE | `/api/workspaces/:id` | Access Token | `workspace:delete` |
 
 ### Roles
 
-| Method | Path                              | Permission    |
-| ------ | --------------------------------- | ------------- |
-| GET    | `/api/workspaces/:id/roles`       | `role:read`   |
-| POST   | `/api/workspaces/:id/roles`       | `role:create` |
-| GET    | `/api/workspaces/:id/roles/:rid`  | `role:read`   |
-| PUT    | `/api/workspaces/:id/roles/:rid`  | `role:update` |
-| DELETE | `/api/workspaces/:id/roles/:rid`  | `role:delete` |
+| Method | Path                             | Permission    |
+| ------ | -------------------------------- | ------------- |
+| GET    | `/api/workspaces/:id/roles`      | `role:read`   |
+| POST   | `/api/workspaces/:id/roles`      | `role:create` |
+| GET    | `/api/workspaces/:id/roles/:rid` | `role:read`   |
+| PUT    | `/api/workspaces/:id/roles/:rid` | `role:update` |
+| DELETE | `/api/workspaces/:id/roles/:rid` | `role:delete` |
 
 ### Members
 
-| Method | Path                                         | Permission          |
-| ------ | -------------------------------------------- | ------------------- |
-| GET    | `/api/workspaces/:id/members`                | `member:read`       |
-| GET    | `/api/workspaces/:id/members/:mid`           | `member:read`       |
-| POST   | `/api/workspaces/:id/members/invite`         | `member:invite`     |
-| PUT    | `/api/workspaces/:id/members/:mid/role`      | `member:manage_role`|
-| DELETE | `/api/workspaces/:id/members/:mid`           | `member:remove`     |
+| Method | Path                                    | Permission           |
+| ------ | --------------------------------------- | -------------------- |
+| GET    | `/api/workspaces/:id/members`           | `member:read`        |
+| GET    | `/api/workspaces/:id/members/:mid`      | `member:read`        |
+| POST   | `/api/workspaces/:id/members/invite`    | `member:invite`      |
+| PUT    | `/api/workspaces/:id/members/:mid/role` | `member:manage_role` |
+| DELETE | `/api/workspaces/:id/members/:mid`      | `member:remove`      |
 
 ### Audit Logs
 
-| Method | Path                               | Permission    |
-| ------ | ---------------------------------- | ------------- |
-| GET    | `/api/workspaces/:id/audit-logs`   | `audit:read`  |
+| Method | Path                             | Permission   |
+| ------ | -------------------------------- | ------------ |
+| GET    | `/api/workspaces/:id/audit-logs` | `audit:read` |
 
 ### Datasets
 
-| Method | Path                                               | Permission           |
-| ------ | -------------------------------------------------- | -------------------- |
-| GET    | `/api/workspaces/:id/datasets`                     | `dataset:read`       |
-| POST   | `/api/workspaces/:id/datasets`                     | `dataset:create`     |
-| GET    | `/api/workspaces/:id/datasets/:did`                | `dataset:read`       |
-| PUT    | `/api/workspaces/:id/datasets/:did`                | `dataset:update`     |
-| DELETE | `/api/workspaces/:id/datasets/:did`                | `dataset:delete`     |
-| POST   | `/api/workspaces/:id/datasets/:did/conversations`  | `conversation:create`|
+| Method | Path                                              | Permission            |
+| ------ | ------------------------------------------------- | --------------------- |
+| GET    | `/api/workspaces/:id/datasets`                    | `dataset:read`        |
+| POST   | `/api/workspaces/:id/datasets`                    | `dataset:create`      |
+| GET    | `/api/workspaces/:id/datasets/:did`               | `dataset:read`        |
+| PUT    | `/api/workspaces/:id/datasets/:did`               | `dataset:update`      |
+| DELETE | `/api/workspaces/:id/datasets/:did`               | `dataset:delete`      |
+| POST   | `/api/workspaces/:id/datasets/:did/conversations` | `conversation:create` |
 
 ### Dataset Files
 
-| Method | Path                                                         | Permission       |
-| ------ | ------------------------------------------------------------ | ---------------- |
-| GET    | `/api/workspaces/:id/datasets/:did/files`                    | `file:read`      |
-| GET    | `/api/workspaces/:id/datasets/:did/files/:fid`               | `file:read`      |
-| POST   | `/api/workspaces/:id/datasets/:did/files/upload`             | `file:upload`    |
-| POST   | `/api/workspaces/:id/datasets/:did/files/scrape-url`         | `file:upload`    |
-| PUT    | `/api/workspaces/:id/datasets/:did/files/:fid`               | `file:update`    |
-| DELETE | `/api/workspaces/:id/datasets/:did/files/:fid`               | `file:delete`    |
-| POST   | `/api/workspaces/:id/datasets/:did/files/:fid/reprocess`     | `file:reprocess` |
+| Method | Path                                                     | Permission       |
+| ------ | -------------------------------------------------------- | ---------------- |
+| GET    | `/api/workspaces/:id/datasets/:did/files`                | `file:read`      |
+| GET    | `/api/workspaces/:id/datasets/:did/files/:fid`           | `file:read`      |
+| POST   | `/api/workspaces/:id/datasets/:did/files/upload`         | `file:upload`    |
+| POST   | `/api/workspaces/:id/datasets/:did/files/scrape-url`     | `file:upload`    |
+| PUT    | `/api/workspaces/:id/datasets/:did/files/:fid`           | `file:update`    |
+| DELETE | `/api/workspaces/:id/datasets/:did/files/:fid`           | `file:delete`    |
+| POST   | `/api/workspaces/:id/datasets/:did/files/:fid/reprocess` | `file:reprocess` |
 
 ### Agents
 
-| Method | Path                                 | Permission      |
-| ------ | ------------------------------------ | --------------- |
-| GET    | `/api/workspaces/:id/agents`         | `agent:read`    |
-| POST   | `/api/workspaces/:id/agents`         | `agent:create`  |
-| GET    | `/api/workspaces/:id/agents/:aid`    | `agent:read`    |
-| PUT    | `/api/workspaces/:id/agents/:aid`    | `agent:update`  |
-| DELETE | `/api/workspaces/:id/agents/:aid`    | `agent:delete`  |
+| Method | Path                              | Permission     |
+| ------ | --------------------------------- | -------------- |
+| GET    | `/api/workspaces/:id/agents`      | `agent:read`   |
+| POST   | `/api/workspaces/:id/agents`      | `agent:create` |
+| GET    | `/api/workspaces/:id/agents/:aid` | `agent:read`   |
+| PUT    | `/api/workspaces/:id/agents/:aid` | `agent:update` |
+| DELETE | `/api/workspaces/:id/agents/:aid` | `agent:delete` |
 
 ### Conversations
 
-| Method | Path                                                         | Permission              |
-| ------ | ------------------------------------------------------------ | ----------------------- |
-| GET    | `/api/workspaces/:id/conversations`                          | `conversation:read`     |
-| POST   | `/api/workspaces/:id/conversations`                          | `conversation:create`   |
-| GET    | `/api/workspaces/:id/conversations/:cid`                     | `conversation:read`     |
-| PUT    | `/api/workspaces/:id/conversations/:cid`                     | `conversation:update`   |
-| DELETE | `/api/workspaces/:id/conversations/:cid`                     | `conversation:delete`   |
-| POST   | `/api/workspaces/:id/conversations/:cid/messages`            | `conversation:chat`     |
+| Method | Path                                              | Permission            |
+| ------ | ------------------------------------------------- | --------------------- |
+| GET    | `/api/workspaces/:id/conversations`               | `conversation:read`   |
+| POST   | `/api/workspaces/:id/conversations`               | `conversation:create` |
+| GET    | `/api/workspaces/:id/conversations/:cid`          | `conversation:read`   |
+| PUT    | `/api/workspaces/:id/conversations/:cid`          | `conversation:update` |
+| DELETE | `/api/workspaces/:id/conversations/:cid`          | `conversation:delete` |
+| POST   | `/api/workspaces/:id/conversations/:cid/messages` | `conversation:chat`   |
 
 ### Health check (public, not rate-limited)
 
@@ -309,7 +312,7 @@ cp apps/api/.env.example apps/api/.env.test
 # Update PORT (e.g. 3001), LOG_LEVEL=error, LOG_TO_FILE=false
 ```
 
-The test suite uses real PostgreSQL (no mocks). Vitest runs migrations once before the session, and `cleanAllTables()` truncates between tests. Auth tests mock the Brevo email service; queue tests mock BullMQ so no Redis is required locally. Currently passing: 162 tests (health, auth, workspaces, webhooks, datasets, agents, conversations, chat, http-error, pagination, request-id, sanitize, redis, permissions), 0 skipped.
+The test suite uses real PostgreSQL (no mocks). Vitest runs migrations once before the session, and `cleanAllTables()` truncates between tests. Auth tests mock the Brevo email service; queue tests mock BullMQ so no Redis is required locally. 181 static test cases — run `corepack pnpm test:api` for the live passing count. Integration groups: agents, auth, chat, conversations, dataset-files, datasets, health, members, permissions, roles, workspaces. Unit groups: email-render, http-error, llamaindex-poll, pagination, redis, request-id, sanitize, validate-env.
 
 ## Deployment
 
@@ -422,26 +425,26 @@ docker compose run --rm api sh -c "node_modules/.bin/knex seed:run"
 
 ### Environment variables
 
-| Variable                    | Required | Description                                                                                         |
-| --------------------------- | -------- | --------------------------------------------------------------------------------------------------- |
-| `DOMAIN`                    | Yes      | Registrable domain for the prod stack. Compose derives `app.<DOMAIN>` and `api.<DOMAIN>`.           |
-| `VITE_API_BASE_URL`         | No       | Build-time API base URL. In the prod stack it is derived from `DOMAIN` (`https://api.<DOMAIN>`).    |
-| `DATABASE_URL`              | Yes      | PostgreSQL connection string                                                                        |
-| `REDIS_URL`                 | Yes      | Redis connection string (`redis://localhost:6379` or `redis://:pass@host:6379`)                     |
-| `ACCESS_TOKEN_SECRET`       | Yes      | JWT secret, min 32 chars                                                                            |
-| `REFRESH_TOKEN_SECRET`      | Yes      | JWT secret, min 32 chars, must differ from access secret                                            |
-| `JWT_ISSUER`                | Yes      | API origin that issues tokens, e.g. `https://api.<DOMAIN>`                                          |
-| `JWT_AUDIENCE`              | Yes      | SPA origin the tokens are for, e.g. `https://app.<DOMAIN>`                                          |
-| `OPENROUTER_API_KEY`        | Yes      | API key for OpenRouter (LLM + embedding inference)                                                  |
-| `BREVO_API_KEY`             | Yes      | API key for Brevo (transactional email)                                                             |
-| `S3_BUCKET`                 | Yes      | Cloudflare R2 bucket name for file storage                                                          |
-| `S3_ACCESS_KEY`             | Yes      | R2 access key                                                                                       |
-| `S3_SECRET_KEY`             | Yes      | R2 secret key                                                                                       |
-| `S3_ENDPOINT`               | Yes      | R2 endpoint URL                                                                                     |
-| `LLAMAINDEX_API_KEY`        | Yes      | API key for LlamaIndex (document parsing)                                                           |
-| `FIRECRAWL_API_KEY`         | Yes      | API key for Firecrawl (URL scraping)                                                                |
-| `LLAMAINDEX_PARSE_TIER`     | No       | LlamaParse tier: `fast`, `cost_effective`, `agentic`, `agentic_plus`. Defaults to `cost_effective`. |
-| `CORS_ALLOWED_ORIGINS`      | No       | Defaults to `http://localhost:8080`. Set to `https://app.<DOMAIN>` in production (SPA origin).      |
+| Variable                | Required | Description                                                                                         |
+| ----------------------- | -------- | --------------------------------------------------------------------------------------------------- |
+| `DOMAIN`                | Yes      | Registrable domain for the prod stack. Compose derives `app.<DOMAIN>` and `api.<DOMAIN>`.           |
+| `VITE_API_BASE_URL`     | No       | Build-time API base URL. In the prod stack it is derived from `DOMAIN` (`https://api.<DOMAIN>`).    |
+| `DATABASE_URL`          | Yes      | PostgreSQL connection string                                                                        |
+| `REDIS_URL`             | Yes      | Redis connection string (`redis://localhost:6379` or `redis://:pass@host:6379`)                     |
+| `ACCESS_TOKEN_SECRET`   | Yes      | JWT secret, min 32 chars                                                                            |
+| `REFRESH_TOKEN_SECRET`  | Yes      | JWT secret, min 32 chars, must differ from access secret                                            |
+| `JWT_ISSUER`            | Yes      | API origin that issues tokens, e.g. `https://api.<DOMAIN>`                                          |
+| `JWT_AUDIENCE`          | Yes      | SPA origin the tokens are for, e.g. `https://app.<DOMAIN>`                                          |
+| `OPENROUTER_API_KEY`    | Yes      | API key for OpenRouter (LLM + embedding inference)                                                  |
+| `BREVO_API_KEY`         | Yes      | API key for Brevo (transactional email)                                                             |
+| `S3_BUCKET`             | Yes      | Cloudflare R2 bucket name for file storage                                                          |
+| `S3_ACCESS_KEY`         | Yes      | R2 access key                                                                                       |
+| `S3_SECRET_KEY`         | Yes      | R2 secret key                                                                                       |
+| `S3_ENDPOINT`           | Yes      | R2 endpoint URL                                                                                     |
+| `LLAMAINDEX_API_KEY`    | Yes      | API key for LlamaIndex (document parsing)                                                           |
+| `FIRECRAWL_API_KEY`     | Yes      | API key for Firecrawl (URL scraping)                                                                |
+| `LLAMAINDEX_PARSE_TIER` | No       | LlamaParse tier: `fast`, `cost_effective`, `agentic`, `agentic_plus`. Defaults to `cost_effective`. |
+| `CORS_ALLOWED_ORIGINS`  | No       | Defaults to `http://localhost:8080`. Set to `https://app.<DOMAIN>` in production (SPA origin).      |
 
 See `apps/api/.env.example` for the full list with defaults.
 
@@ -500,9 +503,9 @@ rag-chatbot/
 │   │   │       ├── sanitize.js
 │   │   │       └── validate-env.js
 │   │   ├── database/
-│   │   │   ├── migrations/         # 8 Knex migrations (workspace-based RAG schema)
+│   │   │   ├── migrations/         # 9 Knex migrations (workspace-based RAG schema)
 │   │   │   └── seeds/
-│   │   │       ├── 01_permissions.js  # 30 permissions across 8 resources
+│   │   │       ├── 01_permissions.js  # 31 permissions across 8 resources
 │   │   │       └── 02_test_users.js   # 2 test users (alice, bob)
 │   │   └── tests/
 │   │       ├── helpers.js          # createTestUser, createTestWorkspace, getAuthHeaders, cleanAllTables
@@ -542,19 +545,24 @@ rag-chatbot/
 │           │   ├── InviteFormModal.vue
 │           │   ├── InvitationsTable.vue
 │           │   ├── MembersTable.vue
-│           │   └── RoleFormModal.vue
+│           │   └── roles/             # RoleEditor, DeleteRoleModal, RolePermissionMatrix
+│           │       ├── RoleEditor.vue
+│           │       ├── DeleteRoleModal.vue
+│           │       └── RolePermissionMatrix.vue
 │           ├── router/             # Vue Router + auth guards
 │           └── utils/              # Fetch client, localStorage helpers
 │   │
-│   └── web/                        # Astro 6 static marketing site
-│       ├── astro.config.mjs        # output: 'static' + sitemap
-│       ├── public/scripts/app.js   # vanilla-JS interactions (nav, reveal, hero chat, theme)
-│       └── src/
-│           ├── pages/              # index.astro, 404.astro, robots.txt.js
-│           ├── layouts/            # BaseLayout.astro (SEO + anti-flash theme)
-│           ├── components/         # Nav, Hero, HowItWorks, Benefits, Footer, …
-│           ├── icons/              # static .astro SVG components
-│           └── styles/             # colors_and_type.css, marketing.css
+│   ├── web/                        # Astro 6 static marketing site
+│   │   ├── astro.config.mjs        # output: 'static' + sitemap
+│   │   ├── public/scripts/app.js   # vanilla-JS interactions (nav, reveal, hero chat, theme)
+│   │   └── src/
+│   │       ├── pages/              # index.astro, 404.astro, robots.txt.js
+│   │       ├── layouts/            # BaseLayout.astro (SEO + anti-flash theme)
+│   │       ├── components/         # Nav, Hero, HowItWorks, Benefits, Footer, …
+│   │       ├── icons/              # static .astro SVG components
+│   │       └── styles/             # colors_and_type.css, marketing.css
+│   │
+│   └── docs/                        # VitePress static documentation site (apps/docs)
 │
 ├── plans/                          # Feature implementation plans (F1–F7)
 ├── docs/superpowers/specs/         # Design specifications
