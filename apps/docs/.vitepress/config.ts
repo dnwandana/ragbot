@@ -8,7 +8,7 @@ export default defineConfig({
   cleanUrls: true,
   lastUpdated: false,
   // Keep internal package docs (AGENTS.md / its CLAUDE.md symlink) out of the published site.
-  srcExclude: ["**/AGENTS.md", "**/CLAUDE.md"],
+  srcExclude: ["**/AGENTS.md", "**/CLAUDE.md", "**/README.md"],
   head: [["link", { rel: "icon", href: "/mark.svg" }]],
   themeConfig: {
     logo: { light: "/logo.svg", dark: "/logo-dark.svg" },
