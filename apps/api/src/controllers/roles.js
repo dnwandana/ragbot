@@ -5,6 +5,7 @@ import apiResponse from "../utils/response.js"
 import { HTTP_STATUS_CODE, HTTP_STATUS_MESSAGE } from "../utils/constant.js"
 import * as roleModel from "../models/roles.js"
 import * as permissionModel from "../models/permissions.js"
+import { logAuditEvent } from "../utils/audit.js"
 import db from "../config/database.js"
 
 /** Standard UUID v4 format validation pattern */
@@ -115,6 +116,17 @@ export const createRole = async (req, res, next) => {
         permission_id: permissionId,
       }))
       await trx("role_permissions").insert(rolePerms)
+
+      await logAuditEvent({
+        trx,
+        workspace_id: req.workspace.id,
+        user_id: req.user.id,
+        entity_type: "role",
+        entity_id: roleId,
+        action: "created",
+        changes: { name, description, permission_ids: permissionIds },
+        context: { request_id: req.id },
+      })
 
       return [created]
     })
@@ -259,6 +271,17 @@ export const updateRole = async (req, res, next) => {
         await roleModel.setPermissions(trx, roleId, permissionIds)
       }
 
+      await logAuditEvent({
+        trx,
+        workspace_id: req.workspace.id,
+        user_id: req.user.id,
+        entity_type: "role",
+        entity_id: roleId,
+        action: "updated",
+        changes: value,
+        context: { request_id: req.id },
+      })
+
       return [updated]
     })
 
@@ -364,9 +387,33 @@ export const deleteRole = async (req, res, next) => {
           .where({ role_id: roleId })
           .update({ role_id: reassignToRoleId, updated_at: new Date() })
         await trx("roles").where({ id: roleId, workspace_id: req.workspace.id }).delete()
+
+        await logAuditEvent({
+          trx,
+          workspace_id: req.workspace.id,
+          user_id: req.user.id,
+          entity_type: "role",
+          entity_id: roleId,
+          action: "deleted",
+          changes: { reassigned_to_role_id: reassignToRoleId },
+          context: { request_id: req.id },
+        })
       })
     } else {
-      await roleModel.remove({ id: roleId, workspace_id: req.workspace.id })
+      await db.transaction(async (trx) => {
+        await trx("roles").where({ id: roleId, workspace_id: req.workspace.id }).delete()
+
+        await logAuditEvent({
+          trx,
+          workspace_id: req.workspace.id,
+          user_id: req.user.id,
+          entity_type: "role",
+          entity_id: roleId,
+          action: "deleted",
+          changes: null,
+          context: { request_id: req.id },
+        })
+      })
     }
 
     return res.json(

@@ -263,3 +263,102 @@ describe("DELETE /api/workspaces/:id/roles/:role_id", () => {
     expect(res.status).toBe(400)
   })
 })
+
+describe("roles audit logging", () => {
+  it("writes a 'created' audit log when a custom role is created", async () => {
+    const user = await createTestUser()
+    const ws = await createTestWorkspace(user.id)
+    const headers = await getAuthHeaders(user.id)
+    const perm = await db("permissions").where({ name: "dataset:read" }).first()
+
+    const res = await (
+      await request()
+    )
+      .post(`/api/workspaces/${ws.id}/roles`)
+      .set(headers)
+      .send({ name: "Reviewer", permission_ids: [perm.id] })
+
+    expect(res.status).toBe(201)
+    const roleId = res.body.data.id
+
+    const auditRow = await db("audit_logs")
+      .where({ workspace_id: ws.id, action: "created", entity_type: "role", entity_id: roleId })
+      .first()
+    expect(auditRow).toBeDefined()
+    expect(auditRow.user_id).toBe(user.id)
+    expect(auditRow.entity_id).toBe(roleId)
+    const changes =
+      typeof auditRow.changes === "string" ? JSON.parse(auditRow.changes) : auditRow.changes
+    expect(changes.name).toBe("Reviewer")
+    expect(changes.permission_ids).toEqual([perm.id])
+  })
+
+  it("writes an 'updated' audit log when a role is updated", async () => {
+    const user = await createTestUser()
+    const ws = await createTestWorkspace(user.id)
+    const headers = await getAuthHeaders(user.id)
+    const roleId = await createCustomRole(ws.id, headers, "Reviewer")
+
+    const res = await (await request())
+      .put(`/api/workspaces/${ws.id}/roles/${roleId}`)
+      .set(headers)
+      .send({ description: "Updated description" })
+
+    expect(res.status).toBe(200)
+
+    const auditRow = await db("audit_logs")
+      .where({ workspace_id: ws.id, action: "updated", entity_type: "role", entity_id: roleId })
+      .first()
+    expect(auditRow).toBeDefined()
+    expect(auditRow.user_id).toBe(user.id)
+    expect(auditRow.entity_id).toBe(roleId)
+  })
+
+  it("writes a 'deleted' audit log when a role with no members is deleted", async () => {
+    const user = await createTestUser()
+    const ws = await createTestWorkspace(user.id)
+    const headers = await getAuthHeaders(user.id)
+    const roleId = await createCustomRole(ws.id, headers, "Reviewer")
+
+    const res = await (await request())
+      .delete(`/api/workspaces/${ws.id}/roles/${roleId}`)
+      .set(headers)
+      .send({})
+
+    expect(res.status).toBe(200)
+
+    const auditRow = await db("audit_logs")
+      .where({ workspace_id: ws.id, action: "deleted", entity_type: "role", entity_id: roleId })
+      .first()
+    expect(auditRow).toBeDefined()
+    expect(auditRow.user_id).toBe(user.id)
+    expect(auditRow.entity_id).toBe(roleId)
+  })
+
+  it("writes a 'deleted' audit log with the reassign target when members are reassigned", async () => {
+    const user = await createTestUser()
+    const ws = await createTestWorkspace(user.id)
+    const headers = await getAuthHeaders(user.id)
+    const roleId = await createCustomRole(ws.id, headers, "Reviewer")
+    const member = await createTestUser()
+    await addWorkspaceMember(ws.id, member.id, roleId)
+
+    const res = await (await request())
+      .delete(`/api/workspaces/${ws.id}/roles/${roleId}`)
+      .set(headers)
+      .send({ reassign_to_role_id: ws.roles.viewer })
+
+    expect(res.status).toBe(200)
+
+    const auditRow = await db("audit_logs")
+      .where({ workspace_id: ws.id, action: "deleted", entity_type: "role", entity_id: roleId })
+      .first()
+    expect(auditRow).toBeDefined()
+    expect(auditRow.user_id).toBe(user.id)
+    expect(auditRow.entity_id).toBe(roleId)
+
+    const changes =
+      typeof auditRow.changes === "string" ? JSON.parse(auditRow.changes) : auditRow.changes
+    expect(changes.reassigned_to_role_id).toBe(ws.roles.viewer)
+  })
+})
