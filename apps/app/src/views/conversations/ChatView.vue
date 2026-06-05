@@ -18,13 +18,24 @@
     <ChatComposer
       :streaming="chatStore.isStreaming"
       :loading="chatStore.isStreaming && !hasStreamingContent"
-      :datasets="linkedDatasetIds"
-      :agents="agentsStore.agents"
+      :dataset-options="datasetResults"
+      :selected-dataset-ids="linkedDatasetIds"
+      :selected-datasets="isNew ? selectedDatasetObjects : linkedDatasets"
+      :dataset-total="datasetTotal"
+      :dataset-loading="datasetLoading"
+      :dataset-picker-interactive="isNew"
+      :agents="agentResults"
       :selected-agent-id="isNew ? pendingAgentId : conversation?.agent_id"
+      :selected-agent="selectedAgentObject"
+      :agent-total="agentTotal"
+      :agent-loading="agentLoading"
       :agent-picker-interactive="isNew"
       @send="onSend"
       @abort="chat.abort"
-      @agent-change="(id) => (pendingAgentId = id)"
+      @agent-change="onAgentChange"
+      @agent-search="onAgentSearch"
+      @dataset-change="onDatasetChange"
+      @dataset-search="onDatasetSearch"
     />
 
     <!-- Sources panel (right overlay) — scoped to the active message -->
@@ -80,7 +91,8 @@ import { useRoute, useRouter } from "vue-router"
 import { X } from "lucide-vue-next"
 import { useConversationsStore } from "@/stores/conversations"
 import { useChatStore } from "@/stores/chat"
-import { useAgentsStore } from "@/stores/agents"
+import * as agentsApi from "@/api/agents"
+import * as datasetsApi from "@/api/datasets"
 import { useChat } from "@/composables/useChat"
 import { useChatActions } from "@/composables/useChatActions"
 import { useTheme } from "@/composables/useTheme"
@@ -92,7 +104,6 @@ const route = useRoute()
 const router = useRouter()
 const conversationsStore = useConversationsStore()
 const chatStore = useChatStore()
-const agentsStore = useAgentsStore()
 const workspaceId = computed(() => route.params.workspaceId)
 const conversationId = computed(() => route.params.conversationId)
 const chat = useChat(workspaceId, conversationId)
@@ -101,13 +112,131 @@ const { theme } = useTheme()
 
 const isNew = computed(() => route.name === "NewChat")
 const pendingAgentId = ref(null)
+
+const PICKER_LIMIT = 10
+
+// Agent picker (owned here — decoupled from the shared agents store)
+const agentResults = ref([])
+const agentTotal = ref(0)
+const agentLoading = ref(false)
+const currentAgent = ref(null)
+const linkedAgent = ref(null)
+let agentSearchTimer = null
+
+async function fetchAgentResults(search = "") {
+  agentLoading.value = true
+  try {
+    const res = await agentsApi.listAgents(workspaceId.value, {
+      ...(search.trim() && { search: search.trim() }),
+      sort_by: "created_at",
+      sort_order: "desc",
+      limit: PICKER_LIMIT,
+    })
+    agentResults.value = res.data.data
+    agentTotal.value = res.data.pagination?.total ?? res.data.data.length
+  } catch {
+    agentResults.value = []
+    agentTotal.value = 0
+  } finally {
+    agentLoading.value = false
+  }
+}
+
+function onAgentSearch(q) {
+  clearTimeout(agentSearchTimer)
+  agentSearchTimer = setTimeout(() => fetchAgentResults(q), 300)
+}
+
+function onAgentChange(id) {
+  pendingAgentId.value = id
+  currentAgent.value = agentResults.value.find((a) => a.id === id) || currentAgent.value
+}
+
+async function resolveLinkedAgent(id) {
+  linkedAgent.value = await agentsApi
+    .getAgent(workspaceId.value, id)
+    .then((r) => r.data.data)
+    .catch(() => null)
+}
+
+const selectedAgentObject = computed(() => (isNew.value ? currentAgent.value : linkedAgent.value))
+
 const pendingDatasetIds = ref([])
+
+// Dataset picker (owned here — decoupled from the shared datasets store)
+const datasetResults = ref([])
+const datasetTotal = ref(0)
+const datasetLoading = ref(false)
+const selectedDatasetObjects = ref([])
+const linkedDatasets = ref([])
+let datasetSearchTimer = null
+
+async function fetchDatasetResults(search = "") {
+  datasetLoading.value = true
+  try {
+    const res = await datasetsApi.listDatasets(workspaceId.value, {
+      ...(search.trim() && { search: search.trim() }),
+      sort_by: "created_at",
+      sort_order: "desc",
+      limit: PICKER_LIMIT,
+    })
+    datasetResults.value = res.data.data
+    datasetTotal.value = res.data.pagination?.total ?? res.data.data.length
+  } catch {
+    datasetResults.value = []
+    datasetTotal.value = 0
+  } finally {
+    datasetLoading.value = false
+  }
+}
+
+function onDatasetSearch(q) {
+  clearTimeout(datasetSearchTimer)
+  datasetSearchTimer = setTimeout(() => fetchDatasetResults(q), 300)
+}
+
+function onDatasetChange(ids) {
+  pendingDatasetIds.value = ids
+  const known = new Map(selectedDatasetObjects.value.map((d) => [d.id, d]))
+  for (const d of datasetResults.value) known.set(d.id, d)
+  selectedDatasetObjects.value = ids.map((id) => known.get(id)).filter(Boolean)
+}
+
+async function resolveSelectedDatasets(ids) {
+  const res = await Promise.all(
+    ids.map((id) =>
+      datasetsApi
+        .getDataset(workspaceId.value, id)
+        .then((r) => ({ id, data: r.data.data }))
+        .catch(() => ({ id, data: null })),
+    ),
+  )
+  const resolved = res.filter((r) => r.data !== null)
+  selectedDatasetObjects.value = resolved.map((r) => r.data)
+  pendingDatasetIds.value = resolved.map((r) => r.id)
+}
+
+async function resolveLinkedDatasets(ids) {
+  const res = await Promise.all(
+    ids.map((id) =>
+      datasetsApi
+        .getDataset(workspaceId.value, id)
+        .then((r) => r.data.data)
+        .catch(() => null),
+    ),
+  )
+  linkedDatasets.value = res.filter(Boolean)
+}
 
 function initPendingConfig() {
   chatStore.reset()
-  const defaultAgent = agentsStore.agents.find((a) => a.is_default) || agentsStore.agents[0] || null
+  const defaultAgent = agentResults.value.find((a) => a.is_default) || agentResults.value[0] || null
   pendingAgentId.value = defaultAgent?.id || null
-  pendingDatasetIds.value = route.query.dataset ? [route.query.dataset] : []
+  currentAgent.value = defaultAgent
+  const q = route.query.dataset
+  pendingDatasetIds.value = q ? [].concat(q) : []
+  if (pendingDatasetIds.value.length) resolveSelectedDatasets(pendingDatasetIds.value)
+  else selectedDatasetObjects.value = []
 }
 
 // Local state
@@ -131,17 +260,17 @@ watch(
 )
 
 onMounted(async () => {
-  await agentsStore.fetchAgents(workspaceId.value)
-  if (isNew.value) initPendingConfig()
+  if (isNew.value) {
+    await Promise.all([fetchDatasetResults(), fetchAgentResults()])
+    initPendingConfig()
+  }
 })
 
 watch(
   isNew,
   async (val) => {
     if (!val) return
-    if (!agentsStore.agents.length) {
-      await agentsStore.fetchAgents(workspaceId.value)
-    }
+    await Promise.all([fetchDatasetResults(), fetchAgentResults()])
     initPendingConfig()
   },
   { immediate: false },
@@ -149,7 +278,25 @@ watch(
 
 const conversation = computed(() => conversationsStore.currentConversation)
 const linkedDatasetIds = computed(() =>
-  isNew.value ? pendingDatasetIds.value : conversationsStore.currentConversation?.dataset_ids || [],
+  isNew.value ? pendingDatasetIds.value : conversation.value?.dataset_ids || [],
+)
+
+watch(
+  () => (isNew.value ? null : conversation.value?.dataset_ids),
+  (ids) => {
+    if (ids?.length) resolveLinkedDatasets(ids)
+    else linkedDatasets.value = []
+  },
+  { immediate: true },
+)
+
+watch(
+  () => (isNew.value ? null : conversation.value?.agent_id),
+  (id) => {
+    if (id) resolveLinkedAgent(id)
+    else linkedAgent.value = null
+  },
+  { immediate: true },
 )
 const messages = computed(() => conversation.value?.messages || [])
 

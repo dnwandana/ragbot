@@ -100,12 +100,9 @@ const orderedGroups = computed(() =>
   GROUP_ORDER.filter((k) => groupedConversations.value[k]?.length),
 )
 
-async function onNewConversation() {
+function onNewConversation() {
   if (!workspaceId.value) return
-  const convo = await conversationsStore.createConversation(workspaceId.value, {
-    title: "New conversation",
-  })
-  router.push(`/workspaces/${workspaceId.value}/conversations/${convo.id}`)
+  router.push({ name: "NewChat", params: { workspaceId: workspaceId.value } })
 }
 
 function onSelectConversation(id) {

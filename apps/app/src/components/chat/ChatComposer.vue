@@ -2,7 +2,18 @@
   <div class="chat-composer">
     <div class="chat-composer__inner">
       <!-- Dataset drawer (floating above) -->
-      <DatasetDrawer v-if="drawerOpen" :count="selCount" @close="drawerOpen = false" />
+      <DatasetDrawer
+        v-if="drawerOpen"
+        :datasets="datasetOptions"
+        :selected-ids="selectedDatasetIds"
+        :selected-datasets="selectedDatasets"
+        :total="datasetTotal"
+        :loading="datasetLoading"
+        :interactive="datasetPickerInteractive"
+        @toggle="onToggleDataset"
+        @search="(q) => emit('dataset-search', q)"
+        @close="drawerOpen = false"
+      />
 
       <div
         class="chat-composer__card"
@@ -42,27 +53,52 @@
               <!-- Agent picker popup -->
               <div v-if="agentPickerOpen && agentPickerInteractive" class="agent-picker-popup">
                 <div class="agent-picker-header">Select agent</div>
+                <div class="agent-search" @click.stop>
+                  <Search :size="14" class="agent-search__icon" />
+                  <input
+                    v-model="agentQuery"
+                    class="agent-search__input"
+                    placeholder="Search agents…"
+                    @input="emit('agent-search', agentQuery)"
+                  />
+                </div>
+
+                <!-- Pinned: current agent (stays visible during search) -->
+                <template v-if="selectedAgent">
+                  <div class="agent-picker-group">Current</div>
+                  <button
+                    class="agent-picker-row agent-picker-row--active"
+                    @click="selectAgent(selectedAgent.id)"
+                  >
+                    <div class="agent-picker-info">
+                      <div class="agent-picker-name">{{ selectedAgent.name }}</div>
+                      <div class="agent-picker-sub">{{ agentSub(selectedAgent) }}</div>
+                    </div>
+                    <Check :size="13" />
+                  </button>
+                  <div class="agent-picker-divider" />
+                </template>
+
+                <div v-if="otherAgents.length" class="agent-picker-group">All agents</div>
                 <button
-                  v-for="a in agents"
+                  v-for="a in otherAgents"
                   :key="a.id"
                   class="agent-picker-row"
-                  :class="{ 'agent-picker-row--active': a.id === selectedAgentId }"
                   @click="selectAgent(a.id)"
                 >
                   <div class="agent-picker-info">
                     <div class="agent-picker-name">{{ a.name }}</div>
-                    <div class="agent-picker-sub">
-                      {{
-                        a.is_default
-                          ? "Default"
-                          : a.is_system
-                            ? "System"
-                            : a.model_config?.model?.split("/").pop()
-                      }}
-                    </div>
+                    <div class="agent-picker-sub">{{ agentSub(a) }}</div>
                   </div>
-                  <Check v-if="a.id === selectedAgentId" :size="13" />
                 </button>
+
+                <p v-if="agentLoading" class="agent-picker-hint">Searching…</p>
+                <p v-else-if="agentQuery.trim() && !otherAgents.length" class="agent-picker-hint">
+                  No agents match "{{ agentQuery.trim() }}".
+                </p>
+                <p v-else-if="agentTotal > agents.length" class="agent-picker-hint">
+                  Showing {{ agents.length }} of {{ agentTotal }} — search to find more.
+                </p>
               </div>
             </div>
           </template>
@@ -77,7 +113,7 @@
             <Paperclip :size="16" />
           </button>
 
-          <button class="chat-composer__chip" @click="drawerOpen = !drawerOpen">
+          <button data-sources class="chat-composer__chip" @click="drawerOpen = !drawerOpen">
             <LayoutGrid :size="16" />
             {{ selCount }} {{ selCount === 1 ? "source" : "sources" }}
             <ChevronDown :size="16" />
@@ -104,15 +140,24 @@
       </div>
 
       <div class="chat-composer__hint">
-        RAGBot answers only from your selected sources and cites every claim.
+        RAGBot is AI and can make mistakes. Please double-check responses.
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from "vue"
-import { Paperclip, LayoutGrid, ChevronDown, ArrowUp, Ban, Bot, Check } from "lucide-vue-next"
+import { ref, computed, watch } from "vue"
+import {
+  Paperclip,
+  LayoutGrid,
+  ChevronDown,
+  ArrowUp,
+  Ban,
+  Bot,
+  Check,
+  Search,
+} from "lucide-vue-next"
 import DatasetDrawer from "./DatasetDrawer.vue"
 
 const MAX_TOKENS = 8000
@@ -120,14 +165,37 @@ const MAX_TOKENS = 8000
 const props = defineProps({
   streaming: { type: Boolean, default: false },
   loading: { type: Boolean, default: false },
-  /** IDs of datasets linked to this conversation (read-only). */
-  datasets: { type: Array, default: () => [] },
+  /** All datasets available in the workspace (id, name, file_count). */
+  datasetOptions: { type: Array, default: () => [] },
+  /** IDs of datasets selected/linked for this conversation. */
+  selectedDatasetIds: { type: Array, default: () => [] },
+  /** When true, the dataset drawer is editable; otherwise read-only. */
+  datasetPickerInteractive: { type: Boolean, default: false },
+  /** Resolved dataset objects for the selected ids (pinned group / read-only list). */
+  selectedDatasets: { type: Array, default: () => [] },
+  /** Total datasets available for the current query (drives the truncation hint). */
+  datasetTotal: { type: Number, default: 0 },
+  /** When true, the dataset picker is fetching results. */
+  datasetLoading: { type: Boolean, default: false },
   agents: { type: Array, default: () => [] },
   selectedAgentId: { type: [String, null], default: null },
+  /** Resolved object for the current agent (pinned "Current" row + button label). */
+  selectedAgent: { type: [Object, null], default: null },
+  /** Total agents available for the current query (drives the truncation hint). */
+  agentTotal: { type: Number, default: 0 },
+  /** When true, the agent picker is fetching results. */
+  agentLoading: { type: Boolean, default: false },
   agentPickerInteractive: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(["send", "abort", "agent-change"])
+const emit = defineEmits([
+  "send",
+  "abort",
+  "agent-change",
+  "dataset-change",
+  "dataset-search",
+  "agent-search",
+])
 
 const value = ref("")
 const focused = ref(false)
@@ -138,13 +206,21 @@ const textareaRef = ref(null)
 const busy = computed(() => props.streaming || props.loading)
 const tokens = computed(() => Math.ceil(value.value.length / 4))
 const over = computed(() => tokens.value > MAX_TOKENS)
-const selCount = computed(() => props.datasets.length)
+const selCount = computed(() => props.selectedDatasetIds.length)
 const canSend = computed(() => value.value.trim().length > 0 && !over.value && !busy.value)
 const meterColor = computed(() =>
   over.value ? "var(--err)" : tokens.value > MAX_TOKENS * 0.8 ? "var(--warn)" : "var(--ink-4)",
 )
-const selectedAgent = computed(() => props.agents.find((a) => a.id === props.selectedAgentId))
-const agentLabel = computed(() => selectedAgent.value?.name || "Agent")
+const agentQuery = ref("")
+watch(agentPickerOpen, (open) => {
+  if (!open) agentQuery.value = ""
+})
+const agentLabel = computed(() => props.selectedAgent?.name || "Agent")
+const otherAgents = computed(() => props.agents.filter((a) => a.id !== props.selectedAgentId))
+
+function agentSub(a) {
+  return a.is_default ? "Default" : a.is_system ? "System" : a.model_config?.model?.split("/").pop()
+}
 
 function autoGrow(e) {
   const el = e.target
@@ -169,6 +245,13 @@ function submit() {
 function selectAgent(agentId) {
   emit("agent-change", agentId)
   agentPickerOpen.value = false
+}
+
+function onToggleDataset(id) {
+  const next = new Set(props.selectedDatasetIds)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  emit("dataset-change", Array.from(next))
 }
 </script>
 
@@ -337,6 +420,53 @@ function selectAgent(agentId) {
   text-transform: uppercase;
   letter-spacing: 0.07em;
   padding: 4px 8px 8px;
+}
+
+.agent-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 4px 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+}
+
+.agent-search__icon {
+  color: var(--ink-4);
+  flex-shrink: 0;
+}
+
+.agent-search__input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font: 400 12.5px var(--font-sans);
+  color: var(--ink);
+  width: 100%;
+}
+
+.agent-picker-group {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  padding: 6px 8px 3px;
+}
+
+.agent-picker-divider {
+  height: 1px;
+  background: var(--line);
+  margin: 6px 6px;
+}
+
+.agent-picker-hint {
+  font-size: 11.5px;
+  color: var(--ink-4);
+  margin: 8px 8px 4px;
+  line-height: 1.5;
 }
 
 .agent-picker-row {
