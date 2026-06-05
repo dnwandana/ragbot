@@ -77,6 +77,13 @@ export const useConversationsStore = defineStore("conversations", () => {
     conversations.value = conversations.value.filter((c) => c.id !== id)
   }
 
+  /**
+   * Clear the loaded conversation (e.g. when entering the new-conversation view).
+   */
+  function clearCurrentConversation() {
+    currentConversation.value = null
+  }
+
   return {
     conversations,
     currentConversation,
@@ -87,5 +94,6 @@ export const useConversationsStore = defineStore("conversations", () => {
     createConversation,
     updateConversation,
     deleteConversation,
+    clearCurrentConversation,
   }
 })

@@ -254,6 +254,12 @@ watch(
     if (id && workspaceId.value) {
       chatStore.reset()
       conversationsStore.fetchConversation(workspaceId.value, id)
+    } else {
+      // No conversation id → "new conversation" view. The component instance is
+      // reused across the Chat/NewChat routes, so the previously loaded
+      // conversation lingers in the store and would render here. Clear it.
+      chatStore.reset()
+      conversationsStore.clearCurrentConversation()
     }
   },
   { immediate: true },
