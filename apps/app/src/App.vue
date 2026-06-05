@@ -1,7 +1,9 @@
 <script setup>
 import { computed } from "vue"
 import { useRoute } from "vue-router"
+import { ConfigProvider } from "ant-design-vue"
 import AppLayout from "@/components/AppLayout.vue"
+import { antTheme } from "@/config/antd-theme.js"
 
 const route = useRoute()
 
@@ -12,8 +14,10 @@ const isAuthPage = computed(() => {
 </script>
 
 <template>
-  <RouterView v-if="isAuthPage" />
-  <AppLayout v-else>
-    <RouterView />
-  </AppLayout>
+  <ConfigProvider :theme="antTheme">
+    <RouterView v-if="isAuthPage" />
+    <AppLayout v-else>
+      <RouterView />
+    </AppLayout>
+  </ConfigProvider>
 </template>
