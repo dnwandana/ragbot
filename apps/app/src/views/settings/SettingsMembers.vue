@@ -72,10 +72,6 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.section-wrap {
-  padding: 28px 36px 60px;
-  max-width: 900px;
-}
 .section-hd {
   display: flex;
   align-items: flex-start;

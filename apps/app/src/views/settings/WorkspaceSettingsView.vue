@@ -7,5 +7,15 @@ const workspaceId = route.params.workspaceId
 </script>
 
 <template>
-  <RouterView :workspaceId="workspaceId" />
+  <div class="settings-canvas">
+    <RouterView :workspaceId="workspaceId" />
+  </div>
 </template>
+
+<style scoped>
+.settings-canvas {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 28px 36px 60px;
+}
+</style>

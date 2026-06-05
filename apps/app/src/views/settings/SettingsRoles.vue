@@ -170,10 +170,6 @@ function deleteDisabledReason(role) {
 </template>
 
 <style scoped>
-.section-wrap {
-  padding: 28px 36px 60px;
-  max-width: 900px;
-}
 .section-hd {
   margin-bottom: 18px;
 }

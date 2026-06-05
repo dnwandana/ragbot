@@ -148,11 +148,6 @@ function handleDeleteWorkspace() {
 </template>
 
 <style scoped>
-.section-wrap {
-  padding: 28px 36px 60px;
-  max-width: 720px;
-}
-
 .readonly-banner {
   display: flex;
   align-items: center;

@@ -140,10 +140,6 @@ function handleSave() {
 </template>
 
 <style scoped>
-.editor {
-  padding: 28px 36px 60px;
-  max-width: 900px;
-}
 .back {
   display: inline-flex;
   align-items: center;

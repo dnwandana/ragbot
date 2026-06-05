@@ -212,10 +212,6 @@ async function handleDeleteAccount() {
 </template>
 
 <style scoped>
-.section-wrap {
-  padding: 28px 36px 60px;
-  max-width: 720px;
-}
 .section-hd {
   margin-bottom: 14px;
 }
