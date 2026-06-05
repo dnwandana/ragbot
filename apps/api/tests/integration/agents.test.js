@@ -1,5 +1,6 @@
 import crypto from "node:crypto"
 import { vi } from "vitest"
+import db from "../../src/config/database.js"
 import {
   request,
   createTestUser,
@@ -120,6 +121,35 @@ describe("DELETE /api/workspaces/:id/agents/:agent_id", () => {
       .get(`/api/workspaces/${ws.id}/agents/${agentId}`)
       .set(await getAuthHeaders(user.id))
     expect(getRes.status).toBe(404)
+  })
+
+  it("writes a 'deleted' audit log when a custom agent is deleted", async () => {
+    const user = await createTestUser()
+    const ws = await createTestWorkspace(user.id)
+
+    const createRes = await (
+      await request()
+    )
+      .post(`/api/workspaces/${ws.id}/agents`)
+      .set(await getAuthHeaders(user.id))
+      .send({
+        name: "Audit Me",
+        system_prompt: "Temp agent",
+        model_config: { model: "openai/gpt-4.1" },
+      })
+    const agentId = createRes.body.data.id
+
+    const delRes = await (await request())
+      .delete(`/api/workspaces/${ws.id}/agents/${agentId}`)
+      .set(await getAuthHeaders(user.id))
+    expect(delRes.status).toBe(200)
+
+    const auditRow = await db("audit_logs")
+      .where({ workspace_id: ws.id, action: "deleted", entity_type: "agent", entity_id: agentId })
+      .first()
+    expect(auditRow).toBeDefined()
+    expect(auditRow.user_id).toBe(user.id)
+    expect(auditRow.entity_id).toBe(agentId)
   })
 })
 

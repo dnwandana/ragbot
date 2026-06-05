@@ -222,15 +222,16 @@ export const deleteAgent = async (req, res, next) => {
           trx,
         )
       }
-    })
 
-    await logAuditEvent({
-      workspace_id: req.workspace.id,
-      user_id: req.user.id,
-      entity_type: "agent",
-      entity_id: agent.id,
-      action: "deleted",
-      context: { request_id: req.id },
+      await logAuditEvent({
+        trx,
+        workspace_id: req.workspace.id,
+        user_id: req.user.id,
+        entity_type: "agent",
+        entity_id: agent.id,
+        action: "deleted",
+        context: { request_id: req.id },
+      })
     })
 
     return res.json(apiResponse({ message: "Agent deleted", data: null }))
