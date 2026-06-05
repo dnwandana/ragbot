@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from "vue"
+import { FileText, X } from "lucide-vue-next"
 import { humanSize, fileType, statusLabel, statusChipClass } from "@/utils/files"
 
 const props = defineProps({
@@ -44,17 +45,7 @@ const type = computed(() => fileType(props.file?.filename))
             </div>
           </div>
           <button class="icon-btn" @click="emit('close')" aria-label="Close">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-            >
-              <path d="M4 4l8 8M12 4l-8 8" />
-            </svg>
+            <X :size="14" :stroke-width="1.8" />
           </button>
         </div>
 
@@ -92,20 +83,7 @@ const type = computed(() => fileType(props.file?.filename))
           <section class="chunk-section">
             <h3 class="section-label">Chunk preview</h3>
             <div class="chunk-placeholder">
-              <svg
-                width="28"
-                height="28"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="var(--ink-4)"
-                stroke-width="1.3"
-                stroke-linecap="round"
-              >
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <line x1="7" y1="8" x2="17" y2="8" />
-                <line x1="7" y1="12" x2="17" y2="12" />
-                <line x1="7" y1="16" x2="13" y2="16" />
-              </svg>
+              <FileText :size="28" :stroke-width="1.3" style="color: var(--ink-4)" />
               <p class="placeholder-title">Chunk preview</p>
               <p class="placeholder-body">
                 Coming soon — will show indexed text segments and relevance scores.

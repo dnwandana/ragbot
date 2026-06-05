@@ -6,7 +6,7 @@
 
 /**
  * Ordered resource groups with display label and icon key. `icon` is a stable key
- * mapped to an Ant Design icon component by the consuming RolePermissionMatrix.
+ * mapped to a Lucide icon component by the consuming RolePermissionMatrix.
  */
 export const PERMISSION_GROUPS = [
   { resource: "workspace", label: "Workspace", icon: "workspace" },

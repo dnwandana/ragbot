@@ -39,7 +39,7 @@
             </span>
           </div>
           <button class="chat-view__sources-close" @click="closePanel">
-            <CloseOutlined />
+            <X :size="16" />
           </button>
         </div>
         <div class="chat-view__sources-list">
@@ -77,7 +77,7 @@
 <script setup>
 import { ref, computed, watch, nextTick, onMounted } from "vue"
 import { useRoute, useRouter } from "vue-router"
-import { CloseOutlined } from "@ant-design/icons-vue"
+import { X } from "lucide-vue-next"
 import { useConversationsStore } from "@/stores/conversations"
 import { useChatStore } from "@/stores/chat"
 import { useAgentsStore } from "@/stores/agents"

@@ -12,17 +12,8 @@
  */
 import { computed } from "vue"
 import { Switch } from "ant-design-vue"
-import {
-  AppstoreOutlined,
-  SafetyCertificateOutlined,
-  TeamOutlined,
-  AuditOutlined,
-  DatabaseOutlined,
-  FileTextOutlined,
-  RobotOutlined,
-  MessageOutlined,
-} from "@ant-design/icons-vue"
 import { groupPermissions } from "@/utils/permissionCatalog"
+import { permissionGroupIcon } from "./permissionGroupIcons"
 
 const props = defineProps({
   modelValue: { type: Array, default: () => [] },
@@ -31,18 +22,6 @@ const props = defineProps({
 })
 
 const emit = defineEmits(["update:modelValue"])
-
-/** Map catalog icon keys to Ant Design icon components. */
-const ICONS = {
-  workspace: AppstoreOutlined,
-  roles: SafetyCertificateOutlined,
-  members: TeamOutlined,
-  audit: AuditOutlined,
-  datasets: DatabaseOutlined,
-  files: FileTextOutlined,
-  agents: RobotOutlined,
-  conversations: MessageOutlined,
-}
 
 const groups = computed(() => groupPermissions(props.permissions))
 
@@ -67,7 +46,7 @@ function toggle(id) {
   <div class="matrix">
     <div v-for="group in groups" :key="group.resource" class="group">
       <div class="group-hd">
-        <component :is="ICONS[group.icon]" class="group-icon" />
+        <component :is="permissionGroupIcon(group.icon)" :size="16" class="group-icon" />
         <span class="group-label">{{ group.label }}</span>
         <span class="group-count">{{ enabledCount(group) }}/{{ group.permissions.length }}</span>
       </div>
@@ -108,7 +87,6 @@ function toggle(id) {
 }
 .group-icon {
   color: var(--ink-3);
-  font-size: 15px;
 }
 .group-label {
   font-size: var(--t-base);

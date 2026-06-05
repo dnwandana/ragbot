@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onUnmounted } from "vue"
+import { Mail } from "lucide-vue-next"
 import AuthShell from "@/components/AuthShell.vue"
 import { useAuth } from "@/composables/useAuth"
 import { useAuthStore } from "@/stores/auth.js"
@@ -36,10 +37,7 @@ onUnmounted(() => {
     <!-- State B: link sent -->
     <div v-if="sent" class="auth-card" style="text-align: center">
       <div class="status-icon status-icon--brand">
-        <svg viewBox="0 0 24 24">
-          <rect x="2" y="4" width="20" height="16" rx="2" />
-          <path d="m22 7-10 6L2 7" />
-        </svg>
+        <Mail :size="24" :stroke-width="1.5" />
       </div>
       <div class="auth-eyebrow">Reset requested</div>
       <h1 class="auth-title">Check your email</h1>

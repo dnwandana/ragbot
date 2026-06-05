@@ -1,14 +1,14 @@
 <template>
   <div v-if="sources.length > 0" class="source-citations">
     <button class="source-toggle" @click="emit('open-panel')">
-      <AppstoreOutlined />
+      <LayoutGrid :size="16" />
       {{ sources.length }} {{ sources.length === 1 ? "source" : "sources" }}
     </button>
   </div>
 </template>
 
 <script setup>
-import { AppstoreOutlined } from "@ant-design/icons-vue"
+import { LayoutGrid } from "lucide-vue-next"
 
 defineProps({
   /** Source objects — only length is used; detail renders in the side panel */

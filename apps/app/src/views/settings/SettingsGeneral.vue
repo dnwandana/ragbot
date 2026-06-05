@@ -1,6 +1,7 @@
 <!-- apps/app/src/views/settings/SettingsGeneral.vue -->
 <script setup>
 import { ref, computed, watch } from "vue"
+import { Info } from "lucide-vue-next"
 import { useRouter } from "vue-router"
 import { message, Modal } from "ant-design-vue"
 import { useWorkspacesStore } from "@/stores/workspaces"
@@ -80,17 +81,7 @@ function handleDeleteWorkspace() {
   <div class="section-wrap">
     <!-- Read-only banner -->
     <div v-if="!canEdit" class="readonly-banner">
-      <svg
-        width="15"
-        height="15"
-        viewBox="0 0 16 16"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.7"
-      >
-        <circle cx="8" cy="8" r="6" />
-        <path d="M8 6v4M8 4v.5" />
-      </svg>
+      <Info :size="15" :stroke-width="1.7" />
       You don't have permission to edit workspace settings.
     </div>
 

@@ -1,6 +1,18 @@
 <script setup>
 import { ref } from "vue"
 import { useRoute } from "vue-router"
+import {
+  Check,
+  ChevronDown,
+  LayoutGrid,
+  List,
+  Pencil,
+  Plus,
+  Search,
+  SlidersHorizontal,
+  Star,
+  Trash2,
+} from "lucide-vue-next"
 import AgentFormDrawer from "@/components/agents/AgentFormDrawer.vue"
 import { useAgents } from "@/composables/useAgents"
 import { usePaginationUI } from "@/composables/usePaginationUI"
@@ -94,17 +106,7 @@ async function confirmDelete() {
         <div class="page-sub">AI assistants powered by your datasets.</div>
       </div>
       <button class="btn-primary" @click="openCreate">
-        <svg
-          width="11"
-          height="11"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.2"
-          stroke-linecap="round"
-        >
-          <path d="M8 3v10M3 8h10" />
-        </svg>
+        <Plus :size="11" :stroke-width="2.2" />
         New agent
       </button>
     </div>
@@ -112,19 +114,7 @@ async function confirmDelete() {
     <!-- Toolbar: search + count + sort + view toggle -->
     <div class="toolbar" @click.stop>
       <div class="search-wrap" :class="{ 'search-wrap--active': query }">
-        <svg
-          width="13"
-          height="13"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-          style="flex-shrink: 0; color: var(--ink-4)"
-        >
-          <circle cx="6.5" cy="6.5" r="4.5" />
-          <line x1="10.5" y1="10.5" x2="14" y2="14" />
-        </svg>
+        <Search :size="13" :stroke-width="1.8" style="flex-shrink: 0; color: var(--ink-4)" />
         <input
           v-model="query"
           class="search-input"
@@ -139,31 +129,9 @@ async function confirmDelete() {
       <!-- Sort dropdown -->
       <div class="sort-wrap" @click.stop>
         <button class="sort-btn" @click="sortMenuOpen = !sortMenuOpen">
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-          >
-            <line x1="2" y1="5" x2="14" y2="5" />
-            <line x1="4" y1="9" x2="12" y2="9" />
-            <line x1="6" y1="13" x2="10" y2="13" />
-          </svg>
+          <SlidersHorizontal :size="12" :stroke-width="1.8" />
           {{ currentSortLabel }}
-          <svg
-            width="10"
-            height="10"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-          >
-            <polyline points="4 6 8 10 12 6" />
-          </svg>
+          <ChevronDown :size="10" :stroke-width="2" />
         </button>
         <div v-if="sortMenuOpen" class="sort-menu">
           <button
@@ -173,18 +141,11 @@ async function confirmDelete() {
             :class="{ 'sort-item--active': opt.sortBy === sortBy && opt.sortOrder === sortOrder }"
             @click="selectSort(opt)"
           >
-            <svg
+            <Check
               v-if="opt.sortBy === sortBy && opt.sortOrder === sortOrder"
-              width="12"
-              height="12"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2.2"
-              stroke-linecap="round"
-            >
-              <polyline points="2 8 6 12 14 4" />
-            </svg>
+              :size="12"
+              :stroke-width="2.2"
+            />
             <span v-else style="width: 12px; display: inline-block" />
             {{ opt.label }}
           </button>
@@ -197,19 +158,7 @@ async function confirmDelete() {
           :class="{ active: viewMode === 'cards' }"
           @click="viewMode = 'cards'"
         >
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.8"
-          >
-            <rect x="2" y="2" width="5" height="5" rx="1" />
-            <rect x="9" y="2" width="5" height="5" rx="1" />
-            <rect x="2" y="9" width="5" height="5" rx="1" />
-            <rect x="9" y="9" width="5" height="5" rx="1" />
-          </svg>
+          <LayoutGrid :size="12" :stroke-width="1.8" />
           Cards
         </button>
         <button
@@ -217,18 +166,7 @@ async function confirmDelete() {
           :class="{ active: viewMode === 'table' }"
           @click="viewMode = 'table'"
         >
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.8"
-          >
-            <line x1="2" y1="4" x2="14" y2="4" />
-            <line x1="2" y1="8" x2="14" y2="8" />
-            <line x1="2" y1="12" x2="14" y2="12" />
-          </svg>
+          <List :size="12" :stroke-width="1.8" />
           Table
         </button>
       </div>
@@ -308,17 +246,7 @@ async function confirmDelete() {
           Create an agent with a custom system prompt and model to power your conversations.
         </p>
         <button class="btn-primary btn-lg" @click="openCreate">
-          <svg
-            width="13"
-            height="13"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.2"
-            stroke-linecap="round"
-          >
-            <path d="M8 3v10M3 8h10" />
-          </svg>
+          <Plus :size="13" :stroke-width="2.2" />
           Create your first agent
         </button>
       </div>
@@ -326,19 +254,7 @@ async function confirmDelete() {
 
     <!-- Empty search: no results for current query -->
     <div v-else-if="!loading && !agents.length && query" class="search-empty">
-      <svg
-        width="22"
-        height="22"
-        viewBox="0 0 16 16"
-        fill="none"
-        stroke="var(--ink-4)"
-        stroke-width="1.6"
-        stroke-linecap="round"
-        style="margin-bottom: 10px"
-      >
-        <circle cx="6.5" cy="6.5" r="4.5" />
-        <line x1="10.5" y1="10.5" x2="14" y2="14" />
-      </svg>
+      <Search :size="22" :stroke-width="1.6" style="margin-bottom: 10px; color: var(--ink-4)" />
       <div class="search-empty-title">No agents match "{{ query }}"</div>
       <div class="search-empty-sub">Try a different name or description.</div>
       <button class="search-empty-clear" @click="query = ''">Clear search</button>
@@ -379,32 +295,11 @@ async function confirmDelete() {
                 class="menu-item menu-item--star"
                 @click="handleSetDefaultClick(agent)"
               >
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <polygon points="8 2 10 6 14 6.5 11 9.5 11.8 14 8 12 4.2 14 5 9.5 2 6.5 6 6" />
-                </svg>
+                <Star :size="13" :stroke-width="1.6" />
                 Set as default
               </button>
               <button class="menu-item" @click="handleEditClick(agent)">
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linecap="round"
-                >
-                  <path d="M11 2l3 3-8 8H3v-3z" />
-                </svg>
+                <Pencil :size="13" :stroke-width="1.6" />
                 Edit
               </button>
               <button
@@ -412,17 +307,7 @@ async function confirmDelete() {
                 :disabled="agent.is_system"
                 @click="openDelete(agent)"
               >
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linecap="round"
-                >
-                  <path d="M3 4h10M5 4V3h6v1M6 7v5M10 7v5M4 4l1 9h6l1-9" />
-                </svg>
+                <Trash2 :size="13" :stroke-width="1.6" />
                 Delete
               </button>
             </div>
@@ -488,32 +373,11 @@ async function confirmDelete() {
                 class="menu-item menu-item--star"
                 @click="handleSetDefaultClick(agent)"
               >
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <polygon points="8 2 10 6 14 6.5 11 9.5 11.8 14 8 12 4.2 14 5 9.5 2 6.5 6 6" />
-                </svg>
+                <Star :size="13" :stroke-width="1.6" />
                 Set as default
               </button>
               <button class="menu-item" @click="handleEditClick(agent)">
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linecap="round"
-                >
-                  <path d="M11 2l3 3-8 8H3v-3z" />
-                </svg>
+                <Pencil :size="13" :stroke-width="1.6" />
                 Edit
               </button>
               <button
@@ -521,17 +385,7 @@ async function confirmDelete() {
                 :disabled="agent.is_system"
                 @click="openDelete(agent)"
               >
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linecap="round"
-                >
-                  <path d="M3 4h10M5 4V3h6v1M6 7v5M10 7v5M4 4l1 9h6l1-9" />
-                </svg>
+                <Trash2 :size="13" :stroke-width="1.6" />
                 Delete
               </button>
             </div>

@@ -1,15 +1,15 @@
 <script setup>
 import { ref, computed, watch } from "vue"
 import {
-  UsergroupAddOutlined,
-  MailOutlined,
-  DownOutlined,
-  PlusOutlined,
-  CloseOutlined,
-  ArrowLeftOutlined,
-  LoadingOutlined,
-  ExclamationCircleOutlined,
-} from "@ant-design/icons-vue"
+  UserPlus,
+  Mail,
+  ChevronDown,
+  Plus,
+  X,
+  ArrowLeft,
+  LoaderCircle,
+  CircleAlert,
+} from "lucide-vue-next"
 
 const props = defineProps({
   ctx: { type: Object, required: true },
@@ -107,7 +107,7 @@ const inviteCount = computed(() => ctx.formData.invites.length)
 
 <template>
   <div class="ob-head">
-    <div class="ob-head-icon"><UsergroupAddOutlined /></div>
+    <div class="ob-head-icon"><UserPlus :size="16" /></div>
     <div class="ob-eyebrow">Step 2 · Optional</div>
     <h1 class="ob-title">Invite your team</h1>
     <p class="ob-subtitle">
@@ -120,7 +120,7 @@ const inviteCount = computed(() => ctx.formData.invites.length)
       <label class="ob-label">Email addresses</label>
       <div class="ob-invite-row">
         <div class="ob-input-wrap has-prefix" style="flex: 1">
-          <span class="ob-input-prefix"><MailOutlined /></span>
+          <span class="ob-input-prefix"><Mail :size="16" /></span>
           <input
             class="ob-input"
             :class="{ 'is-error': localErr }"
@@ -140,7 +140,7 @@ const inviteCount = computed(() => ctx.formData.invites.length)
             @click="roleSelectOpen = !roleSelectOpen"
           >
             <span>{{ selectedRole?.name ?? "Role" }}</span>
-            <DownOutlined style="color: var(--ink-4); font-size: 11px" />
+            <ChevronDown :size="11" style="color: var(--ink-4)" />
           </button>
           <div v-if="roleSelectOpen" class="ob-select-menu">
             <div
@@ -156,10 +156,10 @@ const inviteCount = computed(() => ctx.formData.invites.length)
         </div>
 
         <button type="button" class="ob-btn ob-btn-icon" title="Add" @click="addInvite">
-          <PlusOutlined />
+          <Plus :size="16" />
         </button>
       </div>
-      <div v-if="localErr" class="ob-error-text"><ExclamationCircleOutlined /> {{ localErr }}</div>
+      <div v-if="localErr" class="ob-error-text"><CircleAlert :size="16" /> {{ localErr }}</div>
       <div v-else class="ob-hint">
         Type an email and press Enter. Paste several — separate with commas.
       </div>
@@ -177,19 +177,19 @@ const inviteCount = computed(() => ctx.formData.invites.length)
           {{ roleName(inv.role_id) }}
         </span>
         <button class="ob-icon-btn" title="Remove" @click="removeInvite(inv.email)">
-          <CloseOutlined />
+          <X :size="16" />
         </button>
       </div>
     </div>
     <div v-else class="ob-invite-empty">
-      <UsergroupAddOutlined />
+      <UserPlus :size="16" />
       <span>No invites yet. Add a few teammates, or skip and invite later.</span>
     </div>
   </div>
 
   <div class="ob-actions">
     <div class="ob-actions-left">
-      <button class="ob-btn ob-btn-ghost" @click="ctx.back()"><ArrowLeftOutlined /> Back</button>
+      <button class="ob-btn ob-btn-ghost" @click="ctx.back()"><ArrowLeft :size="16" /> Back</button>
     </div>
     <div class="ob-actions-right">
       <button class="ob-btn ob-btn-secondary" @click="ctx.skip()">Skip for now</button>
@@ -198,7 +198,7 @@ const inviteCount = computed(() => ctx.formData.invites.length)
         :disabled="inviteCount === 0 || ctx.busy === 'invites'"
         @click="ctx.runAction('invites')"
       >
-        <LoadingOutlined v-if="ctx.busy === 'invites'" class="ob-spin" />
+        <LoaderCircle v-if="ctx.busy === 'invites'" class="ob-spin" :size="16" />
         Send {{ inviteCount > 0 ? inviteCount : "" }} {{ inviteCount === 1 ? "invite" : "invites" }}
       </button>
     </div>

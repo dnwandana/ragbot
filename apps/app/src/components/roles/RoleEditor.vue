@@ -15,7 +15,7 @@
  */
 import { ref, computed, watch } from "vue"
 import { Input, Button, message } from "ant-design-vue"
-import { ArrowLeftOutlined, LockOutlined } from "@ant-design/icons-vue"
+import { ArrowLeft, Lock } from "lucide-vue-next"
 import RolePermissionMatrix from "@/components/roles/RolePermissionMatrix.vue"
 
 const props = defineProps({
@@ -88,7 +88,7 @@ function handleSave() {
 <template>
   <div class="editor">
     <button class="back" type="button" @click="emit('cancel')">
-      <ArrowLeftOutlined /> Back to roles
+      <ArrowLeft :size="16" /> Back to roles
     </button>
 
     <div class="editor-hd">
@@ -97,7 +97,7 @@ function handleSave() {
     </div>
 
     <div v-if="readOnly" class="locked-banner">
-      <LockOutlined />
+      <Lock :size="16" />
       <span>Built-in roles are locked. Create a custom role if you need a variation.</span>
     </div>
 

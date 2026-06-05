@@ -1,16 +1,16 @@
 <script setup>
 import { ref, computed } from "vue"
 import {
-  DatabaseOutlined,
-  UploadOutlined,
-  LinkOutlined,
-  FileTextOutlined,
-  CloseOutlined,
-  ArrowLeftOutlined,
-  ArrowRightOutlined,
-  LoadingOutlined,
-  ExclamationCircleOutlined,
-} from "@ant-design/icons-vue"
+  Database,
+  Upload,
+  Link,
+  FileText,
+  X,
+  ArrowLeft,
+  ArrowRight,
+  LoaderCircle,
+  CircleAlert,
+} from "lucide-vue-next"
 
 const props = defineProps({
   ctx: { type: Object, required: true },
@@ -131,7 +131,7 @@ const readyCount = computed(
   <!-- Phase A: Name the dataset -->
   <template v-if="phase === 'name'">
     <div class="ob-head">
-      <div class="ob-head-icon"><DatabaseOutlined /></div>
+      <div class="ob-head-icon"><Database :size="16" /></div>
       <div class="ob-eyebrow">Step 3 · Optional</div>
       <h1 class="ob-title">Add a knowledge source</h1>
       <p class="ob-subtitle">
@@ -156,7 +156,9 @@ const readyCount = computed(
     </div>
     <div class="ob-actions">
       <div class="ob-actions-left">
-        <button class="ob-btn ob-btn-ghost" @click="ctx.back()"><ArrowLeftOutlined /> Back</button>
+        <button class="ob-btn ob-btn-ghost" @click="ctx.back()">
+          <ArrowLeft :size="16" /> Back
+        </button>
       </div>
       <div class="ob-actions-right">
         <button class="ob-btn ob-btn-secondary" @click="ctx.skip()">Skip for now</button>
@@ -165,7 +167,7 @@ const readyCount = computed(
           :disabled="!ctx.formData.datasetName.trim()"
           @click="phase = 'files'"
         >
-          Continue <ArrowRightOutlined />
+          Continue <ArrowRight :size="16" />
         </button>
       </div>
     </div>
@@ -174,7 +176,7 @@ const readyCount = computed(
   <!-- Phase B: Upload files / add URLs -->
   <template v-else>
     <div class="ob-head">
-      <div class="ob-head-icon"><DatabaseOutlined /></div>
+      <div class="ob-head-icon"><Database :size="16" /></div>
       <div class="ob-eyebrow">Step 3 · Optional</div>
       <h1 class="ob-title">Add files to your dataset</h1>
       <p class="ob-subtitle">
@@ -197,7 +199,7 @@ const readyCount = computed(
         @click="fileInputRef?.click()"
       >
         <input ref="fileInputRef" type="file" multiple class="ob-file-input" @change="onPick" />
-        <div class="ob-drop-icon"><UploadOutlined style="font-size: 22px" /></div>
+        <div class="ob-drop-icon"><Upload :size="22" /></div>
         <div class="ob-drop-title">
           Drag &amp; drop files here, or <span class="ob-link">browse</span>
         </div>
@@ -214,10 +216,10 @@ const readyCount = computed(
       <div class="ob-or"><span>or</span></div>
 
       <div class="ob-field">
-        <div v-if="urlErr" class="ob-error-text"><ExclamationCircleOutlined /> {{ urlErr }}</div>
+        <div v-if="urlErr" class="ob-error-text"><CircleAlert :size="16" /> {{ urlErr }}</div>
         <div class="ob-invite-row">
           <div class="ob-input-wrap has-prefix" style="flex: 1">
-            <span class="ob-input-prefix"><LinkOutlined /></span>
+            <span class="ob-input-prefix"><Link :size="16" /></span>
             <input
               class="ob-input"
               :class="{ 'is-error': urlErr }"
@@ -239,9 +241,9 @@ const readyCount = computed(
           :class="{ 'is-error': f.status === 'error' }"
         >
           <span class="ob-file-icon">
-            <LinkOutlined v-if="f.type === 'url'" />
-            <ExclamationCircleOutlined v-else-if="f.status === 'error'" />
-            <FileTextOutlined v-else />
+            <Link v-if="f.type === 'url'" :size="16" />
+            <CircleAlert v-else-if="f.status === 'error'" :size="16" />
+            <FileText v-else :size="16" />
           </span>
           <div class="ob-file-main">
             <div class="ob-file-top">
@@ -254,7 +256,7 @@ const readyCount = computed(
             </div>
           </div>
           <button class="ob-icon-btn" title="Remove" @click="removeFile(f.id)">
-            <CloseOutlined />
+            <X :size="16" />
           </button>
         </div>
       </div>
@@ -265,7 +267,7 @@ const readyCount = computed(
     <div class="ob-actions">
       <div class="ob-actions-left">
         <button class="ob-btn ob-btn-ghost" @click="phase = 'name'">
-          <ArrowLeftOutlined /> Back
+          <ArrowLeft :size="16" /> Back
         </button>
       </div>
       <div class="ob-actions-right">
@@ -275,7 +277,7 @@ const readyCount = computed(
           :disabled="readyCount === 0 || ctx.busy === 'source'"
           @click="ctx.runAction('source')"
         >
-          <LoadingOutlined v-if="ctx.busy === 'source'" class="ob-spin" />
+          <LoaderCircle v-if="ctx.busy === 'source'" class="ob-spin" :size="16" />
           Continue with {{ readyCount }} {{ readyCount === 1 ? "source" : "sources" }}
         </button>
       </div>

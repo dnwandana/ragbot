@@ -2,14 +2,7 @@
 <script setup>
 import { onMounted, computed } from "vue"
 import { Button, Tooltip } from "ant-design-vue"
-import {
-  LockOutlined,
-  SafetyCertificateOutlined,
-  EyeOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  PlusOutlined,
-} from "@ant-design/icons-vue"
+import { Lock, ShieldCheck, Eye, Pencil, Trash2, Plus } from "lucide-vue-next"
 import RoleEditor from "@/components/roles/RoleEditor.vue"
 import DeleteRoleModal from "@/components/roles/DeleteRoleModal.vue"
 import { useRoles } from "@/composables/useRoles"
@@ -88,7 +81,7 @@ function deleteDisabledReason(role) {
     </div>
 
     <div v-if="!canManage" class="readonly-banner">
-      <LockOutlined />
+      <Lock :size="16" />
       <span>You have read-only access to roles. Ask a workspace admin to make changes.</span>
     </div>
 
@@ -97,15 +90,15 @@ function deleteDisabledReason(role) {
     <div class="roles-grid">
       <div v-for="role in builtinRoles" :key="role.id" class="role-card">
         <div class="role-card__hd">
-          <SafetyCertificateOutlined class="role-icon" />
+          <ShieldCheck :size="16" class="role-icon" />
           <div class="role-name">{{ role.name }}</div>
-          <LockOutlined class="role-lock" />
+          <Lock :size="16" class="role-lock" />
         </div>
         <p class="role-desc">{{ role.description || "System role." }}</p>
         <div class="role-card__foot">
           <span class="chip">{{ memberLabel(role.member_count) }}</span>
           <button class="link-btn" type="button" @click="openView(workspaceId, role)">
-            <EyeOutlined /> View
+            <Eye :size="16" /> View
           </button>
         </div>
       </div>
@@ -115,24 +108,24 @@ function deleteDisabledReason(role) {
     <div class="block-hd block-hd--spaced">
       <span>Custom roles</span>
       <Button v-if="canCreate" type="primary" size="small" @click="openCreate">
-        <template #icon><PlusOutlined /></template>
+        <template #icon><Plus :size="16" /></template>
         Create role
       </Button>
     </div>
 
     <div v-if="customRoles.length === 0" class="empty">
-      <SafetyCertificateOutlined class="empty-icon" />
+      <ShieldCheck :size="26" class="empty-icon" />
       <div class="empty-title">No custom roles yet</div>
       <div class="empty-sub">Create a role to grant a precise set of permissions.</div>
       <Button v-if="canCreate" @click="openCreate">
-        <template #icon><PlusOutlined /></template>
+        <template #icon><Plus :size="16" /></template>
         Create role
       </Button>
     </div>
 
     <div v-else class="custom-list">
       <div v-for="role in customRoles" :key="role.id" class="custom-row">
-        <SafetyCertificateOutlined class="custom-icon" />
+        <span class="custom-icon"><ShieldCheck :size="16" /></span>
         <div class="custom-text">
           <div class="role-name">{{ role.name }}</div>
           <div class="custom-desc">{{ role.description || "Custom role." }}</div>
@@ -146,7 +139,9 @@ function deleteDisabledReason(role) {
             size="small"
             @click="canUpdate ? openEdit(workspaceId, role) : openView(workspaceId, role)"
           >
-            <template #icon><EditOutlined v-if="canUpdate" /><EyeOutlined v-else /></template>
+            <template #icon
+              ><Pencil v-if="canUpdate" :size="16" /><Eye v-else :size="16"
+            /></template>
             {{ canUpdate ? "Edit" : "View" }}
           </Button>
           <Tooltip v-if="canDelete" :title="deleteDisabledReason(role)">
@@ -156,7 +151,7 @@ function deleteDisabledReason(role) {
               :disabled="!!deleteDisabledReason(role)"
               @click="openDelete(role)"
             >
-              <template #icon><DeleteOutlined /></template>
+              <template #icon><Trash2 :size="16" /></template>
             </Button>
           </Tooltip>
         </div>
@@ -236,7 +231,6 @@ function deleteDisabledReason(role) {
 }
 .role-icon {
   color: var(--ink-3);
-  font-size: 17px;
 }
 .role-name {
   font-size: var(--t-base);
@@ -247,7 +241,6 @@ function deleteDisabledReason(role) {
 .role-lock {
   margin-left: auto;
   color: var(--ink-4);
-  font-size: 13px;
 }
 .role-desc {
   font-size: var(--t-sm);
@@ -292,7 +285,6 @@ function deleteDisabledReason(role) {
   border-radius: var(--r);
 }
 .empty-icon {
-  font-size: 26px;
   color: var(--ink-4);
   margin-bottom: 10px;
 }
@@ -332,7 +324,6 @@ function deleteDisabledReason(role) {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  font-size: 17px;
 }
 .custom-text {
   flex: 1;

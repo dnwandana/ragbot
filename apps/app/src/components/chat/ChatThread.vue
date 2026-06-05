@@ -20,7 +20,7 @@
           @click="emit('send', prompt.text)"
         >
           <span class="chat-thread__prompt-icon">
-            <component :is="promptIcon(prompt.icon)" />
+            <component :is="promptIcon(prompt.icon)" :size="17" />
           </span>
           <span>{{ prompt.text }}</span>
         </button>
@@ -59,16 +59,8 @@
 
 <script setup>
 import { ref, computed, watch, nextTick } from "vue"
-import {
-  KeyOutlined,
-  CodeOutlined,
-  TableOutlined,
-  BookOutlined,
-  MessageOutlined,
-} from "@ant-design/icons-vue"
+import { promptIcon } from "./promptIcons"
 import ChatMessage from "./ChatMessage.vue"
-
-const ICON_MAP = { key: KeyOutlined, code: CodeOutlined, table: TableOutlined, book: BookOutlined }
 
 const props = defineProps({
   messages: { type: Array, default: () => [] },
@@ -95,10 +87,6 @@ const greetingText = computed(() => {
   if (h < 18) return "Good afternoon"
   return "Good evening"
 })
-
-function promptIcon(icon) {
-  return ICON_MAP[icon] || MessageOutlined
-}
 
 watch(
   () => [
@@ -203,7 +191,6 @@ watch(
   flex-shrink: 0;
   margin-top: 1px;
   display: flex;
-  font-size: 17px;
 }
 
 /* ── Searching indicator ── */

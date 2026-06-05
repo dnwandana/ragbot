@@ -4,7 +4,7 @@ import { useRoute, useRouter } from "vue-router"
 import { useConversations } from "@/composables/useConversations"
 import { useAgentsStore } from "@/stores/agents"
 import { relativeTime } from "@/utils/time"
-import { PlusOutlined, MessageOutlined, DeleteOutlined } from "@ant-design/icons-vue"
+import { Plus, MessageSquare, Trash2 } from "lucide-vue-next"
 
 const route = useRoute()
 const router = useRouter()
@@ -61,7 +61,7 @@ const grouped = computed(() => {
         <div class="page-sub">Chat with your knowledge bases using AI agents.</div>
       </div>
       <button class="btn-brand" @click="startNewConversation">
-        <PlusOutlined style="font-size: 13px" />
+        <Plus :size="13" />
         New conversation
       </button>
     </div>
@@ -94,7 +94,7 @@ const grouped = computed(() => {
           @click="$router.push(`/workspaces/${workspaceId}/conversations/${conv.id}`)"
         >
           <div class="conv-icon">
-            <MessageOutlined style="font-size: 17px" />
+            <MessageSquare :size="17" />
           </div>
           <div class="conv-body">
             <div class="conv-title">{{ conv.title || "Untitled conversation" }}</div>
@@ -109,14 +109,14 @@ const grouped = computed(() => {
           </div>
           <span class="conv-time">{{ relativeTime(conv.last_message_at || conv.created_at) }}</span>
           <button class="conv-more" @click.stop="handleDelete(conv.id)" title="Delete conversation">
-            <DeleteOutlined style="font-size: 14px" />
+            <Trash2 :size="14" />
           </button>
         </div>
       </template>
 
       <!-- New conversation prompt row -->
       <button class="conv-new" @click="startNewConversation">
-        <PlusOutlined style="font-size: 13px" />
+        <Plus :size="13" />
         Start a new conversation…
       </button>
     </div>

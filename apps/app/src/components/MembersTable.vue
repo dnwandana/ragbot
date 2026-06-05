@@ -20,7 +20,7 @@
 
 import { h, computed } from "vue"
 import { Table, Tag, Select, Button, Space, Popconfirm } from "ant-design-vue"
-import { DeleteOutlined } from "@ant-design/icons-vue"
+import { Trash2 } from "lucide-vue-next"
 
 const props = defineProps({
   members: {
@@ -141,7 +141,11 @@ const columns = computed(() => {
               cancelText: "No",
               onConfirm: () => handleRemove(record.id),
             },
-            () => h(Button, { danger: true, size: "small" }, () => [h(DeleteOutlined), " Remove"]),
+            () =>
+              h(Button, { danger: true, size: "small" }, () => [
+                h(Trash2, { size: 16 }),
+                " Remove",
+              ]),
           ),
         ])
       },

@@ -1,10 +1,5 @@
 <script setup>
-import {
-  AppstoreOutlined,
-  ArrowLeftOutlined,
-  LoadingOutlined,
-  ExclamationCircleOutlined,
-} from "@ant-design/icons-vue"
+import { LayoutGrid, ArrowLeft, LoaderCircle, CircleAlert } from "lucide-vue-next"
 
 const props = defineProps({
   ctx: { type: Object, required: true },
@@ -14,7 +9,7 @@ const ctx = props.ctx
 
 <template>
   <div class="ob-head">
-    <div class="ob-head-icon"><AppstoreOutlined /></div>
+    <div class="ob-head-icon"><LayoutGrid :size="16" /></div>
     <div class="ob-eyebrow">Step 1 · Required</div>
     <h1 class="ob-title">Create your workspace</h1>
     <p class="ob-subtitle">
@@ -44,7 +39,7 @@ const ctx = props.ctx
         />
       </div>
       <div v-if="ctx.errors.workspace" class="ob-error-text">
-        <ExclamationCircleOutlined />
+        <CircleAlert :size="16" />
         {{ ctx.errors.workspace }}
       </div>
       <div v-else class="ob-hint">Letters, numbers and spaces.</div>
@@ -53,7 +48,7 @@ const ctx = props.ctx
 
   <div class="ob-actions">
     <div class="ob-actions-left">
-      <button class="ob-btn ob-btn-ghost" @click="ctx.back()"><ArrowLeftOutlined /> Back</button>
+      <button class="ob-btn ob-btn-ghost" @click="ctx.back()"><ArrowLeft :size="16" /> Back</button>
     </div>
     <div class="ob-actions-right">
       <button
@@ -61,7 +56,7 @@ const ctx = props.ctx
         :disabled="!ctx.formData.workspaceName.trim() || ctx.busy === 'workspace'"
         @click="ctx.runAction('workspace')"
       >
-        <LoadingOutlined v-if="ctx.busy === 'workspace'" class="ob-spin" />
+        <LoaderCircle v-if="ctx.busy === 'workspace'" class="ob-spin" :size="16" />
         Create workspace
       </button>
     </div>

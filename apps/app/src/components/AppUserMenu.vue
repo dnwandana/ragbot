@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from "vue"
+import { User, Lock } from "lucide-vue-next"
 import { useRouter } from "vue-router"
 import { useAuthStore } from "@/stores/auth"
 
@@ -127,18 +128,7 @@ onBeforeUnmount(() => {
           @keydown.enter.prevent="navigateTo('SettingsProfile')"
           @keydown.space.prevent="navigateTo('SettingsProfile')"
         >
-          <svg
-            class="menu-icon"
-            width="14"
-            height="14"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.7"
-          >
-            <circle cx="8" cy="6" r="3" />
-            <path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" />
-          </svg>
+          <User :size="14" :stroke-width="1.7" class="menu-icon" />
           Profile
         </div>
         <div
@@ -149,18 +139,7 @@ onBeforeUnmount(() => {
           @keydown.enter.prevent="navigateTo('SettingsAccount')"
           @keydown.space.prevent="navigateTo('SettingsAccount')"
         >
-          <svg
-            class="menu-icon"
-            width="14"
-            height="14"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.7"
-          >
-            <rect x="3" y="7" width="10" height="7" rx="1" />
-            <path d="M5 7V5a3 3 0 0 1 6 0v2" />
-          </svg>
+          <Lock :size="14" :stroke-width="1.7" class="menu-icon" />
           Security
         </div>
       </template>

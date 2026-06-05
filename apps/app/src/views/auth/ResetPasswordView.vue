@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from "vue"
 import { useRoute, useRouter } from "vue-router"
+import { TriangleAlert, CircleCheck } from "lucide-vue-next"
 import AuthShell from "@/components/AuthShell.vue"
 import StrengthMeter from "@/components/StrengthMeter.vue"
 import { useAuth } from "@/composables/useAuth"
@@ -53,13 +54,7 @@ onUnmounted(() => {
     <!-- State B: no / expired token -->
     <div v-if="invalidLink" class="auth-card" style="text-align: center">
       <div class="status-icon status-icon--err">
-        <svg viewBox="0 0 24 24">
-          <path
-            d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"
-          />
-          <line x1="12" y1="9" x2="12" y2="13" />
-          <line x1="12" y1="17" x2="12.01" y2="17" />
-        </svg>
+        <TriangleAlert :size="24" :stroke-width="1.5" />
       </div>
       <div class="auth-eyebrow">Link unusable</div>
       <h1 class="auth-title">Reset link expired</h1>
@@ -76,10 +71,7 @@ onUnmounted(() => {
     <!-- State C: success -->
     <div v-else-if="done" class="auth-card" style="text-align: center">
       <div class="status-icon status-icon--ok">
-        <svg viewBox="0 0 24 24">
-          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-          <polyline points="22 4 12 14.01 9 11.01" />
-        </svg>
+        <CircleCheck :size="24" :stroke-width="1.5" />
       </div>
       <div class="auth-eyebrow">Password updated</div>
       <h1 class="auth-title">You're good to go</h1>

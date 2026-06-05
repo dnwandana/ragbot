@@ -1,11 +1,5 @@
 <script setup>
-import {
-  RobotOutlined,
-  ArrowLeftOutlined,
-  LoadingOutlined,
-  CheckOutlined,
-  ExclamationCircleOutlined,
-} from "@ant-design/icons-vue"
+import { Bot, ArrowLeft, LoaderCircle, Check, CircleAlert } from "lucide-vue-next"
 import { AGENT_TEMPLATES } from "../agentTemplates.js"
 
 const props = defineProps({
@@ -27,7 +21,7 @@ function pickTemplate(tpl) {
 
 <template>
   <div class="ob-head">
-    <div class="ob-head-icon"><RobotOutlined /></div>
+    <div class="ob-head-icon"><Bot :size="16" /></div>
     <div class="ob-eyebrow">Step 4 · Optional</div>
     <h1 class="ob-title">Create your first agent</h1>
     <p class="ob-subtitle">
@@ -54,7 +48,7 @@ function pickTemplate(tpl) {
         "
       />
       <div v-if="ctx.errors.agent" class="ob-error-text">
-        <ExclamationCircleOutlined /> {{ ctx.errors.agent }}
+        <CircleAlert :size="16" /> {{ ctx.errors.agent }}
       </div>
     </div>
 
@@ -71,7 +65,7 @@ function pickTemplate(tpl) {
           <span class="ob-tpl-label">{{ tpl.label }}</span>
           <span class="ob-tpl-desc">{{ tpl.desc }}</span>
           <span v-if="ctx.formData.agentTemplate === tpl.key" class="ob-tpl-check">
-            <CheckOutlined />
+            <Check :size="16" />
           </span>
         </button>
       </div>
@@ -92,7 +86,7 @@ function pickTemplate(tpl) {
 
   <div class="ob-actions">
     <div class="ob-actions-left">
-      <button class="ob-btn ob-btn-ghost" @click="ctx.back()"><ArrowLeftOutlined /> Back</button>
+      <button class="ob-btn ob-btn-ghost" @click="ctx.back()"><ArrowLeft :size="16" /> Back</button>
     </div>
     <div class="ob-actions-right">
       <button class="ob-btn ob-btn-secondary" @click="ctx.skip()">Skip for now</button>
@@ -101,7 +95,7 @@ function pickTemplate(tpl) {
         :disabled="!ctx.formData.agentName.trim() || ctx.busy === 'agent'"
         @click="ctx.runAction('agent')"
       >
-        <LoadingOutlined v-if="ctx.busy === 'agent'" class="ob-spin" />
+        <LoaderCircle v-if="ctx.busy === 'agent'" class="ob-spin" :size="16" />
         Create agent
       </button>
     </div>

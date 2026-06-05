@@ -36,7 +36,7 @@
                 :disabled="!agentPickerInteractive"
                 @click="agentPickerInteractive && (agentPickerOpen = !agentPickerOpen)"
               >
-                <RobotOutlined style="font-size: 15px" />
+                <Bot :size="15" />
               </button>
 
               <!-- Agent picker popup -->
@@ -61,7 +61,7 @@
                       }}
                     </div>
                   </div>
-                  <CheckOutlined v-if="a.id === selectedAgentId" style="font-size: 13px" />
+                  <Check v-if="a.id === selectedAgentId" :size="13" />
                 </button>
               </div>
             </div>
@@ -74,13 +74,13 @@
             title="Choose sources to search"
             @click="drawerOpen = !drawerOpen"
           >
-            <PaperClipOutlined />
+            <Paperclip :size="16" />
           </button>
 
           <button class="chat-composer__chip" @click="drawerOpen = !drawerOpen">
-            <AppstoreOutlined />
+            <LayoutGrid :size="16" />
             {{ selCount }} {{ selCount === 1 ? "source" : "sources" }}
-            <DownOutlined />
+            <ChevronDown :size="16" />
           </button>
 
           <span v-if="value.length > 0" class="chat-composer__meter" :style="{ color: meterColor }">
@@ -88,7 +88,7 @@
           </span>
 
           <button v-if="streaming" class="chat-composer__stop" @click="emit('abort')">
-            <StopOutlined /> Stop
+            <Ban :size="16" /> Stop
           </button>
           <button
             v-else
@@ -98,7 +98,7 @@
             @click="submit"
           >
             {{ loading ? "Searching…" : "Send" }}
-            <ArrowUpOutlined v-if="!loading" />
+            <ArrowUp v-if="!loading" :size="16" />
           </button>
         </div>
       </div>
@@ -112,15 +112,7 @@
 
 <script setup>
 import { ref, computed } from "vue"
-import {
-  PaperClipOutlined,
-  AppstoreOutlined,
-  DownOutlined,
-  ArrowUpOutlined,
-  StopOutlined,
-  RobotOutlined,
-  CheckOutlined,
-} from "@ant-design/icons-vue"
+import { Paperclip, LayoutGrid, ChevronDown, ArrowUp, Ban, Bot, Check } from "lucide-vue-next"
 import DatasetDrawer from "./DatasetDrawer.vue"
 
 const MAX_TOKENS = 8000

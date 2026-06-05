@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from "vue"
 import { useRoute } from "vue-router"
-import { ClockCircleOutlined, InboxOutlined, FileSearchOutlined } from "@ant-design/icons-vue"
+import { Clock, Inbox, FileSearch } from "lucide-vue-next"
 import AuditFilterBar from "@/components/audit/AuditFilterBar.vue"
 import AuditTable from "@/components/audit/AuditTable.vue"
 import AuditDetailDrawer from "@/components/audit/AuditDetailDrawer.vue"
@@ -50,7 +50,7 @@ const selectedActor = computed(() =>
         <div class="page-eyebrow">Settings</div>
         <div class="page-title">Audit logs</div>
         <div class="page-sub">
-          <ClockCircleOutlined />
+          <Clock :size="16" />
           Every action in your workspace, in one place.
         </div>
       </div>
@@ -81,7 +81,7 @@ const selectedActor = computed(() =>
 
       <!-- Empty (no events, no filters) -->
       <div v-else-if="!loading && !auditLogs.length && !hasFilters" class="centered">
-        <div class="centered-icon"><InboxOutlined /></div>
+        <div class="centered-icon"><Inbox :size="24" /></div>
         <div class="centered-title">No activity yet</div>
         <div class="centered-body">
           Audit events appear here as people and integrations act on your workspace — managing
@@ -91,7 +91,7 @@ const selectedActor = computed(() =>
 
       <!-- Zero results (filters match nothing) -->
       <div v-else-if="!loading && !auditLogs.length && hasFilters" class="centered">
-        <div class="centered-icon"><FileSearchOutlined /></div>
+        <div class="centered-icon"><FileSearch :size="24" /></div>
         <div class="centered-title">No events match your filters</div>
         <div class="centered-body">Try removing a filter to widen the results.</div>
         <button class="btn-primary" @click="clearFilters">Clear all filters</button>

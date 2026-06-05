@@ -1,13 +1,6 @@
 <script setup>
 import { computed } from "vue"
-import {
-  FilterOutlined,
-  ThunderboltOutlined,
-  TeamOutlined,
-  DownOutlined,
-  CheckOutlined,
-  CloseOutlined,
-} from "@ant-design/icons-vue"
+import { Funnel, Zap, Users, ChevronDown, Check, X } from "lucide-vue-next"
 import {
   ENTITY_TYPE_OPTIONS,
   ACTION_OPTIONS,
@@ -45,9 +38,9 @@ const popupContainer = (trigger) => trigger.parentElement
       <!-- Event type -->
       <a-dropdown :trigger="['click']" :get-popup-container="popupContainer">
         <button class="afb-btn" :class="{ active: entityType }">
-          <FilterOutlined />
+          <Funnel :size="16" />
           {{ entityType ? entityTypeLabel(entityType) : "Event type" }}
-          <DownOutlined class="afb-caret" />
+          <ChevronDown :size="16" class="afb-caret" />
         </button>
         <template #overlay>
           <div class="afb-menu">
@@ -59,7 +52,7 @@ const popupContainer = (trigger) => trigger.parentElement
               @click="toggle('entityType', o.value)"
             >
               <span class="afb-item-label">{{ o.label }}</span>
-              <CheckOutlined v-if="entityType === o.value" class="afb-check" />
+              <Check v-if="entityType === o.value" :size="16" class="afb-check" />
             </button>
           </div>
         </template>
@@ -68,9 +61,9 @@ const popupContainer = (trigger) => trigger.parentElement
       <!-- Action -->
       <a-dropdown :trigger="['click']" :get-popup-container="popupContainer">
         <button class="afb-btn" :class="{ active: action }">
-          <ThunderboltOutlined />
+          <Zap :size="16" />
           {{ action ? actionLabel(action) : "Action" }}
-          <DownOutlined class="afb-caret" />
+          <ChevronDown :size="16" class="afb-caret" />
         </button>
         <template #overlay>
           <div class="afb-menu">
@@ -82,7 +75,7 @@ const popupContainer = (trigger) => trigger.parentElement
               @click="toggle('action', o.value)"
             >
               <span class="afb-item-label">{{ o.label }}</span>
-              <CheckOutlined v-if="action === o.value" class="afb-check" />
+              <Check v-if="action === o.value" :size="16" class="afb-check" />
             </button>
           </div>
         </template>
@@ -91,9 +84,9 @@ const popupContainer = (trigger) => trigger.parentElement
       <!-- Actor -->
       <a-dropdown :trigger="['click']" :get-popup-container="popupContainer">
         <button class="afb-btn" :class="{ active: userId }">
-          <TeamOutlined />
+          <Users :size="16" />
           {{ userId ? actorLabel : "Actor" }}
-          <DownOutlined class="afb-caret" />
+          <ChevronDown :size="16" class="afb-caret" />
         </button>
         <template #overlay>
           <div class="afb-menu afb-menu--scroll">
@@ -105,7 +98,7 @@ const popupContainer = (trigger) => trigger.parentElement
               @click="toggle('userId', o.value)"
             >
               <span class="afb-item-label">{{ o.label }}</span>
-              <CheckOutlined v-if="userId === o.value" class="afb-check" />
+              <Check v-if="userId === o.value" :size="16" class="afb-check" />
             </button>
             <div v-if="!memberOptions.length" class="afb-empty">No members</div>
           </div>
@@ -121,24 +114,24 @@ const popupContainer = (trigger) => trigger.parentElement
         <span class="afb-chip-pre">Event type:</span>
         <span class="afb-chip-val">{{ entityTypeLabel(entityType) }}</span>
         <button class="afb-chip-x" aria-label="Remove" @click="emit('update:entityType', null)">
-          <CloseOutlined />
+          <X :size="16" />
         </button>
       </span>
       <span v-if="action" class="afb-chip">
         <span class="afb-chip-pre">Action:</span>
         <span class="afb-chip-val">{{ actionLabel(action) }}</span>
         <button class="afb-chip-x" aria-label="Remove" @click="emit('update:action', null)">
-          <CloseOutlined />
+          <X :size="16" />
         </button>
       </span>
       <span v-if="userId" class="afb-chip">
         <span class="afb-chip-pre">Actor:</span>
         <span class="afb-chip-val">{{ actorLabel }}</span>
         <button class="afb-chip-x" aria-label="Remove" @click="emit('update:userId', null)">
-          <CloseOutlined />
+          <X :size="16" />
         </button>
       </span>
-      <button class="afb-clear" @click="emit('clear')"><CloseOutlined /> Clear all</button>
+      <button class="afb-clear" @click="emit('clear')"><X :size="16" /> Clear all</button>
     </div>
   </div>
 </template>

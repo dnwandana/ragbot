@@ -1,5 +1,5 @@
 <script setup>
-import { RightOutlined } from "@ant-design/icons-vue"
+import { ChevronRight } from "lucide-vue-next"
 import { category, entityIcon, verb, resourceLabel, timeOfDay } from "@/components/audit/auditMaps"
 import { auditIcon } from "@/components/audit/auditIcons"
 import { relativeTime } from "@/utils/time"
@@ -48,7 +48,7 @@ const emit = defineEmits(["open"])
       <div class="at-action">
         <span class="at-verb">{{ verb(e.action, e.entity_type) }}</span>
         <span class="at-respill">
-          <component :is="auditIcon(entityIcon(e.entity_type))" />
+          <component :is="auditIcon(entityIcon(e.entity_type))" :size="16" />
           <span class="at-res-text">{{ resourceLabel(e) }}</span>
         </span>
       </div>
@@ -62,7 +62,7 @@ const emit = defineEmits(["open"])
             color: category(e.entity_type).text,
           }"
         >
-          <component :is="auditIcon(category(e.entity_type).icon)" />
+          <component :is="auditIcon(category(e.entity_type).icon)" :size="16" />
           {{ category(e.entity_type).label }}
         </span>
       </div>
@@ -74,7 +74,7 @@ const emit = defineEmits(["open"])
       </div>
 
       <!-- Caret -->
-      <div class="at-caret"><RightOutlined /></div>
+      <div class="at-caret"><ChevronRight :size="16" /></div>
     </div>
   </div>
 </template>

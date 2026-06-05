@@ -10,8 +10,8 @@
       <span class="chat-message__dot">·</span>
       <span class="chat-message__time">{{ msg.time }}</span>
       <button class="chat-message__tool-btn" title="Copy" @click="handleCopy">
-        <CheckOutlined v-if="copyActive" />
-        <CopyOutlined v-else />
+        <Check v-if="copyActive" :size="16" />
+        <Copy v-else :size="16" />
       </button>
     </div>
   </div>
@@ -61,7 +61,7 @@
 
       <!-- Error card -->
       <div v-if="msg.error" class="chat-message__error">
-        <span class="chat-message__error-icon"><ExclamationCircleOutlined /></span>
+        <span class="chat-message__error-icon"><CircleAlert :size="16" /></span>
         <div>
           <div class="chat-message__error-title">Generation interrupted</div>
           <div class="chat-message__error-msg">
@@ -88,8 +88,8 @@
       <span class="chat-message__dot">·</span>
       <span class="chat-message__time">{{ msg.time }}</span>
       <button class="chat-message__tool-btn" title="Copy" @click="handleCopy">
-        <CheckOutlined v-if="copyActive" />
-        <CopyOutlined v-else />
+        <Check v-if="copyActive" :size="16" />
+        <Copy v-else :size="16" />
       </button>
     </div>
   </div>
@@ -97,7 +97,7 @@
 
 <script setup>
 import { ref, onUnmounted } from "vue"
-import { CheckOutlined, CopyOutlined, ExclamationCircleOutlined } from "@ant-design/icons-vue"
+import { Check, Copy, CircleAlert } from "lucide-vue-next"
 import MarkdownRenderer from "./MarkdownRenderer.vue"
 import SourceCitations from "./SourceCitations.vue"
 
@@ -303,7 +303,6 @@ onUnmounted(() => clearTimeout(copyTimer))
 
 .chat-message__error-icon {
   color: var(--err);
-  font-size: 16px;
   flex-shrink: 0;
 }
 

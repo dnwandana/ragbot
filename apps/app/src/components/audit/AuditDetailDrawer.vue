@@ -1,12 +1,6 @@
 <script setup>
 import { ref, computed, watch, onUnmounted, nextTick } from "vue"
-import {
-  CloseOutlined,
-  CopyOutlined,
-  CheckOutlined,
-  CodeOutlined,
-  ArrowRightOutlined,
-} from "@ant-design/icons-vue"
+import { X, Copy, Check, Code, ArrowRight } from "lucide-vue-next"
 import {
   category,
   entityIcon,
@@ -132,25 +126,25 @@ onUnmounted(() => {
         <div class="ad-head">
           <div class="ad-head-top">
             <span class="ad-icon"
-              ><component :is="auditIcon(entityIcon(event.entity_type))"
+              ><component :is="auditIcon(entityIcon(event.entity_type))" :size="16"
             /></span>
             <div class="ad-titlewrap">
               <div class="ad-title">{{ title }}</div>
               <div class="ad-res">{{ resource }}</div>
             </div>
             <button ref="closeBtnEl" class="ad-iconbtn" aria-label="Close" @click="emit('close')">
-              <CloseOutlined />
+              <X :size="16" />
             </button>
           </div>
           <div class="ad-meta">
             <span class="ad-badge" :style="{ background: cat.softBg, color: cat.text }">
-              <component :is="auditIcon(cat.icon)" />
+              <component :is="auditIcon(cat.icon)" :size="16" />
               {{ cat.label }}
             </span>
             <span style="flex: 1" />
             <button class="ad-idpill" @click="copy(event.id, copiedId, 'id')">
-              <CheckOutlined v-if="copiedId" />
-              <CopyOutlined v-else />
+              <Check v-if="copiedId" :size="16" />
+              <Copy v-else :size="16" />
               {{ copiedId ? "Copied" : event.id }}
             </button>
           </div>
@@ -159,7 +153,7 @@ onUnmounted(() => {
               Details
             </button>
             <button class="ad-tab" :class="{ on: tab === 'raw' }" @click="tab = 'raw'">
-              <CodeOutlined /> Raw JSON
+              <Code :size="16" /> Raw JSON
             </button>
           </div>
         </div>
@@ -199,7 +193,7 @@ onUnmounted(() => {
                 <div class="ad-diffhd">{{ row.field }}</div>
                 <div class="ad-diffrow">
                   <span class="ad-old">{{ row.before }}</span>
-                  <ArrowRightOutlined style="color: var(--ink-4)" />
+                  <ArrowRight :size="16" style="color: var(--ink-4)" />
                   <span class="ad-new">{{ row.after }}</span>
                 </div>
               </div>
@@ -232,7 +226,7 @@ onUnmounted(() => {
           <template v-else>
             <div class="ad-rawwrap">
               <button class="ad-copybtn" @click="copy(rawJson, copiedRaw, 'raw')">
-                <CheckOutlined v-if="copiedRaw" /><CopyOutlined v-else />
+                <Check v-if="copiedRaw" :size="16" /><Copy v-else :size="16" />
                 {{ copiedRaw ? "Copied" : "Copy" }}
               </button>
               <pre class="ad-pre">{{ rawJson }}</pre>

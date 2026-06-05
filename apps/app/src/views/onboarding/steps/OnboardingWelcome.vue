@@ -1,13 +1,5 @@
 <script setup>
-import {
-  BorderOutlined,
-  AppstoreOutlined,
-  UsergroupAddOutlined,
-  DatabaseOutlined,
-  RobotOutlined,
-  ClockCircleOutlined,
-  ArrowRightOutlined,
-} from "@ant-design/icons-vue"
+import { Square, LayoutGrid, UserPlus, Database, Bot, Clock, ArrowRight } from "lucide-vue-next"
 
 const props = defineProps({
   ctx: { type: Object, required: true },
@@ -15,21 +7,21 @@ const props = defineProps({
 
 const STEP_META = [
   {
-    icon: AppstoreOutlined,
+    icon: LayoutGrid,
     required: true,
     desc: "Name the home for your team, sources, and agents.",
   },
   {
-    icon: UsergroupAddOutlined,
+    icon: UserPlus,
     required: false,
     desc: "Invite teammates by email and set their roles.",
   },
   {
-    icon: DatabaseOutlined,
+    icon: Database,
     required: false,
     desc: "Upload documents or link a URL to search over.",
   },
-  { icon: RobotOutlined, required: false, desc: "Create a persona with its own instructions." },
+  { icon: Bot, required: false, desc: "Create a persona with its own instructions." },
 ]
 </script>
 
@@ -37,7 +29,7 @@ const STEP_META = [
   <div class="ob-welcome">
     <div class="ob-welcome-top">
       <div class="ob-welcome-mark">
-        <BorderOutlined />
+        <Square :size="16" />
       </div>
       <h1 class="ob-title ob-title-lg">Let's get you set up</h1>
       <p class="ob-subtitle ob-subtitle-wide">
@@ -51,7 +43,7 @@ const STEP_META = [
       <ul class="ob-expect-list">
         <li v-for="(meta, i) in STEP_META" :key="i" class="ob-expect-item">
           <span class="ob-expect-num">{{ i + 1 }}</span>
-          <span class="ob-expect-icon"><component :is="meta.icon" /></span>
+          <span class="ob-expect-icon"><component :is="meta.icon" :size="16" /></span>
           <span class="ob-expect-text">
             <span class="ob-expect-name">
               {{ props.ctx.steps[i].label }}
@@ -66,12 +58,12 @@ const STEP_META = [
 
     <div class="ob-welcome-foot">
       <span class="ob-est">
-        <ClockCircleOutlined />
+        <Clock :size="16" />
         About {{ props.ctx.steps.length + 1 }} minutes
       </span>
       <button class="ob-btn ob-btn-primary ob-btn-lg" @click="props.ctx.next()">
         Get started
-        <ArrowRightOutlined />
+        <ArrowRight :size="16" />
       </button>
     </div>
   </div>

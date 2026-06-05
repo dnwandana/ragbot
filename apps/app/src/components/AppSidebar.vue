@@ -2,13 +2,25 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue"
 import { useRoute, useRouter } from "vue-router"
 import {
-  SearchOutlined,
-  PlusOutlined,
-  MessageOutlined,
-  EllipsisOutlined,
-  EditOutlined,
-  DeleteOutlined,
-} from "@ant-design/icons-vue"
+  ChevronDown,
+  MessageSquare,
+  Database,
+  Bot,
+  Settings,
+  Users,
+  Star,
+  FileText,
+  LayoutGrid,
+  Mail,
+  Sun,
+  Moon,
+  LogOut,
+  Search,
+  Plus,
+  Ellipsis,
+  Pencil,
+  Trash2,
+} from "lucide-vue-next"
 import AppUserMenu from "@/components/AppUserMenu.vue"
 import { useAuthStore } from "@/stores/auth"
 import { useWorkspacesStore } from "@/stores/workspaces"
@@ -204,9 +216,7 @@ onBeforeUnmount(() => {
     <div class="ws-pill" @click="navigate('/workspaces')">
       <span class="ws-pill__name">{{ currentWorkspace?.name || "Select workspace" }}</span>
       <span class="ws-pill__caret">
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-          <path d="M2 4l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-        </svg>
+        <ChevronDown :size="10" :stroke-width="1.5" />
       </span>
     </div>
 
@@ -218,18 +228,7 @@ onBeforeUnmount(() => {
         :class="{ active: isActive(`/workspaces/${workspaceId}/conversations`) }"
         @click="navigate(`/workspaces/${workspaceId}/conversations`)"
       >
-        <svg
-          class="nav-icon"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.7"
-        >
-          <path
-            d="M2 2h12a1 1 0 011 1v8a1 1 0 01-1 1H5l-3 2V3a1 1 0 011-1z"
-            stroke-linejoin="round"
-          />
-        </svg>
+        <MessageSquare class="nav-icon" :size="15" :stroke-width="1.7" />
         Conversations
       </button>
 
@@ -238,17 +237,7 @@ onBeforeUnmount(() => {
         :class="{ active: isActive(`/workspaces/${workspaceId}/datasets`) }"
         @click="navigate(`/workspaces/${workspaceId}/datasets`)"
       >
-        <svg
-          class="nav-icon"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.7"
-        >
-          <ellipse cx="8" cy="4" rx="6" ry="2.5" />
-          <path d="M2 4v4c0 1.38 2.686 2.5 6 2.5S14 9.38 14 8V4" />
-          <path d="M2 8v4c0 1.38 2.686 2.5 6 2.5S14 13.38 14 12V8" />
-        </svg>
+        <Database class="nav-icon" :size="15" :stroke-width="1.7" />
         Datasets
       </button>
 
@@ -257,19 +246,7 @@ onBeforeUnmount(() => {
         :class="{ active: isActive(`/workspaces/${workspaceId}/agents`) }"
         @click="navigate(`/workspaces/${workspaceId}/agents`)"
       >
-        <svg
-          class="nav-icon"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.7"
-        >
-          <rect x="3" y="1.5" width="10" height="8" rx="3" />
-          <circle cx="5.5" cy="6" r="1" fill="currentColor" stroke="none" />
-          <circle cx="10.5" cy="6" r="1" fill="currentColor" stroke="none" />
-          <path d="M5 11.5c0-1.657 1.343-2.5 3-2.5s3 .843 3 2.5" stroke-linecap="round" />
-          <path d="M8 9.5v2" stroke-linecap="round" />
-        </svg>
+        <Bot class="nav-icon" :size="15" :stroke-width="1.7" />
         Agents
       </button>
     </nav>
@@ -279,11 +256,11 @@ onBeforeUnmount(() => {
       <div style="height: 1px; background: var(--line); margin: 8px 12px" />
 
       <button class="sidebar-new-btn" @click="onNewConversation">
-        <PlusOutlined /> New conversation
+        <Plus :size="16" /> New conversation
       </button>
 
       <div class="sidebar-search">
-        <SearchOutlined class="sidebar-search__icon" />
+        <Search class="sidebar-search__icon" :size="14" />
         <input
           v-model="conversationSearch"
           class="sidebar-search__input"
@@ -310,7 +287,7 @@ onBeforeUnmount(() => {
             }"
             @click="onSelectConversation(c.id)"
           >
-            <MessageOutlined class="sidebar-convo-item__icon" />
+            <MessageSquare class="sidebar-convo-item__icon" :size="15" :stroke-width="1.7" />
             <span class="sidebar-convo-item__title">{{ c.title }}</span>
             <div class="sidebar-convo-item__trail">
               <span class="sidebar-convo-item__time">{{ relativeTime(c.created_at) }}</span>
@@ -319,7 +296,7 @@ onBeforeUnmount(() => {
                 aria-label="Conversation options"
                 @click.stop="openKebabMenu($event, c.id)"
               >
-                <EllipsisOutlined />
+                <Ellipsis :size="16" />
               </button>
             </div>
           </div>
@@ -342,19 +319,7 @@ onBeforeUnmount(() => {
         :class="{ active: route.name === 'SettingsGeneral' }"
         @click="navigate(`/workspaces/${workspaceId}/settings/general`)"
       >
-        <svg
-          class="nav-icon"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.7"
-        >
-          <circle cx="8" cy="8" r="2.5" />
-          <path
-            d="M8 1.5v1M8 13.5v1M1.5 8h1M13.5 8h1M3.34 3.34l.71.71M11.95 11.95l.71.71M3.34 12.66l.71-.71M11.95 4.05l.71-.71"
-            stroke-linecap="round"
-          />
-        </svg>
+        <Settings class="nav-icon" :size="15" :stroke-width="1.7" />
         General
       </button>
 
@@ -364,18 +329,7 @@ onBeforeUnmount(() => {
         :class="{ active: route.name === 'SettingsMembers' }"
         @click="navigate(`/workspaces/${workspaceId}/settings/members`)"
       >
-        <svg
-          class="nav-icon"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.7"
-        >
-          <circle cx="6" cy="5" r="2.5" />
-          <path d="M1 14c0-2.8 2.2-5 5-5" />
-          <circle cx="12" cy="8" r="2" />
-          <path d="M10 14c0-1.7.9-3 2-3s2 1.3 2 3" />
-        </svg>
+        <Users class="nav-icon" :size="15" :stroke-width="1.7" />
         Members
       </button>
 
@@ -385,15 +339,7 @@ onBeforeUnmount(() => {
         :class="{ active: route.name === 'SettingsRoles' }"
         @click="navigate(`/workspaces/${workspaceId}/settings/roles`)"
       >
-        <svg
-          class="nav-icon"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.7"
-        >
-          <path d="M8 1l1.8 4L14 5.8l-3 3 .7 4.2L8 11l-3.7 2 .7-4.2-3-3 4.2-.8z" />
-        </svg>
+        <Star class="nav-icon" :size="15" :stroke-width="1.7" />
         Roles
       </button>
 
@@ -403,16 +349,7 @@ onBeforeUnmount(() => {
         :class="{ active: isActive(`/workspaces/${workspaceId}/audit-logs`) }"
         @click="navigate(`/workspaces/${workspaceId}/audit-logs`)"
       >
-        <svg
-          class="nav-icon"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.7"
-        >
-          <path d="M3 1.5h7l3 3v10H3z" stroke-linejoin="round" />
-          <path d="M5.5 7.5h5M5.5 10h5M5.5 5h2" stroke-linecap="round" />
-        </svg>
+        <FileText class="nav-icon" :size="15" :stroke-width="1.7" />
         Audit logs
       </button>
 
@@ -421,18 +358,7 @@ onBeforeUnmount(() => {
         :class="{ active: route.path === '/workspaces' }"
         @click="navigate('/workspaces')"
       >
-        <svg
-          class="nav-icon"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.7"
-        >
-          <rect x="1" y="1" width="6" height="6" rx="1.5" />
-          <rect x="9" y="1" width="6" height="6" rx="1.5" />
-          <rect x="1" y="9" width="6" height="6" rx="1.5" />
-          <rect x="9" y="9" width="6" height="6" rx="1.5" />
-        </svg>
+        <LayoutGrid class="nav-icon" :size="15" :stroke-width="1.7" />
         All Workspaces
       </button>
 
@@ -441,16 +367,7 @@ onBeforeUnmount(() => {
         :class="{ active: isActive('/invitations') }"
         @click="navigate('/invitations')"
       >
-        <svg
-          class="nav-icon"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.7"
-        >
-          <rect x="1" y="3.5" width="14" height="10" rx="1.5" />
-          <path d="M1 5.5l7 5 7-5" stroke-linejoin="round" />
-        </svg>
+        <Mail class="nav-icon" :size="15" :stroke-width="1.7" />
         Invitations
         <span v-if="pendingCount > 0" class="nav-badge">{{ pendingCount }}</span>
       </button>
@@ -464,48 +381,11 @@ onBeforeUnmount(() => {
         :title="theme === 'dark' ? 'Light mode' : 'Dark mode'"
         @click="toggleTheme"
       >
-        <svg
-          v-if="theme === 'dark'"
-          width="14"
-          height="14"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.7"
-        >
-          <circle cx="8" cy="8" r="3.5" />
-          <path
-            d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.2 3.2l1.1 1.1M11.7 11.7l1.1 1.1M3.2 12.8l1.1-1.1M11.7 4.3l1.1-1.1"
-            stroke-linecap="round"
-          />
-        </svg>
-        <svg
-          v-else
-          width="14"
-          height="14"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.7"
-        >
-          <path d="M13.5 10A6 6 0 016 2.5a6 6 0 100 11 6 6 0 007.5-3.5z" stroke-linejoin="round" />
-        </svg>
+        <Sun v-if="theme === 'dark'" :size="14" :stroke-width="1.7" />
+        <Moon v-else :size="14" :stroke-width="1.7" />
       </button>
       <button class="icon-btn" title="Sign out" @click="handleLogout">
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 14 14"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.7"
-        >
-          <path
-            d="M9 2h3a1 1 0 011 1v8a1 1 0 01-1 1H9M5 9.5L2 7l3-2.5M2 7h8"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
+        <LogOut :size="14" :stroke-width="1.7" />
       </button>
     </div>
     <!-- Kebab dropdown -->
@@ -521,7 +401,7 @@ onBeforeUnmount(() => {
             openRenameModal(conversationsStore.conversations.find((c) => c.id === menuConvoId))
           "
         >
-          <EditOutlined /> Rename
+          <Pencil :size="16" /> Rename
         </div>
         <div
           class="sidebar-menu__item sidebar-menu__item--danger"
@@ -529,7 +409,7 @@ onBeforeUnmount(() => {
             openDeleteModal(conversationsStore.conversations.find((c) => c.id === menuConvoId))
           "
         >
-          <DeleteOutlined /> Delete
+          <Trash2 :size="16" /> Delete
         </div>
       </div>
     </Teleport>
@@ -577,7 +457,7 @@ onBeforeUnmount(() => {
       >
         <div class="sidebar-modal">
           <div style="display: flex; gap: 13px; align-items: flex-start">
-            <span class="sidebar-modal__error-icon"><DeleteOutlined /></span>
+            <span class="sidebar-modal__error-icon"><Trash2 :size="16" /></span>
             <div>
               <div class="sidebar-modal__title">Delete conversation?</div>
               <div class="sidebar-modal__body">
@@ -695,8 +575,6 @@ onBeforeUnmount(() => {
   border: 1px solid var(--line);
 }
 .nav-icon {
-  width: 15px;
-  height: 15px;
   flex-shrink: 0;
   color: inherit;
 }
@@ -781,7 +659,6 @@ onBeforeUnmount(() => {
   left: 9px;
   color: var(--ink-4);
   pointer-events: none;
-  font-size: 14px;
 }
 
 .sidebar-search__input {
@@ -853,7 +730,6 @@ onBeforeUnmount(() => {
 
 .sidebar-convo-item__icon {
   color: var(--ink-4);
-  font-size: 15px;
   flex-shrink: 0;
 }
 
@@ -902,7 +778,6 @@ onBeforeUnmount(() => {
   background: transparent;
   border: none;
   cursor: pointer;
-  font-size: 16px;
   opacity: 0;
   pointer-events: none;
   transition:
@@ -1076,6 +951,5 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  font-size: 17px;
 }
 </style>

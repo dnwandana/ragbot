@@ -1,13 +1,7 @@
 <script setup>
 import { ref, reactive, computed, watchEffect, onMounted, onUnmounted } from "vue"
 import { useRouter } from "vue-router"
-import {
-  AppstoreOutlined,
-  UsergroupAddOutlined,
-  DatabaseOutlined,
-  RobotOutlined,
-  ArrowRightOutlined,
-} from "@ant-design/icons-vue"
+import { LayoutGrid, UserPlus, Database, Bot, ArrowRight } from "lucide-vue-next"
 import { useWorkspacesStore } from "@/stores/workspaces"
 import { useRolesStore } from "@/stores/roles"
 import { useDatasetsStore } from "@/stores/datasets"
@@ -36,10 +30,10 @@ const LS_KEY = "ragbot-onboarding-v1"
 const RESERVED = ["admin", "test", "ragbot", "demo", "www", "api"]
 
 const STEPS = [
-  { key: "workspace", label: "Create your workspace", icon: AppstoreOutlined, required: true },
-  { key: "invites", label: "Invite your team", icon: UsergroupAddOutlined, required: false },
-  { key: "source", label: "Add a knowledge source", icon: DatabaseOutlined, required: false },
-  { key: "agent", label: "Create your first agent", icon: RobotOutlined, required: false },
+  { key: "workspace", label: "Create your workspace", icon: LayoutGrid, required: true },
+  { key: "invites", label: "Invite your team", icon: UserPlus, required: false },
+  { key: "source", label: "Add a knowledge source", icon: Database, required: false },
+  { key: "agent", label: "Create your first agent", icon: Bot, required: false },
 ]
 
 const view = ref("welcome")
@@ -423,7 +417,7 @@ onUnmounted(() => clearTimeout(toastTimer))
         <div class="ob-modal-actions">
           <button class="ob-btn ob-btn-secondary" @click="exitOpen = false">Keep setting up</button>
           <button class="ob-btn ob-btn-primary" @click="exitLater">
-            Exit to dashboard <ArrowRightOutlined />
+            Exit to dashboard <ArrowRight :size="16" />
           </button>
         </div>
       </div>

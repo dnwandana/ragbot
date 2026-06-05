@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from "vue"
+import { Check, CloudUpload, FileText, Globe, Upload, X } from "lucide-vue-next"
 import { useDatasetFilesStore } from "@/stores/datasetFiles"
 import { humanSize } from "@/utils/files"
 
@@ -102,17 +103,7 @@ function onClose() {
         <div class="drawer-head">
           <span class="drawer-title">Add source</span>
           <button class="icon-btn" @click="onClose" aria-label="Close">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-            >
-              <path d="M4 4l8 8M12 4l-8 8" />
-            </svg>
+            <X :size="14" :stroke-width="1.8" />
           </button>
         </div>
 
@@ -123,32 +114,11 @@ function onClose() {
             :class="{ active: activeTab === 'upload' }"
             @click="activeTab = 'upload'"
           >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-            >
-              <path d="M8 12V4M4 8l4-4 4 4" />
-            </svg>
+            <Upload :size="12" :stroke-width="1.8" />
             Upload files
           </button>
           <button class="tab" :class="{ active: activeTab === 'url' }" @click="activeTab = 'url'">
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-            >
-              <path d="M10 8a2 2 0 11-4 0 2 2 0 014 0z" />
-              <path d="M6.5 5.5a4.5 4.5 0 100 5" />
-            </svg>
+            <Globe :size="12" :stroke-width="1.8" />
             Web URL
           </button>
         </div>
@@ -163,18 +133,7 @@ function onClose() {
             @drop="onDrop"
           >
             <div class="drop-icon">
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.5"
-                stroke-linecap="round"
-              >
-                <path d="M12 15V3M8 7l4-4 4 4" />
-                <path d="M20 15v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4" />
-              </svg>
+              <CloudUpload :size="20" :stroke-width="1.5" />
             </div>
             <p class="drop-text">Drop files here</p>
             <p class="drop-sub">PDF, DOCX, Markdown, plain text</p>
@@ -192,48 +151,19 @@ function onClose() {
 
           <div v-if="uploadItems.length" class="upload-list">
             <div v-for="item in uploadItems" :key="item.id" class="upload-row">
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="var(--ink-3)"
-                stroke-width="1.5"
-                stroke-linecap="round"
-              >
-                <rect x="3" y="2" width="10" height="12" rx="1" />
-                <line x1="6" y1="6" x2="10" y2="6" />
-                <line x1="6" y1="9" x2="10" y2="9" />
-              </svg>
+              <FileText :size="13" :stroke-width="1.5" class="upload-file-icon" />
               <div class="upload-info">
                 <span class="upload-name">{{ item.name }}</span>
                 <span v-if="item.error" class="upload-error">{{ item.error }}</span>
               </div>
               <span class="upload-size">{{ item.size }}</span>
-              <svg
-                v-if="item.status === 'done'"
-                width="14"
-                height="14"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="var(--ok)"
-                stroke-width="2"
-                stroke-linecap="round"
-              >
-                <polyline points="3 8 6 11 13 4" />
-              </svg>
-              <svg
+              <Check v-if="item.status === 'done'" :size="14" :stroke-width="2" class="status-ok" />
+              <X
                 v-else-if="item.status === 'failed'"
-                width="14"
-                height="14"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="var(--err)"
-                stroke-width="2"
-                stroke-linecap="round"
-              >
-                <path d="M4 4l8 8M12 4l-8 8" />
-              </svg>
+                :size="14"
+                :stroke-width="2"
+                class="status-err"
+              />
               <span v-else class="upload-spinner" />
             </div>
           </div>
@@ -456,6 +386,18 @@ function onClose() {
 .upload-size {
   font-size: 11px;
   color: var(--ink-4);
+  flex-shrink: 0;
+}
+.upload-file-icon {
+  color: var(--ink-3);
+  flex-shrink: 0;
+}
+.status-ok {
+  color: var(--ok);
+  flex-shrink: 0;
+}
+.status-err {
+  color: var(--err);
   flex-shrink: 0;
 }
 @keyframes spin {

@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from "vue"
+import { Menu } from "lucide-vue-next"
 import { useAuthStore } from "@/stores/auth"
 import { useWorkspacesStore } from "@/stores/workspaces"
 import { useInvitations } from "@/composables/useInvitations"
@@ -34,14 +35,7 @@ onUnmounted(() => window.removeEventListener("resize", onResize))
     <!-- Mobile top bar -->
     <header class="app-topbar">
       <button class="topbar-menu" @click="isMobileDrawerOpen = true" aria-label="Open menu">
-        <svg width="16" height="12" viewBox="0 0 16 12" fill="none">
-          <path
-            d="M1 1h14M1 6h14M1 11h14"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-          />
-        </svg>
+        <Menu :size="16" :stroke-width="1.8" />
       </button>
       <div class="topbar-brand">
         <svg class="brand-mark" viewBox="4 6 40 36" role="img" aria-label="RAGBot mark">

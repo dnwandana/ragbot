@@ -1,5 +1,5 @@
 <script setup>
-import { CheckCircleOutlined, ExclamationCircleOutlined } from "@ant-design/icons-vue"
+import { CircleCheck, CircleAlert } from "lucide-vue-next"
 
 defineProps({
   toast: { type: Object, default: null },
@@ -9,8 +9,8 @@ defineProps({
 <template>
   <Transition name="ob-toast-fade">
     <div v-if="toast" class="ob-toast" :class="{ 'ob-toast-err': toast.tone === 'err' }">
-      <CheckCircleOutlined v-if="toast.tone === 'ok'" />
-      <ExclamationCircleOutlined v-else />
+      <CircleCheck v-if="toast.tone === 'ok'" :size="16" />
+      <CircleAlert v-else :size="16" />
       <span>{{ toast.msg }}</span>
     </div>
   </Transition>

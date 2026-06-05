@@ -1,33 +1,33 @@
 import {
-  DatabaseOutlined,
-  MessageOutlined,
-  TeamOutlined,
-  RobotOutlined,
-  AppstoreOutlined,
-  FileTextOutlined,
-  UserOutlined,
-  SafetyCertificateOutlined,
-  PaperClipOutlined,
-} from "@ant-design/icons-vue"
+  Database,
+  MessageSquare,
+  Users,
+  Bot,
+  LayoutGrid,
+  FileText,
+  User,
+  ShieldCheck,
+  Paperclip,
+} from "lucide-vue-next"
 
-/** @type {Record<string, object>} icon key → Ant Design Vue icon component */
+/** @type {Record<string, object>} icon key → Lucide icon component */
 const AUDIT_ICONS = {
-  database: DatabaseOutlined,
-  message: MessageOutlined,
-  team: TeamOutlined,
-  robot: RobotOutlined,
-  appstore: AppstoreOutlined,
-  file: FileTextOutlined,
-  user: UserOutlined,
-  safety: SafetyCertificateOutlined,
-  paperclip: PaperClipOutlined,
+  database: Database,
+  message: MessageSquare,
+  team: Users,
+  robot: Bot,
+  appstore: LayoutGrid,
+  file: FileText,
+  user: User,
+  safety: ShieldCheck,
+  paperclip: Paperclip,
 }
 
 /**
- * Resolve an audit icon key to an Ant Design Vue icon component.
+ * Resolve an audit icon key to a Lucide icon component.
  * @param {string} key
- * @returns {object} Ant icon component (defaults to FileTextOutlined).
+ * @returns {object} Lucide icon component (defaults to FileText).
  */
 export function auditIcon(key) {
-  return AUDIT_ICONS[key] || FileTextOutlined
+  return AUDIT_ICONS[key] || FileText
 }

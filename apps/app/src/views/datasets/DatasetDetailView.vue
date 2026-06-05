@@ -8,7 +8,18 @@ import { relativeTime } from "@/utils/time"
 import { humanSize, fileType, statusLabel, statusChipClass } from "@/utils/files"
 import AddSourceDrawer from "@/components/datasets/AddSourceDrawer.vue"
 import FileDetailPanel from "@/components/datasets/FileDetailPanel.vue"
-import { EllipsisOutlined, PlusOutlined } from "@ant-design/icons-vue"
+import {
+  ChevronLeft,
+  ChevronRight,
+  Ellipsis,
+  Globe,
+  MessageSquare,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  Upload,
+} from "lucide-vue-next"
 
 const route = useRoute()
 const router = useRouter()
@@ -217,17 +228,7 @@ const visiblePages = computed(() => {
           @click="$router.push(`/workspaces/${workspaceId}/datasets`)"
           aria-label="Back to datasets"
         >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-          >
-            <path d="M10 4L6 8l4 4" />
-          </svg>
+          <ChevronLeft :size="14" :stroke-width="1.8" />
         </button>
         <div>
           <div class="page-title">{{ dataset?.name ?? "Dataset" }}</div>
@@ -253,57 +254,26 @@ const visiblePages = computed(() => {
             @click="dsMenuOpen = !dsMenuOpen"
             aria-label="Dataset options"
           >
-            <ellipsis-outlined />
+            <Ellipsis :size="16" />
           </button>
           <div v-if="dsMenuOpen" class="menu-popup">
             <button class="menu-item" @click="openEdit">
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.6"
-                stroke-linecap="round"
-              >
-                <path d="M11 2l3 3-8 8H3v-3z" />
-              </svg>
+              <Pencil :size="13" :stroke-width="1.6" />
               Edit dataset
             </button>
             <hr class="menu-divider" />
             <button class="menu-item menu-item--danger" @click="openDeleteMenu">
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.6"
-                stroke-linecap="round"
-              >
-                <path d="M3 4h10M5 4V3h6v1M6 7v5M10 7v5M4 4l1 9h6l1-9" />
-              </svg>
+              <Trash2 :size="13" :stroke-width="1.6" />
               Delete dataset
             </button>
           </div>
         </div>
         <button class="btn-brand" @click="startChatFromDataset">
-          <svg
-            width="13"
-            height="13"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M2 2h12a1 1 0 011 1v8a1 1 0 01-1 1H5l-3 2V3a1 1 0 011-1z" />
-          </svg>
+          <MessageSquare :size="13" :stroke-width="2" />
           Start chat
         </button>
         <button class="btn-primary" @click="openDrawer">
-          <plus-outlined />
+          <Plus :size="16" />
           Add source
         </button>
       </div>
@@ -312,17 +282,7 @@ const visiblePages = computed(() => {
     <!-- Toolbar -->
     <div class="toolbar">
       <div class="search-box">
-        <svg
-          width="13"
-          height="13"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="var(--ink-3)"
-          stroke-width="1.7"
-        >
-          <circle cx="7" cy="7" r="4.5" />
-          <line x1="10.5" y1="10.5" x2="14" y2="14" />
-        </svg>
+        <Search :size="13" :stroke-width="1.7" style="color: var(--ink-3)" />
         <input
           v-model="searchQuery"
           class="search-input"
@@ -354,17 +314,7 @@ const visiblePages = computed(() => {
       <button class="bulk-clear" @click="selected.clear()">Clear selection</button>
       <div style="flex: 1" />
       <button class="btn-danger" @click="handleBulkDelete">
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.7"
-          stroke-linecap="round"
-        >
-          <path d="M3 4h10M5 4V3h6v1M6 7v5M10 7v5M4 4l1 9h6l1-9" />
-        </svg>
+        <Trash2 :size="12" :stroke-width="1.7" />
         Delete selected
       </button>
     </div>
@@ -403,33 +353,11 @@ const visiblePages = computed(() => {
         </p>
         <div class="files-empty-actions">
           <button class="btn-primary" @click="drawerOpen = true">
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-            >
-              <path d="M8 12V4M4 8l4-4 4 4" />
-            </svg>
+            <Upload :size="12" :stroke-width="2" />
             Upload files
           </button>
           <button class="btn-secondary" @click="drawerOpen = true">
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-            >
-              <circle cx="8" cy="8" r="5.5" />
-              <line x1="8" y1="5" x2="8" y2="8" />
-              <circle cx="8" cy="11" r="0.5" fill="currentColor" />
-            </svg>
+            <Globe :size="12" :stroke-width="1.8" />
             Add a URL
           </button>
         </div>
@@ -515,17 +443,7 @@ const visiblePages = computed(() => {
           </span>
           <div class="pg-buttons">
             <button class="pg-nav" :disabled="page === 1" @click="page--">
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.8"
-                stroke-linecap="round"
-              >
-                <path d="M10 4L6 8l4 4" />
-              </svg>
+              <ChevronLeft :size="12" :stroke-width="1.8" />
               Prev
             </button>
             <span v-if="visiblePages[0] > 1" class="pg-ellipsis">…</span>
@@ -543,17 +461,7 @@ const visiblePages = computed(() => {
             >
             <button class="pg-nav" :disabled="page === totalPages" @click="page++">
               Next
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.8"
-                stroke-linecap="round"
-              >
-                <path d="M6 4l4 4-4 4" />
-              </svg>
+              <ChevronRight :size="12" :stroke-width="1.8" />
             </button>
           </div>
         </div>
