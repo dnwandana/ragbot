@@ -1,5 +1,7 @@
 import db from "../config/database.js"
 
+const CHUNK_COLUMNS = ["id", "dataset_file_id", "content", "chunk_index"]
+
 /**
  * Bulk-insert document chunks with pgvector embeddings using a raw parameterised query.
  *
@@ -28,10 +30,11 @@ export const bulkInsert = async (chunks) => {
  * Delete all document chunks belonging to a specific dataset file.
  *
  * @param {string} datasetFileId - UUID of the parent dataset_files record
+ * @param {import('knex').Knex.Transaction} [trx] - Optional Knex transaction
  * @returns {Promise<number>} Number of rows deleted
  */
-export const deleteByFileId = (datasetFileId) =>
-  db("document_chunks").where({ dataset_file_id: datasetFileId }).delete()
+export const deleteByFileId = (datasetFileId, trx) =>
+  (trx ?? db)("document_chunks").where({ dataset_file_id: datasetFileId }).delete()
 
 /**
  * Count document chunks for a specific dataset file.
@@ -58,4 +61,32 @@ export const deleteByDatasetId = (datasetId, trx) => {
       (trx ?? db)("dataset_files").select("id").where({ dataset_id: datasetId }),
     )
     .delete()
+}
+
+/**
+ * Count document chunks for a file using the (conditions, options) signature
+ * expected by executePaginatedQuery.
+ *
+ * @param {Object} filter
+ * @param {string} filter.dataset_file_id - UUID of the parent dataset_files record
+ * @returns {Promise<{ count: string }>} Row count object
+ */
+export const count = ({ dataset_file_id }) =>
+  db("document_chunks").count("* as count").where({ dataset_file_id }).first()
+
+/**
+ * Return a paginated list of document chunks for a file, excluding the embedding vector.
+ *
+ * @param {Object} filter
+ * @param {string} filter.dataset_file_id - UUID of the parent dataset_files record
+ * @param {Object} [options]
+ * @param {number} [options.limit] - Maximum rows to return
+ * @param {number} [options.offset] - Number of rows to skip
+ * @param {Array<{ column: string, order: string }>} [options.orders] - Sort directives
+ * @returns {Promise<Object[]>} Chunk rows (id, dataset_file_id, content, chunk_index)
+ */
+export const findManyPaginated = ({ dataset_file_id }, { limit, offset, orders } = {}) => {
+  const q = db.select(CHUNK_COLUMNS).from("document_chunks").where({ dataset_file_id })
+  if (orders?.length) orders.forEach(({ column, order }) => q.orderBy(column, order))
+  return q.limit(limit).offset(offset)
 }

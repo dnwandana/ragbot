@@ -79,9 +79,20 @@ export async function up(knex) {
       WITH (m = 16, ef_construction = 200)
   `)
   await knex.raw(`CREATE INDEX idx_chunks_file_order ON document_chunks (dataset_file_id, chunk_index)`)
+
+  await knex.raw(`
+    CREATE TABLE dataset_file_questions (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      dataset_file_id UUID NOT NULL REFERENCES dataset_files(id) ON DELETE CASCADE,
+      question TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `)
+  await knex.raw(`CREATE INDEX idx_dfq_file ON dataset_file_questions (dataset_file_id)`)
 }
 
 export async function down(knex) {
+  await knex.raw('DROP TABLE IF EXISTS dataset_file_questions CASCADE')
   await knex.raw('DROP TABLE IF EXISTS document_chunks CASCADE')
   await knex.raw('DROP TABLE IF EXISTS dataset_files CASCADE')
   await knex.raw('DROP TABLE IF EXISTS datasets CASCADE')
