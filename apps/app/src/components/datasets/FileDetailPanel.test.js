@@ -69,4 +69,85 @@ describe("FileDetailPanel", () => {
     await retry.trigger("click")
     expect(state.loadMoreChunks).toHaveBeenCalledWith(expect.objectContaining({ id: "f1" }))
   })
+
+  const makeQuestions = (n) =>
+    Array.from({ length: n }, (_, i) => ({ id: `q${i + 1}`, question: `Question ${i + 1}?` }))
+
+  it("renders only 5 questions when the source has more than 5", () => {
+    vi.mocked(useFileDetail).mockReturnValue(stubState({ questions: ref(makeQuestions(10)) }))
+    const wrapper = mountPanel({ id: "f1", filename: "doc.pdf", status: "completed" })
+    expect(wrapper.findAll(".q-row")).toHaveLength(5)
+  })
+
+  it("shows a 'Showing 5 of 10' style count revealing the full total", () => {
+    vi.mocked(useFileDetail).mockReturnValue(stubState({ questions: ref(makeQuestions(10)) }))
+    const wrapper = mountPanel({ id: "f1", filename: "doc.pdf", status: "completed" })
+    expect(wrapper.find(".explore-section .sec-count").text()).toContain("Showing 5 of 10")
+  })
+
+  it("hides the Shuffle button when there are 5 or fewer questions", () => {
+    vi.mocked(useFileDetail).mockReturnValue(stubState({ questions: ref(makeQuestions(5)) }))
+    const wrapper = mountPanel({ id: "f1", filename: "doc.pdf", status: "completed" })
+    expect(wrapper.find(".shuffle-btn").exists()).toBe(false)
+    expect(wrapper.findAll(".q-row")).toHaveLength(5)
+  })
+
+  it("shows the Shuffle button when there are more than 5 questions", () => {
+    vi.mocked(useFileDetail).mockReturnValue(stubState({ questions: ref(makeQuestions(6)) }))
+    const wrapper = mountPanel({ id: "f1", filename: "doc.pdf", status: "completed" })
+    expect(wrapper.find(".shuffle-btn").exists()).toBe(true)
+  })
+
+  it("shuffle keeps exactly 5 displayed, all drawn from the source set", async () => {
+    const source = makeQuestions(10)
+    const sourceIds = new Set(source.map((q) => q.id))
+    vi.mocked(useFileDetail).mockReturnValue(stubState({ questions: ref(source) }))
+    const wrapper = mountPanel({ id: "f1", filename: "doc.pdf", status: "completed" })
+
+    await wrapper.find(".shuffle-btn").trigger("click")
+
+    const rows = wrapper.findAll(".q-row")
+    expect(rows).toHaveLength(5)
+    const displayedTexts = rows.map((r) => r.find(".q-txt").text())
+    const sourceTexts = new Set(source.map((q) => q.question))
+    for (const t of displayedTexts) expect(sourceTexts.has(t)).toBe(true)
+    // The full count is still revealed.
+    expect(wrapper.find(".explore-section .sec-count").text()).toContain("of 10")
+    expect(sourceIds.size).toBe(10)
+  })
+
+  it("emits ask with the displayed question's text when a row is clicked", async () => {
+    vi.mocked(useFileDetail).mockReturnValue(stubState({ questions: ref(makeQuestions(10)) }))
+    const wrapper = mountPanel({ id: "f1", filename: "doc.pdf", status: "completed" })
+    await wrapper.findAll(".q-row")[0].trigger("click")
+    expect(wrapper.emitted("ask")).toBeTruthy()
+    expect(wrapper.emitted("ask")[0][0]).toMatch(/Question \d+\?/)
+  })
+
+  it("prefers chunksTotal for the header chunk count when completed and chunks loaded", () => {
+    const state = stubState({
+      chunks: ref([{ id: "c1", chunk_index: 0, content: "body" }]),
+      chunksTotal: ref(42),
+    })
+    vi.mocked(useFileDetail).mockReturnValue(state)
+    const wrapper = mountPanel({
+      id: "f1",
+      filename: "doc.pdf",
+      status: "completed",
+      chunk_count: 7,
+    })
+    expect(wrapper.find(".panel-meta").text()).toContain("42 chunks")
+    expect(wrapper.find(".panel-meta").text()).not.toContain("7 chunks")
+  })
+
+  it("falls back to file.chunk_count when chunks have not loaded", () => {
+    vi.mocked(useFileDetail).mockReturnValue(stubState({ chunksTotal: ref(0) }))
+    const wrapper = mountPanel({
+      id: "f1",
+      filename: "doc.pdf",
+      status: "completed",
+      chunk_count: 7,
+    })
+    expect(wrapper.find(".panel-meta").text()).toContain("7 chunks")
+  })
 })

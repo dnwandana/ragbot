@@ -1,6 +1,6 @@
 <script setup>
-import { computed, watch } from "vue"
-import { FileText, X, Sparkles, ArrowRight, Loader, AlertTriangle } from "lucide-vue-next"
+import { computed, ref, watch } from "vue"
+import { FileText, X, Sparkles, ArrowRight, Loader, AlertTriangle, Shuffle } from "lucide-vue-next"
 import { humanSize, fileType, statusLabel, statusChipClass } from "@/utils/files"
 import { useFileDetail } from "@/composables/useFileDetail"
 import { useMarkdown } from "@/composables/useMarkdown"
@@ -43,6 +43,37 @@ const isCompleted = computed(() => props.file?.status === "completed")
 const isFailed = computed(() => props.file?.status === "failed")
 const type = computed(() => fileType(props.file?.filename))
 
+/** Number of exploration questions shown at once. */
+const QUESTION_DISPLAY_SIZE = 5
+
+// Prefer the chunk endpoint's total as the source of truth once a completed
+// file's chunks have loaded; otherwise fall back to the file record's count.
+const chunkCount = computed(() =>
+  isCompleted.value && chunksTotal.value ? chunksTotal.value : (props.file?.chunk_count ?? 0),
+)
+
+// The subset of questions currently rendered. Seeded with the stable first 5 and
+// re-rolled only on explicit shuffle, so reopening the panel never re-randomizes.
+const displayedQuestions = ref([])
+
+watch(
+  questions,
+  (list) => {
+    displayedQuestions.value = (list ?? []).slice(0, QUESTION_DISPLAY_SIZE)
+  },
+  { immediate: true },
+)
+
+/** Re-roll a random subset of the full question set (Fisher–Yates, non-mutating). */
+function shuffleQuestions() {
+  const pool = questions.value.slice()
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[pool[i], pool[j]] = [pool[j], pool[i]]
+  }
+  displayedQuestions.value = pool.slice(0, QUESTION_DISPLAY_SIZE)
+}
+
 /** @param {number} i @returns {string} Zero-padded 1-based index, e.g. "01". */
 function padIndex(i) {
   return String(i + 1).padStart(2, "0")
@@ -77,7 +108,7 @@ watch(
             <p class="panel-filename">{{ file.filename }}</p>
             <div class="panel-meta">
               <span class="type-badge" :class="`type-${type}`">{{ type }}</span>
-              <span>{{ file.chunk_count ?? 0 }} chunks</span>
+              <span>{{ chunkCount || "—" }} chunks</span>
             </div>
           </div>
           <button class="icon-btn" @click="emit('close')" aria-label="Close">
@@ -106,7 +137,7 @@ watch(
               </div>
               <div class="info-row">
                 <dt>Chunks</dt>
-                <dd class="mono">{{ file.chunk_count ?? "—" }}</dd>
+                <dd class="mono">{{ chunkCount || "—" }}</dd>
               </div>
               <div class="info-row">
                 <dt>Size</dt>
@@ -124,9 +155,18 @@ watch(
               <h3 class="section-label section-label--spark">
                 <Sparkles :size="12" class="spark" />
                 Explore this document
+                <button
+                  v-if="questions.length > QUESTION_DISPLAY_SIZE"
+                  type="button"
+                  class="shuffle-btn"
+                  @click="shuffleQuestions"
+                >
+                  <Shuffle :size="12" :stroke-width="1.8" />
+                  Shuffle
+                </button>
               </h3>
               <span v-if="questions.length" class="sec-count">
-                {{ questions.length }} questions generated
+                Showing {{ displayedQuestions.length }} of {{ questions.length }}
               </span>
             </div>
 
@@ -134,7 +174,7 @@ watch(
             <template v-else>
               <div class="q-card">
                 <button
-                  v-for="(q, i) in questions"
+                  v-for="(q, i) in displayedQuestions"
                   :key="q.id"
                   class="q-row"
                   @click="emit('ask', q.question)"
@@ -382,6 +422,25 @@ watch(
 }
 .spark {
   color: var(--brand);
+}
+.shuffle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 2px 7px;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  color: var(--ink-3);
+  font: 600 10.5px var(--font-sans);
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+.shuffle-btn:hover {
+  background: var(--bg-2);
+  color: var(--ink-2);
 }
 .sec-head {
   display: flex;
