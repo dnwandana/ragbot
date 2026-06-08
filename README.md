@@ -150,7 +150,7 @@ corepack pnpm dev:docs  # http://localhost:4173  (apps/docs VitePress dev server
 | `pnpm dev`    | Start all apps in watch mode       |
 | `pnpm build`  | Build all apps                     |
 | `pnpm lint`   | Lint all apps                      |
-| `pnpm test`   | Run all tests (API only currently) |
+| `pnpm test`   | Run all tests (API integration + app unit/component) |
 | `pnpm format` | Format all apps with Prettier      |
 
 Append `:api`, `:app`, `:web`, or `:docs` to target a single workspace (e.g. `pnpm build:web` for `apps/web` only).
@@ -315,6 +315,8 @@ cp apps/api/.env.example apps/api/.env.test
 ```
 
 The test suite uses real PostgreSQL (no mocks). Vitest runs migrations once before the session, and `cleanAllTables()` truncates between tests. Auth tests mock the Brevo email service; queue tests mock BullMQ so no Redis is required locally. 181 static test cases — run `corepack pnpm test:api` for the live passing count. Integration groups: agents, auth, chat, conversations, dataset-files, datasets, health, members, permissions, roles, workspaces. Unit groups: email-render, http-error, llamaindex-poll, pagination, redis, request-id, sanitize, validate-env.
+
+The frontend app (`apps/app`) has its own Vitest suite (`corepack pnpm --filter app test`, jsdom environment): unit tests for API wrappers and composables, plus component-render tests via `@vue/test-utils`. No database or network is required — API modules and composables are mocked.
 
 ## Deployment
 
