@@ -5,7 +5,7 @@ import { useDatasetFilesStore } from "@/stores/datasetFiles"
 /**
  * @param {string} workspaceId
  * @param {string} datasetId
- * @returns {{ files: import("vue").ComputedRef, filteredFiles: import("vue").ComputedRef, loading: import("vue").ComputedRef, searchQuery: import("vue").Ref<string>, filterStatus: import("vue").Ref<string>, fetchFiles: Function, handleUpload: Function, handleScrape: Function, handleDelete: Function, handleReprocess: Function, bulkDelete: Function }}
+ * @returns {{ files: import("vue").ComputedRef, filteredFiles: import("vue").ComputedRef, loading: import("vue").ComputedRef, searchQuery: import("vue").Ref<string>, filterStatus: import("vue").Ref<string>, fetchFiles: Function, handleUpload: Function, handleScrape: Function, handleDelete: Function, handleReprocess: Function, handleRename: Function, bulkDelete: Function }}
  */
 export function useDatasetFiles(workspaceId, datasetId) {
   const store = useDatasetFilesStore()
@@ -53,6 +53,11 @@ export function useDatasetFiles(workspaceId, datasetId) {
     message.success("Reprocessing started")
   }
 
+  async function handleRename(id, filename) {
+    await store.renameFile(workspaceId, datasetId, id, filename)
+    message.success("File renamed")
+  }
+
   /** @param {string[]} ids @returns {Promise<string[]>} failed IDs */
   async function bulkDelete(ids) {
     const failedIds = []
@@ -81,6 +86,7 @@ export function useDatasetFiles(workspaceId, datasetId) {
     handleScrape,
     handleDelete,
     handleReprocess,
+    handleRename,
     bulkDelete,
   }
 }

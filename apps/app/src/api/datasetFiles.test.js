@@ -1,16 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 
 vi.mock("@/utils/http", () => ({
-  request: { get: vi.fn(), post: vi.fn(), del: vi.fn() },
+  request: { get: vi.fn(), post: vi.fn(), del: vi.fn(), put: vi.fn() },
 }))
 
 import { request } from "@/utils/http"
-import { listFileQuestions, listFileChunks } from "@/api/datasetFiles"
+import { listFileQuestions, listFileChunks, updateFile } from "@/api/datasetFiles"
 
 describe("datasetFiles api", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     request.get.mockResolvedValue({ data: { data: [], pagination: {} }, status: 200 })
+    request.put.mockResolvedValue({ data: { data: {} }, status: 200 })
   })
 
   it("listFileQuestions hits the questions endpoint and returns the raw promise", () => {
@@ -25,5 +26,14 @@ describe("datasetFiles api", () => {
     expect(request.get).toHaveBeenCalledWith("/workspaces/ws1/datasets/ds1/files/f1/chunks", {
       params,
     })
+  })
+
+  it("updateFile puts to the file endpoint with payload and silent option", () => {
+    updateFile("ws1", "ds1", "f1", { filename: "renamed.pdf" })
+    expect(request.put).toHaveBeenCalledWith(
+      "/workspaces/ws1/datasets/ds1/files/f1",
+      { filename: "renamed.pdf" },
+      { silent: true },
+    )
   })
 })

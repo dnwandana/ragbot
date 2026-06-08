@@ -46,3 +46,16 @@ export function listFileQuestions(workspaceId, datasetId, fileId) {
 export function listFileChunks(workspaceId, datasetId, fileId, params) {
   return request.get(`${base(workspaceId, datasetId)}/${fileId}/chunks`, { params })
 }
+
+/**
+ * Update a dataset file's mutable fields (currently just `filename`).
+ *
+ * @param {string} workspaceId - Workspace UUID
+ * @param {string} datasetId - Dataset UUID
+ * @param {string} id - Dataset file UUID
+ * @param {object} payload - Fields to update, e.g. `{ filename }`
+ * @returns {Promise<{data: object, status: number}>} Response whose `data.data` is the updated file
+ */
+export function updateFile(workspaceId, datasetId, id, payload) {
+  return request.put(`${base(workspaceId, datasetId)}/${id}`, payload, { silent: true })
+}

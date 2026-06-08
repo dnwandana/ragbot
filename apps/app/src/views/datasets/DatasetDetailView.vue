@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Ellipsis,
+  Eye,
   Globe,
   MessageSquare,
   Pencil,
@@ -38,6 +39,7 @@ const {
   fetchFiles,
   handleDelete: deleteFile,
   handleReprocess,
+  handleRename,
   bulkDelete,
 } = useDatasetFiles(workspaceId, datasetId)
 
@@ -47,9 +49,16 @@ const selected = reactive(new Set())
 const selectAllRef = ref(null)
 const page = ref(1)
 const dsMenuOpen = ref(false)
+const openRowMenuId = ref(null)
+const rowMenuPos = ref({ top: 0, left: 0 })
 const editOpen = ref(false)
 const deleteOpen = ref(false)
 const editForm = reactive({ name: "", description: "" })
+const renameOpen = ref(false)
+const renameTarget = ref(null)
+const renameForm = reactive({ filename: "" })
+const deleteFileOpen = ref(false)
+const fileToDelete = ref(null)
 
 const PAGE_SIZE = 25
 const totalPages = computed(() => Math.max(1, Math.ceil(filteredFiles.value.length / PAGE_SIZE)))
@@ -62,6 +71,10 @@ const pagedFiles = computed(() => {
 watch([searchQuery, filterStatus], () => {
   page.value = 1
 })
+
+const openRowMenuFile = computed(
+  () => files.value.find((f) => f.id === openRowMenuId.value) ?? null,
+)
 
 const allSelected = computed(
   () => pagedFiles.value.length > 0 && pagedFiles.value.every((f) => selected.has(f.id)),
@@ -128,11 +141,17 @@ watch(
 )
 
 onMounted(async () => {
+  window.addEventListener("scroll", closeRowMenuOnViewportChange, true)
+  window.addEventListener("resize", closeRowMenuOnViewportChange)
   dataset.value = await datasetsStore.fetchDataset(workspaceId, datasetId)
   await fetchFiles()
 })
 
-onUnmounted(stopPolling)
+onUnmounted(() => {
+  stopPolling()
+  window.removeEventListener("scroll", closeRowMenuOnViewportChange, true)
+  window.removeEventListener("resize", closeRowMenuOnViewportChange)
+})
 
 function openEdit() {
   editForm.name = dataset.value.name
@@ -193,6 +212,98 @@ async function handleDeleteFile(id) {
   selected.delete(id)
 }
 
+/** Close any open dataset or row dropdown menu. @returns {void} */
+function closeMenus() {
+  dsMenuOpen.value = false
+  openRowMenuId.value = null
+}
+
+/**
+ * Toggle a file row's action menu, anchoring the teleported popup to the
+ * clicked button. Closes the dataset menu too.
+ * @param {MouseEvent} event - Click on the row's ⋯ button
+ * @param {string} id - The file id whose menu is toggled
+ * @returns {void}
+ */
+function toggleRowMenu(event, id) {
+  dsMenuOpen.value = false
+  if (openRowMenuId.value === id) {
+    openRowMenuId.value = null
+    return
+  }
+  const rect = event.currentTarget.getBoundingClientRect()
+  // Right-align the popup under the button (popup min-width 150px).
+  rowMenuPos.value = { top: rect.bottom + 6, left: rect.right }
+  openRowMenuId.value = id
+}
+
+/** Close the row action menu on viewport scroll/resize so it stays anchored. @returns {void} */
+function closeRowMenuOnViewportChange() {
+  openRowMenuId.value = null
+}
+
+/** Open the detail panel for a file from its row menu. @param {object} file @returns {void} */
+function viewDetailFromMenu(file) {
+  openDetail(file)
+  openRowMenuId.value = null
+}
+
+/** Open the rename modal for a file from its row menu. @param {object} file @returns {void} */
+function openRenameFromMenu(file) {
+  openRename(file)
+  openRowMenuId.value = null
+}
+
+/** Open the delete-file confirm for a file from its row menu. @param {object} file @returns {void} */
+function openDeleteFromMenu(file) {
+  openDeleteFile(file)
+  openRowMenuId.value = null
+}
+
+/** @param {object} file @returns {void} */
+function openRename(file) {
+  renameTarget.value = file
+  renameForm.filename = file.filename
+  renameOpen.value = true
+}
+
+/** Rename the targeted file, patching the open detail panel if it matches. @returns {Promise<void>} */
+async function submitRename() {
+  const name = renameForm.filename.trim()
+  if (!name) return
+  try {
+    await handleRename(renameTarget.value.id, name)
+    if (detailFile.value?.id === renameTarget.value.id) {
+      detailFile.value = { ...detailFile.value, filename: name }
+    }
+    renameOpen.value = false
+  } catch {
+    message.error("Failed to rename file")
+  }
+}
+
+/** @param {object} file @returns {void} */
+function openDeleteFile(file) {
+  fileToDelete.value = file
+  deleteFileOpen.value = true
+}
+
+/** Delete the file queued in the confirm modal. @returns {Promise<void>} */
+async function confirmDeleteFile() {
+  try {
+    await handleDeleteFile(fileToDelete.value.id)
+    deleteFileOpen.value = false
+  } catch {
+    message.error("Failed to delete file")
+  }
+}
+
+/** Resolve a file id (from the detail panel) to its object and open the confirm modal. @param {string} id @returns {void} */
+function requestDeleteFile(id) {
+  const file = files.value.find((f) => f.id === id) ?? detailFile.value
+  if (file) openDeleteFile(file)
+}
+
 /**
  * Open a new chat seeded with an exploration question, this dataset linked.
  * @param {string} question - The question text to pre-fill the composer with
@@ -231,7 +342,7 @@ const visiblePages = computed(() => {
 </script>
 
 <template>
-  <div class="page" @click="dsMenuOpen = false">
+  <div class="page" @click="closeMenus">
     <!-- Page header -->
     <div class="page-head">
       <div class="head-left">
@@ -435,7 +546,11 @@ const visiblePages = computed(() => {
           </div>
           <div class="muted">{{ shortDate(file.created_at) }}</div>
           <div @click.stop>
-            <button class="row-menu-btn" aria-label="File options" @click="openDetail(file)">
+            <button
+              class="row-menu-btn"
+              aria-label="File options"
+              @click="toggleRowMenu($event, file.id)"
+            >
               ⋯
             </button>
           </div>
@@ -498,9 +613,33 @@ const visiblePages = computed(() => {
       :dataset-id="datasetId"
       @close="detailFile = null"
       @reindex="handleReindexFile"
-      @delete="handleDeleteFile"
+      @delete="requestDeleteFile"
       @ask="onAskQuestion"
     />
+
+    <!-- Floating row action menu (teleported so the table's overflow:hidden doesn't clip it) -->
+    <Teleport to="body">
+      <div
+        v-if="openRowMenuFile"
+        class="menu-popup menu-popup--floating"
+        :style="{ top: rowMenuPos.top + 'px', left: rowMenuPos.left + 'px' }"
+        @click.stop
+      >
+        <button class="menu-item" @click="viewDetailFromMenu(openRowMenuFile)">
+          <Eye :size="13" :stroke-width="1.6" />
+          View details
+        </button>
+        <button class="menu-item" @click="openRenameFromMenu(openRowMenuFile)">
+          <Pencil :size="13" :stroke-width="1.6" />
+          Edit
+        </button>
+        <hr class="menu-divider" />
+        <button class="menu-item menu-item--danger" @click="openDeleteFromMenu(openRowMenuFile)">
+          <Trash2 :size="13" :stroke-width="1.6" />
+          Delete
+        </button>
+      </div>
+    </Teleport>
 
     <!-- Edit dataset modal -->
     <a-modal
@@ -542,6 +681,41 @@ const visiblePages = computed(() => {
       <p style="margin: 8px 0">
         All files and indexed data in <strong>{{ dataset?.name }}</strong> will be permanently
         removed.
+      </p>
+    </a-modal>
+
+    <!-- Rename file modal -->
+    <a-modal
+      :open="renameOpen"
+      title="Rename file"
+      :footer="null"
+      :width="480"
+      @cancel="renameOpen = false"
+    >
+      <a-form layout="vertical" @finish="submitRename" style="margin-top: 8px">
+        <a-form-item
+          label="File name"
+          name="filename"
+          :rules="[{ required: true, whitespace: true, message: 'Name is required' }, { max: 255 }]"
+        >
+          <a-input v-model:value="renameForm.filename" placeholder="File name" />
+        </a-form-item>
+        <button type="submit" class="btn-primary btn-block">Save</button>
+      </a-form>
+    </a-modal>
+
+    <!-- Delete file confirm -->
+    <a-modal
+      :open="deleteFileOpen"
+      title="Delete file?"
+      ok-text="Delete"
+      ok-type="danger"
+      cancel-text="Cancel"
+      @ok="confirmDeleteFile"
+      @cancel="deleteFileOpen = false"
+    >
+      <p style="margin: 8px 0">
+        <strong>{{ fileToDelete?.filename }}</strong> will be permanently removed.
       </p>
     </a-modal>
   </div>
@@ -1143,6 +1317,13 @@ const visiblePages = computed(() => {
   min-width: 150px;
   padding: 4px;
   z-index: 20;
+}
+
+.menu-popup--floating {
+  position: fixed;
+  right: auto;
+  transform: translateX(-100%);
+  z-index: 50;
 }
 
 .menu-item {
