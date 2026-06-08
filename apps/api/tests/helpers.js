@@ -200,6 +200,7 @@ export async function cleanAllTables() {
       conversation_datasets,
       conversations,
       agents,
+      dataset_file_questions,
       document_chunks,
       dataset_files,
       datasets,
