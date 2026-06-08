@@ -243,7 +243,7 @@ describe("POST .../messages — ReAct tool-call + citation linkage", () => {
     })
 
     const chunkId = crypto.randomUUID()
-    await db("document_chunks").insert({
+    await db("dataset_file_chunks").insert({
       id: chunkId,
       dataset_file_id: fileId,
       content: "Relevant excerpt about the topic.",
@@ -289,7 +289,9 @@ describe("POST .../messages — ReAct tool-call + citation linkage", () => {
     expect(res.body.data.events.some((e) => e.event === "thought")).toBe(true)
     expect(res.body.data.events.some((e) => e.event === "observation")).toBe(true)
 
-    const citations = await db("message_citations").where({ message_id: res.body.data.message_id })
+    const citations = await db("conversation_message_citations").where({
+      message_id: res.body.data.message_id,
+    })
     expect(citations).toHaveLength(1)
     expect(citations[0].chunk_id).toBe(chunkId)
   })

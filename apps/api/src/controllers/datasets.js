@@ -6,7 +6,7 @@ import { logAuditEvent } from "../utils/audit.js"
 import { validatePaginationQuery, executePaginatedQuery } from "../utils/pagination.js"
 import * as datasetModel from "../models/datasets.js"
 import * as datasetFileModel from "../models/dataset-files.js"
-import * as chunkModel from "../models/document-chunks.js"
+import * as chunkModel from "../models/dataset-file-chunks.js"
 import * as questionModel from "../models/dataset-file-questions.js"
 import db from "../config/database.js"
 import * as agentModel from "../models/agents.js"
@@ -170,7 +170,7 @@ export const updateDataset = async (req, res, next) => {
 /**
  * DELETE /api/workspaces/:workspace_id/datasets/:dataset_id — Soft-delete a dataset.
  *
- * Cascades: hard-deletes all dataset_file_questions and document_chunks for files in
+ * Cascades: hard-deletes all dataset_file_questions and dataset_file_chunks for files in
  * the dataset, soft-deletes all dataset_files, then soft-deletes the dataset itself.
  *
  * @param {Object} req - Express request object

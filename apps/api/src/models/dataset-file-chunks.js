@@ -15,7 +15,7 @@ const CHUNK_COLUMNS = ["id", "dataset_file_id", "content", "chunk_index"]
 export const bulkInsert = async (chunks) => {
   if (!chunks.length) return
   await db.raw(
-    `INSERT INTO document_chunks (id, dataset_file_id, content, chunk_index, embedding) VALUES ${chunks.map(() => "(?, ?, ?, ?, ?::vector)").join(", ")}`,
+    `INSERT INTO dataset_file_chunks (id, dataset_file_id, content, chunk_index, embedding) VALUES ${chunks.map(() => "(?, ?, ?, ?, ?::vector)").join(", ")}`,
     chunks.flatMap((c) => [
       c.id,
       c.dataset_file_id,
@@ -34,7 +34,7 @@ export const bulkInsert = async (chunks) => {
  * @returns {Promise<number>} Number of rows deleted
  */
 export const deleteByFileId = (datasetFileId, trx) =>
-  (trx ?? db)("document_chunks").where({ dataset_file_id: datasetFileId }).delete()
+  (trx ?? db)("dataset_file_chunks").where({ dataset_file_id: datasetFileId }).delete()
 
 /**
  * Count document chunks for a specific dataset file.
@@ -43,7 +43,7 @@ export const deleteByFileId = (datasetFileId, trx) =>
  * @returns {Promise<{ count: string }>} Row count object
  */
 export const countByDatasetFileId = (datasetFileId) =>
-  db("document_chunks").where({ dataset_file_id: datasetFileId }).count("* as count").first()
+  db("dataset_file_chunks").where({ dataset_file_id: datasetFileId }).count("* as count").first()
 
 /**
  * Hard-delete all document chunks belonging to files in a given dataset.
@@ -55,7 +55,7 @@ export const countByDatasetFileId = (datasetFileId) =>
  */
 export const deleteByDatasetId = (datasetId, trx) => {
   const qb = trx ?? db
-  return qb("document_chunks")
+  return qb("dataset_file_chunks")
     .whereIn(
       "dataset_file_id",
       (trx ?? db)("dataset_files").select("id").where({ dataset_id: datasetId }),
@@ -72,7 +72,7 @@ export const deleteByDatasetId = (datasetId, trx) => {
  * @returns {Promise<{ count: string }>} Row count object
  */
 export const count = ({ dataset_file_id }) =>
-  db("document_chunks").count("* as count").where({ dataset_file_id }).first()
+  db("dataset_file_chunks").count("* as count").where({ dataset_file_id }).first()
 
 /**
  * Return a paginated list of document chunks for a file, excluding the embedding vector.
@@ -86,7 +86,7 @@ export const count = ({ dataset_file_id }) =>
  * @returns {Promise<Object[]>} Chunk rows (id, dataset_file_id, content, chunk_index)
  */
 export const findManyPaginated = ({ dataset_file_id }, { limit, offset, orders } = {}) => {
-  const q = db.select(CHUNK_COLUMNS).from("document_chunks").where({ dataset_file_id })
+  const q = db.select(CHUNK_COLUMNS).from("dataset_file_chunks").where({ dataset_file_id })
   if (orders?.length) orders.forEach(({ column, order }) => q.orderBy(column, order))
   return q.limit(limit).offset(offset)
 }

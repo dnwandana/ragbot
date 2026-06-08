@@ -63,22 +63,22 @@ export async function up(knex) {
   await knex.raw(`CREATE INDEX idx_dataset_files_dataset_id ON dataset_files (dataset_id)`)
 
   await knex.raw(`
-    CREATE TABLE document_chunks (
+    CREATE TABLE dataset_file_chunks (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       dataset_file_id UUID NOT NULL REFERENCES dataset_files(id) ON DELETE CASCADE,
       content TEXT NOT NULL,
       chunk_index INTEGER NOT NULL,
       embedding vector(1536),
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      CONSTRAINT document_chunks_file_index UNIQUE (dataset_file_id, chunk_index)
+      CONSTRAINT dataset_file_chunks_file_index UNIQUE (dataset_file_id, chunk_index)
     )
   `)
   await knex.raw(`
-    CREATE INDEX idx_chunks_embedding
-      ON document_chunks USING hnsw (embedding vector_cosine_ops)
+    CREATE INDEX idx_dataset_file_chunks_embedding
+      ON dataset_file_chunks USING hnsw (embedding vector_cosine_ops)
       WITH (m = 16, ef_construction = 200)
   `)
-  await knex.raw(`CREATE INDEX idx_chunks_file_order ON document_chunks (dataset_file_id, chunk_index)`)
+  await knex.raw(`CREATE INDEX idx_dataset_file_chunks_file_order ON dataset_file_chunks (dataset_file_id, chunk_index)`)
 
   await knex.raw(`
     CREATE TABLE dataset_file_questions (
@@ -93,7 +93,7 @@ export async function up(knex) {
 
 export async function down(knex) {
   await knex.raw('DROP TABLE IF EXISTS dataset_file_questions CASCADE')
-  await knex.raw('DROP TABLE IF EXISTS document_chunks CASCADE')
+  await knex.raw('DROP TABLE IF EXISTS dataset_file_chunks CASCADE')
   await knex.raw('DROP TABLE IF EXISTS dataset_files CASCADE')
   await knex.raw('DROP TABLE IF EXISTS datasets CASCADE')
 }

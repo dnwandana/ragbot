@@ -1,6 +1,6 @@
 const TABLES_WITH_UPDATED_AT = [
   'workspaces', 'users', 'roles', 'workspace_members',
-  'datasets', 'dataset_files', 'agents', 'conversations', 'messages',
+  'datasets', 'dataset_files', 'agents', 'conversations', 'conversation_messages',
 ]
 
 export async function up(knex) {
@@ -49,7 +49,7 @@ export async function up(knex) {
         df.id                                        AS file_id,
         df.filename,
         dc.chunk_index
-      FROM document_chunks dc
+      FROM dataset_file_chunks dc
       JOIN dataset_files df ON df.id = dc.dataset_file_id
       WHERE
         df.dataset_id = ANY(p_dataset_ids)

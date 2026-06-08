@@ -336,7 +336,7 @@ describe("DELETE /api/workspaces/:id/datasets/:dataset_id", () => {
     })
 
     const chunkId = crypto.randomUUID()
-    await db("document_chunks").insert({
+    await db("dataset_file_chunks").insert({
       id: chunkId,
       dataset_file_id: fileId,
       content: "test chunk",
@@ -351,7 +351,7 @@ describe("DELETE /api/workspaces/:id/datasets/:dataset_id", () => {
     expect(delRes.status).toBe(200)
 
     // Verify chunk is hard-deleted
-    const chunk = await db("document_chunks").where({ id: chunkId }).first()
+    const chunk = await db("dataset_file_chunks").where({ id: chunkId }).first()
     expect(chunk).toBeUndefined()
 
     // Verify file is soft-deleted

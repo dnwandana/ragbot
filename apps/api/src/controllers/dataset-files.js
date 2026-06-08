@@ -8,7 +8,7 @@ import { logAuditEvent } from "../utils/audit.js"
 import { validatePaginationQuery, executePaginatedQuery } from "../utils/pagination.js"
 import * as datasetFileModel from "../models/dataset-files.js"
 import * as datasetModel from "../models/datasets.js"
-import * as chunkModel from "../models/document-chunks.js"
+import * as chunkModel from "../models/dataset-file-chunks.js"
 import * as questionModel from "../models/dataset-file-questions.js"
 import * as storageService from "../services/storage.js"
 import * as llamaindexService from "../services/llamaindex.js"
@@ -326,7 +326,7 @@ export const updateFile = async (req, res, next) => {
 /**
  * DELETE /api/workspaces/:workspace_id/datasets/:dataset_id/files/:file_id — Delete a dataset file.
  *
- * Deletes all dataset_file_questions and document_chunks for the file, soft-deletes
+ * Deletes all dataset_file_questions and dataset_file_chunks for the file, soft-deletes
  * the file record, removes the object from R2 storage (failure is silently ignored to
  * avoid blocking), and logs the audit event.
  *

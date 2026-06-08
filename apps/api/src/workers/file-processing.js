@@ -3,7 +3,7 @@ import logger from "../utils/logger.js"
 import { parseRedisUrl } from "../utils/redis.js"
 import * as datasetFileModel from "../models/dataset-files.js"
 import * as datasetModel from "../models/datasets.js"
-import * as chunkModel from "../models/document-chunks.js"
+import * as chunkModel from "../models/dataset-file-chunks.js"
 import * as textSplitter from "../services/text-splitter.js"
 import * as openrouterService from "../services/openrouter.js"
 import * as questionGenerator from "../services/question-generator.js"
@@ -15,7 +15,7 @@ import * as firecrawlService from "../services/firecrawl.js"
  * Runs the full RAG processing pipeline for a dataset file.
  *
  * Splits markdown into chunks, generates embeddings in batches via OpenRouter,
- * replaces the file's document_chunks, generates exploration questions and stores
+ * replaces the file's dataset_file_chunks, generates exploration questions and stores
  * them in dataset_file_questions (replacing any prior questions), and marks the file
  * 'completed'. File metadata (llamaindex_job_id / source_url) is left untouched.
  * Throws on any failure so BullMQ can retry the parent job.

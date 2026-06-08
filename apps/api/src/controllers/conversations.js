@@ -8,8 +8,8 @@ import { validatePaginationQuery, executePaginatedQuery } from "../utils/paginat
 import * as conversationModel from "../models/conversations.js"
 import * as conversationDatasetModel from "../models/conversation-datasets.js"
 import * as agentModel from "../models/agents.js"
-import * as messageModel from "../models/messages.js"
-import * as citationModel from "../models/message-citations.js"
+import * as messageModel from "../models/conversation-messages.js"
+import * as citationModel from "../models/conversation-message-citations.js"
 
 /** Joi schema for creating a conversation. */
 const createSchema = joi

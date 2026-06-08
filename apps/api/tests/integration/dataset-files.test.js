@@ -285,7 +285,7 @@ describe("GET .../files/:file_id/chunks", () => {
     const fileId = createRes.body.data.id
 
     for (let i = 0; i < 3; i++) {
-      await db("document_chunks").insert({
+      await db("dataset_file_chunks").insert({
         id: crypto.randomUUID(),
         dataset_file_id: fileId,
         content: `chunk ${i}`,
@@ -322,7 +322,7 @@ describe("GET .../files/:file_id/chunks", () => {
     const fileId = createRes.body.data.id
 
     for (let i = 0; i < 3; i++) {
-      await db("document_chunks").insert({
+      await db("dataset_file_chunks").insert({
         id: crypto.randomUUID(),
         dataset_file_id: fileId,
         content: `chunk ${i}`,
@@ -349,7 +349,7 @@ describe("GET .../files/:file_id/chunks", () => {
     const fileId = createRes.body.data.id
 
     for (let i = 0; i < 3; i++) {
-      await db("document_chunks").insert({
+      await db("dataset_file_chunks").insert({
         id: crypto.randomUUID(),
         dataset_file_id: fileId,
         content: `chunk ${i}`,

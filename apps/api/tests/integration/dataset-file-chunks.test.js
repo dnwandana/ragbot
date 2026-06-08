@@ -1,7 +1,7 @@
 import { beforeAll, beforeEach, describe, it, expect } from "vitest"
 import db from "../../src/config/database.js"
 import { createTestUser, createTestWorkspace, cleanAllTables, seedPermissions } from "../helpers.js"
-import * as chunkModel from "../../src/models/document-chunks.js"
+import * as chunkModel from "../../src/models/dataset-file-chunks.js"
 
 let fileId
 
@@ -33,7 +33,7 @@ beforeEach(async () => {
     updated_at: new Date(),
   })
   for (let i = 0; i < 3; i++) {
-    await db("document_chunks").insert({
+    await db("dataset_file_chunks").insert({
       id: crypto.randomUUID(),
       dataset_file_id: fileId,
       content: `chunk ${i}`,
@@ -43,7 +43,7 @@ beforeEach(async () => {
   }
 })
 
-describe("document-chunks model pagination", () => {
+describe("dataset-file-chunks model pagination", () => {
   it("count returns the number of chunks for a file", async () => {
     const { count } = await chunkModel.count({ dataset_file_id: fileId })
     expect(parseInt(count)).toBe(3)

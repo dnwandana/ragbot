@@ -1,6 +1,6 @@
 import db from "../config/database.js"
 
-const TABLE = "messages"
+const TABLE = "conversation_messages"
 const COLUMNS = [
   "id",
   "conversation_id",

@@ -195,13 +195,13 @@ export async function cleanAllTables() {
   await db.raw(`
     TRUNCATE TABLE
       audit_logs,
-      message_citations,
-      messages,
+      conversation_message_citations,
+      conversation_messages,
       conversation_datasets,
       conversations,
       agents,
       dataset_file_questions,
-      document_chunks,
+      dataset_file_chunks,
       dataset_files,
       datasets,
       workspace_members,

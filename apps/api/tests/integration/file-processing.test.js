@@ -73,7 +73,7 @@ describe("runProcessingPipeline", () => {
   })
 
   it("deletes orphaned chunks when reprocessing yields no chunks", async () => {
-    await db("document_chunks").insert({
+    await db("dataset_file_chunks").insert({
       id: crypto.randomUUID(),
       dataset_file_id: fileId,
       content: "stale chunk",
@@ -93,7 +93,7 @@ describe("runProcessingPipeline", () => {
       dataset: await loadDataset(),
     })
 
-    const chunks = await db("document_chunks").where({ dataset_file_id: fileId })
+    const chunks = await db("dataset_file_chunks").where({ dataset_file_id: fileId })
     expect(chunks).toHaveLength(0)
 
     const questions = await db("dataset_file_questions").where({ dataset_file_id: fileId })
