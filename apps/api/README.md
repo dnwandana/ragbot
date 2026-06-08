@@ -343,10 +343,10 @@ apps/api/
 │   │   ├── conversations.js
 │   │   ├── dataset-files.js
 │   │   ├── datasets.js
-│   │   ├── document-chunks.js   # Vector chunk bulk insert + delete by file/dataset
+│   │   ├── dataset-file-chunks.js # Vector chunk bulk insert + delete by file/dataset
+│   │   ├── conversation-message-citations.js
+│   │   ├── conversation-messages.js
 │   │   ├── email-tokens.js      # SHA-256 token hashing, CRUD for email_tokens
-│   │   ├── message-citations.js
-│   │   ├── messages.js
 │   │   ├── permissions.js
 │   │   ├── refresh-tokens.js
 │   │   ├── roles.js

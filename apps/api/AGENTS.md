@@ -211,25 +211,25 @@ Audit logging is implemented and wired (not planned). `src/utils/audit.js` expor
 
 ## Model Catalog
 
-| File                        | Exports                                                                                                         |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `users.js`                  | `create`, `findOne`, `findOneWithPassword`, `update`, `softDelete`                                              |
-| `email-tokens.js`           | `hashToken`, `create`, `findActiveByHash`, `markUsed`, `deleteExpired`, `deleteByUser`                          |
-| `refresh-tokens.js`         | `hashToken`, `create`, `findActiveByHash`, `revokeById`, `revokeAllForUser`, `purgeOld`                         |
-| `roles.js`                  | `create`, `findOne`, `findMany`, `update`, `remove`, `findPermissionsByRoleId`, `setPermissions`                |
-| `permissions.js`            | `findAll`, `findOne`, `findByIds`                                                                               |
-| `agents.js`                 | `create`, `findOne`, `findSystemAgent`, `count`, `findManyPaginated`, `update`, `softDelete`                    |
-| `conversations.js`          | `create`, `findOne`, `count`, `findManyPaginated`, `update`, `softDelete`                                       |
-| `conversation-datasets.js`  | `create`, `findByConversationId`, `findDatasetIds`, `remove`, `removeByConversationId`                          |
-| `messages.js`               | `create`, `findOne`, `findByConversationId`, `findVisibleByConversationId`                                      |
-| `message-citations.js`      | `bulkInsert`, `findByMessageId`, `findByConversationId`                                                         |
-| `workspaces.js`             | `create`, `findOne`, `findManyByUserId`, `update`, `softDelete`                                                 |
-| `workspace-members.js`      | `create`, `findOne`, `findManyByWorkspaceId`, `getPermissions`, `countActiveOwners`, `updateRole`, `softDelete` |
-| `datasets.js`               | `create`, `findOne`, `count`, `findManyPaginated`, `update`, `softDelete`                                       |
-| `dataset-files.js`          | `create`, `findOne`, `count`, `findManyPaginated`, `update`, `softDelete`, `softDeleteByDataset`                |
-| `document-chunks.js`        | `bulkInsert`, `deleteByFileId`, `countByDatasetFileId`, `deleteByDatasetId`, `count`, `findManyPaginated`       |
-| `dataset-file-questions.js` | `bulkInsert`, `findByFileId`, `deleteByFileId`, `deleteByDatasetId`                                             |
-| `audit-logs.js`             | `findMany`, `count`                                                                                             |
+| File                                | Exports                                                                                                         |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `users.js`                          | `create`, `findOne`, `findOneWithPassword`, `update`, `softDelete`                                              |
+| `email-tokens.js`                   | `hashToken`, `create`, `findActiveByHash`, `markUsed`, `deleteExpired`, `deleteByUser`                          |
+| `refresh-tokens.js`                 | `hashToken`, `create`, `findActiveByHash`, `revokeById`, `revokeAllForUser`, `purgeOld`                         |
+| `roles.js`                          | `create`, `findOne`, `findMany`, `update`, `remove`, `findPermissionsByRoleId`, `setPermissions`                |
+| `permissions.js`                    | `findAll`, `findOne`, `findByIds`                                                                               |
+| `agents.js`                         | `create`, `findOne`, `findSystemAgent`, `count`, `findManyPaginated`, `update`, `softDelete`                    |
+| `conversations.js`                  | `create`, `findOne`, `count`, `findManyPaginated`, `update`, `softDelete`                                       |
+| `conversation-datasets.js`          | `create`, `findByConversationId`, `findDatasetIds`, `remove`, `removeByConversationId`                          |
+| `conversation-messages.js`          | `create`, `findOne`, `findByConversationId`, `findVisibleByConversationId`                                      |
+| `conversation-message-citations.js` | `bulkInsert`, `findByMessageId`, `findByConversationId`                                                         |
+| `workspaces.js`                     | `create`, `findOne`, `findManyByUserId`, `update`, `softDelete`                                                 |
+| `workspace-members.js`              | `create`, `findOne`, `findManyByWorkspaceId`, `getPermissions`, `countActiveOwners`, `updateRole`, `softDelete` |
+| `datasets.js`                       | `create`, `findOne`, `count`, `findManyPaginated`, `update`, `softDelete`                                       |
+| `dataset-files.js`                  | `create`, `findOne`, `count`, `findManyPaginated`, `update`, `softDelete`, `softDeleteByDataset`                |
+| `dataset-file-chunks.js`            | `bulkInsert`, `deleteByFileId`, `countByDatasetFileId`, `deleteByDatasetId`, `count`, `findManyPaginated`       |
+| `dataset-file-questions.js`         | `bulkInsert`, `findByFileId`, `deleteByFileId`, `deleteByDatasetId`                                             |
+| `audit-logs.js`                     | `findMany`, `count`                                                                                             |
 
 ## Controller Catalog
 
@@ -322,9 +322,9 @@ Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_E
   - 001: Extensions (pgcrypto, vector) + 5 ENUM types
   - 002: Core tenancy (workspaces, users, email_tokens, refresh_tokens)
   - 003: Roles & permissions (permissions, roles, role_permissions, workspace_members)
-  - 004: RAG pipeline (datasets, dataset_files, document_chunks with HNSW vector index, dataset_file_questions)
+  - 004: RAG pipeline (datasets, dataset_files, dataset_file_chunks with HNSW vector index, dataset_file_questions)
   - 005: Agents (configurable system prompt + model)
-  - 006: Conversations & messages (conversations, conversation_datasets, messages, message_citations)
+  - 006: Conversations & messages (conversations, conversation_datasets, conversation_messages, conversation_message_citations)
   - 007: Functions (trigger_set_updated_at on 9 tables, search_chunks SQL function)
   - 008: Audit logs (append-only, immutable)
   - 009: Expiry indexes (email_tokens, refresh_tokens)

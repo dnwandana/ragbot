@@ -95,10 +95,10 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 workspaces (tenant root)
   +-- roles → role_permissions → permissions (global, 31 entries)
   +-- workspace_members (with role, soft delete)
-  +-- datasets → dataset_files → document_chunks (vector(1536) + HNSW index)
+  +-- datasets → dataset_files → dataset_file_chunks (vector(1536) + HNSW index)
                               → dataset_file_questions
   +-- agents (system prompt + model config)
-  +-- conversations → messages → message_citations → document_chunks
+  +-- conversations → conversation_messages → conversation_message_citations → dataset_file_chunks
   +-- audit_logs (immutable, append-only)
 
 users (global)
