@@ -7,6 +7,7 @@ import * as chunkModel from "../models/document-chunks.js"
 import * as textSplitter from "../services/text-splitter.js"
 import * as openrouterService from "../services/openrouter.js"
 import * as questionGenerator from "../services/question-generator.js"
+import * as questionModel from "../models/dataset-file-questions.js"
 import * as llamaindexService from "../services/llamaindex.js"
 import * as firecrawlService from "../services/firecrawl.js"
 
@@ -14,20 +15,19 @@ import * as firecrawlService from "../services/firecrawl.js"
  * Runs the full RAG processing pipeline for a dataset file.
  *
  * Splits markdown into chunks, generates embeddings in batches via OpenRouter,
- * deletes any existing chunks for the file, persists new chunks to document_chunks,
- * generates exploration questions, and updates the file status to 'completed'.
- * Preserves existing file metadata (e.g. llamaindex_job_id, source_url) for reprocessing.
+ * replaces the file's document_chunks, generates exploration questions and stores
+ * them in dataset_file_questions (replacing any prior questions), and marks the file
+ * 'completed'. File metadata (llamaindex_job_id / source_url) is left untouched.
  * Throws on any failure so BullMQ can retry the parent job.
  *
  * @param {Object} params
  * @param {string} params.datasetFileId - UUID of the dataset_files record
  * @param {string} params.markdownContent - Parsed markdown content to process
  * @param {Object} params.dataset - Dataset record with chunk_size, chunk_overlap, embedding_model
- * @param {Object} params.metadata - Existing file metadata to preserve (e.g. llamaindex_job_id, source_url)
  * @returns {Promise<void>}
  * @throws {Error} If text splitting, embedding, DB write, or question generation fails
  */
-const runProcessingPipeline = async ({ datasetFileId, markdownContent, dataset, metadata }) => {
+export const runProcessingPipeline = async ({ datasetFileId, markdownContent, dataset }) => {
   const chunks = await textSplitter.splitText(
     markdownContent,
     dataset.chunk_size,
@@ -35,6 +35,8 @@ const runProcessingPipeline = async ({ datasetFileId, markdownContent, dataset, 
   )
 
   if (!chunks.length) {
+    await chunkModel.deleteByFileId(datasetFileId)
+    await questionModel.deleteByFileId(datasetFileId)
     await datasetFileModel.update(datasetFileId, {
       status: "completed",
       chunk_count: 0,
@@ -57,11 +59,18 @@ const runProcessingPipeline = async ({ datasetFileId, markdownContent, dataset, 
   )
 
   const questions = await questionGenerator.generateQuestions(markdownContent)
+  await questionModel.deleteByFileId(datasetFileId)
+  await questionModel.bulkInsert(
+    questions.map((question) => ({
+      id: crypto.randomUUID(),
+      dataset_file_id: datasetFileId,
+      question,
+    })),
+  )
 
   await datasetFileModel.update(datasetFileId, {
     status: "completed",
     chunk_count: chunks.length,
-    metadata: JSON.stringify({ ...metadata, exploration_questions: questions }),
     updated_at: new Date(),
   })
 }
@@ -102,7 +111,7 @@ const processJob = async (job) => {
     throw new Error(`No processing source found in metadata for file ${datasetFileId}`)
   }
 
-  await runProcessingPipeline({ datasetFileId, markdownContent: markdown, dataset, metadata })
+  await runProcessingPipeline({ datasetFileId, markdownContent: markdown, dataset })
 }
 
 /**
