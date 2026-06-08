@@ -7,6 +7,7 @@ import { validatePaginationQuery, executePaginatedQuery } from "../utils/paginat
 import * as datasetModel from "../models/datasets.js"
 import * as datasetFileModel from "../models/dataset-files.js"
 import * as chunkModel from "../models/document-chunks.js"
+import * as questionModel from "../models/dataset-file-questions.js"
 import db from "../config/database.js"
 import * as agentModel from "../models/agents.js"
 
@@ -169,8 +170,8 @@ export const updateDataset = async (req, res, next) => {
 /**
  * DELETE /api/workspaces/:workspace_id/datasets/:dataset_id — Soft-delete a dataset.
  *
- * Cascades: hard-deletes all document_chunks for files in the dataset, soft-deletes
- * all dataset_files, then soft-deletes the dataset itself.
+ * Cascades: hard-deletes all dataset_file_questions and document_chunks for files in
+ * the dataset, soft-deletes all dataset_files, then soft-deletes the dataset itself.
  *
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
@@ -186,6 +187,7 @@ export const deleteDataset = async (req, res, next) => {
     if (!dataset) throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "Dataset not found")
 
     await db.transaction(async (trx) => {
+      await questionModel.deleteByDatasetId(dataset.id, trx)
       await chunkModel.deleteByDatasetId(dataset.id, trx)
       await datasetFileModel.softDeleteByDataset(dataset.id, trx)
       await datasetModel.softDelete(dataset.id, trx)

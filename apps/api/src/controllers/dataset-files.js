@@ -1,5 +1,6 @@
 import multer from "multer"
 import joi from "joi"
+import db from "../config/database.js"
 import HttpError from "../utils/http-error.js"
 import apiResponse from "../utils/response.js"
 import { HTTP_STATUS_CODE } from "../utils/constant.js"
@@ -8,6 +9,7 @@ import { validatePaginationQuery, executePaginatedQuery } from "../utils/paginat
 import * as datasetFileModel from "../models/dataset-files.js"
 import * as datasetModel from "../models/datasets.js"
 import * as chunkModel from "../models/document-chunks.js"
+import * as questionModel from "../models/dataset-file-questions.js"
 import * as storageService from "../services/storage.js"
 import * as llamaindexService from "../services/llamaindex.js"
 import { addProcessingJob } from "../queues/file-processing.js"
@@ -222,6 +224,66 @@ export const getFile = async (req, res, next) => {
 }
 
 /**
+ * GET /api/workspaces/:workspace_id/datasets/:dataset_id/files/:file_id/questions — List a file's exploration questions.
+ *
+ * Returns all auto-generated exploration questions for the file in creation order.
+ *
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next middleware function
+ * @returns {Promise<void>}
+ */
+export const listFileQuestions = async (req, res, next) => {
+  try {
+    const file = await datasetFileModel.findOne({
+      id: req.params.file_id,
+      dataset_id: req.params.dataset_id,
+      workspace_id: req.workspace.id,
+    })
+    if (!file) throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "File not found")
+
+    const questions = await questionModel.findByFileId(file.id)
+    return res.json(apiResponse({ message: "OK", data: questions }))
+  } catch (error) {
+    return next(error)
+  }
+}
+
+/**
+ * GET /api/workspaces/:workspace_id/datasets/:dataset_id/files/:file_id/chunks — List a file's document chunks.
+ *
+ * Returns a paginated list of the file's chunks ordered by chunk_index. The embedding
+ * vector is never included in the response. Supports sort_order (asc/desc) on chunk_index.
+ *
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next middleware function
+ * @returns {Promise<void>}
+ */
+export const listFileChunks = async (req, res, next) => {
+  try {
+    const file = await datasetFileModel.findOne({
+      id: req.params.file_id,
+      dataset_id: req.params.dataset_id,
+      workspace_id: req.workspace.id,
+    })
+    if (!file) throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "File not found")
+
+    const params = validatePaginationQuery(req.query, ["chunk_index"])
+    if (!req.query.sort_order) params.sort_order = "asc"
+    const { data, pagination } = await executePaginatedQuery(
+      chunkModel.count,
+      chunkModel.findManyPaginated,
+      { dataset_file_id: file.id },
+      params,
+    )
+    return res.json(apiResponse({ message: "OK", data, pagination }))
+  } catch (error) {
+    return next(error)
+  }
+}
+
+/**
  * PUT /api/workspaces/:workspace_id/datasets/:dataset_id/files/:file_id — Update a dataset file.
  *
  * Only filename is mutable; all other fields (status, chunk_count, metadata) are
@@ -264,9 +326,9 @@ export const updateFile = async (req, res, next) => {
 /**
  * DELETE /api/workspaces/:workspace_id/datasets/:dataset_id/files/:file_id — Delete a dataset file.
  *
- * Deletes all document_chunks for the file, soft-deletes the file record, removes
- * the object from R2 storage (failure is silently ignored to avoid blocking), and
- * logs the audit event.
+ * Deletes all dataset_file_questions and document_chunks for the file, soft-deletes
+ * the file record, removes the object from R2 storage (failure is silently ignored to
+ * avoid blocking), and logs the audit event.
  *
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
@@ -282,8 +344,11 @@ export const deleteFile = async (req, res, next) => {
     })
     if (!file) throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "File not found")
 
-    await chunkModel.deleteByFileId(file.id)
-    await datasetFileModel.softDelete(file.id)
+    await db.transaction(async (trx) => {
+      await questionModel.deleteByFileId(file.id, trx)
+      await chunkModel.deleteByFileId(file.id, trx)
+      await datasetFileModel.softDelete(file.id, trx)
+    })
 
     if (file.storage_path) {
       await storageService.deleteFile(file.storage_path).catch(() => {})

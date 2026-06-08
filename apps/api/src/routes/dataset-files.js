@@ -13,6 +13,8 @@ router.post(
 router.post("/scrape-url", requirePermission("file:upload"), datasetFiles.scrapeUrl)
 router.get("/", requirePermission("file:read"), datasetFiles.listFiles)
 router.get("/:file_id", requirePermission("file:read"), datasetFiles.getFile)
+router.get("/:file_id/questions", requirePermission("file:read"), datasetFiles.listFileQuestions)
+router.get("/:file_id/chunks", requirePermission("file:read"), datasetFiles.listFileChunks)
 router.put("/:file_id", requirePermission("file:update"), datasetFiles.updateFile)
 router.delete("/:file_id", requirePermission("file:delete"), datasetFiles.deleteFile)
 router.post("/:file_id/reprocess", requirePermission("file:reprocess"), datasetFiles.reprocessFile)
