@@ -21,3 +21,28 @@ export function deleteFile(workspaceId, datasetId, id) {
 export function reprocessFile(workspaceId, datasetId, id) {
   return request.post(`${base(workspaceId, datasetId)}/${id}/reprocess`)
 }
+
+/**
+ * List exploration questions for a dataset file.
+ *
+ * @param {string} workspaceId - Workspace UUID
+ * @param {string} datasetId - Dataset UUID
+ * @param {string} fileId - Dataset file UUID
+ * @returns {Promise<{data: object, status: number}>} Response whose `data.data` is the questions array
+ */
+export function listFileQuestions(workspaceId, datasetId, fileId) {
+  return request.get(`${base(workspaceId, datasetId)}/${fileId}/questions`)
+}
+
+/**
+ * List indexed chunks for a dataset file (paginated).
+ *
+ * @param {string} workspaceId - Workspace UUID
+ * @param {string} datasetId - Dataset UUID
+ * @param {string} fileId - Dataset file UUID
+ * @param {object} params - Pagination/sort query (page, limit, sort_by, sort_order)
+ * @returns {Promise<{data: object, status: number}>} Response with `data.data` chunks + `data.pagination`
+ */
+export function listFileChunks(workspaceId, datasetId, fileId, params) {
+  return request.get(`${base(workspaceId, datasetId)}/${fileId}/chunks`, { params })
+}
