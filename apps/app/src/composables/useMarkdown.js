@@ -1,4 +1,4 @@
-import { marked } from "marked"
+import { marked, Marked } from "marked"
 import DOMPurify from "dompurify"
 
 const citationExtension = {
@@ -26,6 +26,15 @@ marked.use({
   },
 })
 
+const chunkMarked = new Marked()
+chunkMarked.use({
+  renderer: {
+    link({ href, text }) {
+      return `<a href="${href}" target="_blank" rel="noopener noreferrer">${text}</a>`
+    },
+  },
+})
+
 export function useMarkdown() {
   /**
    * @param {string|null} content
@@ -41,5 +50,24 @@ export function useMarkdown() {
     }
   }
 
-  return { render }
+  /**
+   * Render dataset-chunk markdown WITHOUT chat citation semantics.
+   *
+   * Uses an isolated `Marked` instance (no citation extension) so bracketed
+   * numbers in document text stay literal and never render as citation chips.
+   *
+   * @param {string|null} content - Raw markdown chunk content
+   * @returns {string} Sanitized HTML
+   */
+  function renderChunk(content) {
+    if (!content) return ""
+    try {
+      const html = chunkMarked.parse(content)
+      return DOMPurify.sanitize(html, { ADD_ATTR: ["target", "rel"] })
+    } catch {
+      return DOMPurify.sanitize(content)
+    }
+  }
+
+  return { render, renderChunk }
 }
