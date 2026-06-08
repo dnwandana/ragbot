@@ -85,7 +85,7 @@ describe("POST .../files/scrape-url", () => {
       .send({ url: "https://example.com/page" })
 
     expect(res.status).toBe(201)
-    expect(res.body.data.filename).toMatch(/example\.com/)
+    expect(res.body.data.filename).toBe("example-com-page.md")
     expect(res.body.data.status).toBe("processing")
     expect(res.body.data.storage_provider).toBeNull()
     const metadata = res.body.data.metadata

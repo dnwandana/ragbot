@@ -5,6 +5,7 @@ import HttpError from "../utils/http-error.js"
 import apiResponse from "../utils/response.js"
 import { HTTP_STATUS_CODE } from "../utils/constant.js"
 import { logAuditEvent } from "../utils/audit.js"
+import { urlToFilename } from "../utils/url-slug.js"
 import { validatePaginationQuery, executePaginatedQuery } from "../utils/pagination.js"
 import * as datasetFileModel from "../models/dataset-files.js"
 import * as datasetModel from "../models/datasets.js"
@@ -128,8 +129,7 @@ export const scrapeUrl = async (req, res, next) => {
     if (!dataset) throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "Dataset not found")
 
     const fileId = crypto.randomUUID()
-    const hostname = new URL(value.url).hostname
-    const filename = `${hostname}-${Date.now()}.md`
+    const filename = urlToFilename(value.url)
 
     const [file] = await datasetFileModel.create({
       id: fileId,
