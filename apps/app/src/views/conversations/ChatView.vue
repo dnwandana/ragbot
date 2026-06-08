@@ -30,6 +30,7 @@
       :agent-total="agentTotal"
       :agent-loading="agentLoading"
       :agent-picker-interactive="isNew"
+      :initial-text="pendingDraft"
       @send="onSend"
       @abort="chat.abort"
       @agent-change="onAgentChange"
@@ -162,6 +163,7 @@ async function resolveLinkedAgent(id) {
 const selectedAgentObject = computed(() => (isNew.value ? currentAgent.value : linkedAgent.value))
 
 const pendingDatasetIds = ref([])
+const pendingDraft = ref("")
 
 // Dataset picker (owned here — decoupled from the shared datasets store)
 const datasetResults = ref([])
@@ -237,6 +239,7 @@ function initPendingConfig() {
   pendingDatasetIds.value = q ? [].concat(q) : []
   if (pendingDatasetIds.value.length) resolveSelectedDatasets(pendingDatasetIds.value)
   else selectedDatasetObjects.value = []
+  pendingDraft.value = route.query.q ? String(route.query.q) : ""
 }
 
 // Local state

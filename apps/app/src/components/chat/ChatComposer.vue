@@ -147,7 +147,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from "vue"
+import { ref, computed, watch, onMounted, nextTick } from "vue"
 import {
   Paperclip,
   LayoutGrid,
@@ -186,6 +186,8 @@ const props = defineProps({
   /** When true, the agent picker is fetching results. */
   agentLoading: { type: Boolean, default: false },
   agentPickerInteractive: { type: Boolean, default: false },
+  /** Optional text to seed the composer with (e.g. from an exploration question). */
+  initialText: { type: String, default: "" },
 })
 
 const emit = defineEmits([
@@ -222,10 +224,16 @@ function agentSub(a) {
   return a.is_default ? "Default" : a.is_system ? "System" : a.model_config?.model?.split("/").pop()
 }
 
-function autoGrow(e) {
-  const el = e.target
+/** Resize the textarea to fit its content, capped at 220px. */
+function resizeTextarea() {
+  const el = textareaRef.value
+  if (!el) return
   el.style.height = "auto"
   el.style.height = Math.min(el.scrollHeight, 220) + "px"
+}
+
+function autoGrow() {
+  resizeTextarea()
 }
 
 function onKey(e) {
@@ -253,6 +261,19 @@ function onToggleDataset(id) {
   else next.add(id)
   emit("dataset-change", Array.from(next))
 }
+
+let seeded = false
+
+/** Seed the textarea from `initialText` once, without clobbering user input. */
+function seedInitialText() {
+  if (seeded || !props.initialText || value.value) return
+  seeded = true
+  value.value = props.initialText
+  nextTick(resizeTextarea)
+}
+
+onMounted(seedInitialText)
+watch(() => props.initialText, seedInitialText)
 </script>
 
 <style scoped>
