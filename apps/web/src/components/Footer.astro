@@ -1,6 +1,5 @@
 ---
-import IconSun from "../icons/IconSun.astro"
-import IconMoon from "../icons/IconMoon.astro"
+import { Sun, Moon } from "@lucide/astro"
 ---
 
 <footer class="footer">
@@ -12,8 +11,8 @@ import IconMoon from "../icons/IconMoon.astro"
       title="Switch to dark mode"
       aria-label="Switch to dark mode"
     >
-      <span class="icon-sun"><IconSun /></span>
-      <span class="icon-moon"><IconMoon /></span>
+      <span class="icon-sun"><Sun size={18} stroke-width={1.7} /></span>
+      <span class="icon-moon"><Moon size={18} stroke-width={1.7} /></span>
     </button>
   </div>
 </footer>

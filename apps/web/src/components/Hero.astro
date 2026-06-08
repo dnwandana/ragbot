@@ -1,5 +1,5 @@
 ---
-import IconFile from "../icons/IconFile.astro"
+import { File } from "@lucide/astro"
 
 const appUrl = import.meta.env.PUBLIC_APP_URL || "http://localhost:8080"
 ---
@@ -46,7 +46,7 @@ const appUrl = import.meta.env.PUBLIC_APP_URL || "http://localhost:8080"
                 >[1]</span
               >
               <span class="source-pill" id="src-pill">
-                <IconFile />
+                <File size={14} stroke-width={1.6} />
                 <span id="src-text">Tenant handbook.pdf</span>
               </span>
             </div>

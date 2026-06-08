@@ -1,8 +1,5 @@
 ---
-import IconShield from "../icons/IconShield.astro"
-import IconLock from "../icons/IconLock.astro"
-import IconGrid from "../icons/IconGrid.astro"
-import IconUsers from "../icons/IconUsers.astro"
+import { ShieldCheck, Lock, LayoutGrid, Users } from "@lucide/astro"
 ---
 
 <section class="section-pad" id="why">
@@ -16,7 +13,7 @@ import IconUsers from "../icons/IconUsers.astro"
     </div>
     <div class="cards">
       <article class="card reveal" data-d="1">
-        <div class="card-ico ico-brand"><IconShield /></div>
+        <div class="card-ico ico-brand"><ShieldCheck size={24} stroke-width={1.6} /></div>
         <h3>Every answer is sourced</h3>
         <p>
           Each reply shows exactly where it came from — the file and the page — so you never have to
@@ -24,7 +21,7 @@ import IconUsers from "../icons/IconUsers.astro"
         </p>
       </article>
       <article class="card reveal" data-d="2">
-        <div class="card-ico ico-sage"><IconLock /></div>
+        <div class="card-ico ico-sage"><Lock size={24} stroke-width={1.6} /></div>
         <h3>Private by design</h3>
         <p>
           Your documents live in your own space. Your data stays yours — never shared, never mixed
@@ -32,7 +29,7 @@ import IconUsers from "../icons/IconUsers.astro"
         </p>
       </article>
       <article class="card reveal" data-d="3">
-        <div class="card-ico ico-brand"><IconGrid /></div>
+        <div class="card-ico ico-brand"><LayoutGrid size={24} stroke-width={1.6} /></div>
         <h3>Organized your way</h3>
         <p>
           Group files into separate workspaces so each project, client, or topic stays neatly apart
@@ -40,7 +37,7 @@ import IconUsers from "../icons/IconUsers.astro"
         </p>
       </article>
       <article class="card reveal" data-d="4">
-        <div class="card-ico ico-sage"><IconUsers /></div>
+        <div class="card-ico ico-sage"><Users size={24} stroke-width={1.6} /></div>
         <h3>Bring your team<span class="opt-tag">When ready</span></h3>
         <p>
           Working solo today? Perfect. Invite people whenever you're ready, and stay in control of

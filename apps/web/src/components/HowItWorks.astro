@@ -1,7 +1,5 @@
 ---
-import IconUpload from "../icons/IconUpload.astro"
-import IconFolder from "../icons/IconFolder.astro"
-import IconMessage from "../icons/IconMessage.astro"
+import { Upload, Folder, MessageSquare } from "@lucide/astro"
 ---
 
 <section class="section-pad band-beige" id="how">
@@ -15,7 +13,7 @@ import IconMessage from "../icons/IconMessage.astro"
     </div>
     <div class="steps">
       <div class="step reveal" data-d="1">
-        <div class="step-ico"><IconUpload /></div>
+        <div class="step-ico"><Upload size={26} stroke-width={1.5} /></div>
         <div class="step-num"></div>
         <h3>Drop in your files</h3>
         <p>
@@ -24,7 +22,7 @@ import IconMessage from "../icons/IconMessage.astro"
         </p>
       </div>
       <div class="step reveal" data-d="2">
-        <div class="step-ico"><IconFolder /></div>
+        <div class="step-ico"><Folder size={26} stroke-width={1.5} /></div>
         <div class="step-num"></div>
         <h3>Keep things tidy</h3>
         <p>
@@ -33,7 +31,7 @@ import IconMessage from "../icons/IconMessage.astro"
         </p>
       </div>
       <div class="step reveal" data-d="3">
-        <div class="step-ico"><IconMessage /></div>
+        <div class="step-ico"><MessageSquare size={26} stroke-width={1.5} /></div>
         <div class="step-num"></div>
         <h3>Just ask</h3>
         <p>
