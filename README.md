@@ -251,6 +251,8 @@ Append `:api`, `:app`, `:web`, or `:docs` to target a single workspace (e.g. `pn
 | PUT    | `/api/workspaces/:id/datasets/:did/files/:fid`           | `file:update`    |
 | DELETE | `/api/workspaces/:id/datasets/:did/files/:fid`           | `file:delete`    |
 | POST   | `/api/workspaces/:id/datasets/:did/files/:fid/reprocess` | `file:reprocess` |
+| GET    | `/api/workspaces/:id/datasets/:did/files/:fid/questions` | `file:read`      |
+| GET    | `/api/workspaces/:id/datasets/:did/files/:fid/chunks`    | `file:read`      |
 
 ### Agents
 

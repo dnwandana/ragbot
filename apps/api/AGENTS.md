@@ -190,16 +190,18 @@ The chat feature uses a server-side ReAct (Reason-Act-Observe) loop with dual-mo
 
 ### Workspace-scoped (requireAccessToken + resolveWorkspace)
 
-| Method | Path                                                                    | Controller                               | Permission            |
-| ------ | ----------------------------------------------------------------------- | ---------------------------------------- | --------------------- |
-| POST   | `/api/workspaces/:workspace_id/conversations`                           | `conversations.createConversation`       | `conversation:create` |
-| GET    | `/api/workspaces/:workspace_id/conversations`                           | `conversations.listConversations`        | `conversation:read`   |
-| GET    | `/api/workspaces/:workspace_id/conversations/:conversation_id`          | `conversations.getConversation`          | `conversation:read`   |
-| PUT    | `/api/workspaces/:workspace_id/conversations/:conversation_id`          | `conversations.updateConversation`       | `conversation:update` |
-| DELETE | `/api/workspaces/:workspace_id/conversations/:conversation_id`          | `conversations.deleteConversation`       | `conversation:delete` |
-| POST   | `/api/workspaces/:workspace_id/datasets/:dataset_id/conversations`      | `datasets.createConversationFromDataset` | `conversation:create` |
-| POST   | `/api/workspaces/:workspace_id/conversations/:conversation_id/messages` | `chat.sendMessage`                       | `conversation:chat`   |
-| GET    | `/api/workspaces/:workspace_id/audit-logs`                              | `audit-logs.listAuditLogs`               | `audit:read`          |
+| Method | Path                                                                          | Controller                               | Permission            |
+| ------ | ----------------------------------------------------------------------------- | ---------------------------------------- | --------------------- |
+| POST   | `/api/workspaces/:workspace_id/conversations`                                 | `conversations.createConversation`       | `conversation:create` |
+| GET    | `/api/workspaces/:workspace_id/conversations`                                 | `conversations.listConversations`        | `conversation:read`   |
+| GET    | `/api/workspaces/:workspace_id/conversations/:conversation_id`                | `conversations.getConversation`          | `conversation:read`   |
+| PUT    | `/api/workspaces/:workspace_id/conversations/:conversation_id`                | `conversations.updateConversation`       | `conversation:update` |
+| DELETE | `/api/workspaces/:workspace_id/conversations/:conversation_id`                | `conversations.deleteConversation`       | `conversation:delete` |
+| POST   | `/api/workspaces/:workspace_id/datasets/:dataset_id/conversations`            | `datasets.createConversationFromDataset` | `conversation:create` |
+| POST   | `/api/workspaces/:workspace_id/conversations/:conversation_id/messages`       | `chat.sendMessage`                       | `conversation:chat`   |
+| GET    | `/api/workspaces/:workspace_id/audit-logs`                                    | `audit-logs.listAuditLogs`               | `audit:read`          |
+| GET    | `/api/workspaces/:workspace_id/datasets/:dataset_id/files/:file_id/questions` | `dataset-files.listFileQuestions`        | `file:read`           |
+| GET    | `/api/workspaces/:workspace_id/datasets/:dataset_id/files/:file_id/chunks`    | `dataset-files.listFileChunks`           | `file:read`           |
 
 > The workspace-scoped table above is illustrative, not exhaustive — workspaces, roles, members, datasets, dataset-files, and agents are also mounted under `/api/workspaces/:workspace_id/*`. See `apps/api/openapi.json` for the full REST reference, or the route files in `src/routes/`.
 
@@ -209,40 +211,41 @@ Audit logging is implemented and wired (not planned). `src/utils/audit.js` expor
 
 ## Model Catalog
 
-| File                       | Exports                                                                                                         |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `users.js`                 | `create`, `findOne`, `findOneWithPassword`, `update`, `softDelete`                                              |
-| `email-tokens.js`          | `hashToken`, `create`, `findActiveByHash`, `markUsed`, `deleteExpired`, `deleteByUser`                          |
-| `refresh-tokens.js`        | `hashToken`, `create`, `findActiveByHash`, `revokeById`, `revokeAllForUser`, `purgeOld`                         |
-| `roles.js`                 | `create`, `findOne`, `findMany`, `update`, `remove`, `findPermissionsByRoleId`, `setPermissions`                |
-| `permissions.js`           | `findAll`, `findOne`, `findByIds`                                                                               |
-| `agents.js`                | `create`, `findOne`, `findSystemAgent`, `count`, `findManyPaginated`, `update`, `softDelete`                    |
-| `conversations.js`         | `create`, `findOne`, `count`, `findManyPaginated`, `update`, `softDelete`                                       |
-| `conversation-datasets.js` | `create`, `findByConversationId`, `findDatasetIds`, `remove`, `removeByConversationId`                          |
-| `messages.js`              | `create`, `findOne`, `findByConversationId`, `findVisibleByConversationId`                                      |
-| `message-citations.js`     | `bulkInsert`, `findByMessageId`, `findByConversationId`                                                         |
-| `workspaces.js`            | `create`, `findOne`, `findManyByUserId`, `update`, `softDelete`                                                 |
-| `workspace-members.js`     | `create`, `findOne`, `findManyByWorkspaceId`, `getPermissions`, `countActiveOwners`, `updateRole`, `softDelete` |
-| `datasets.js`              | `create`, `findOne`, `count`, `findManyPaginated`, `update`, `softDelete`                                       |
-| `dataset-files.js`         | `create`, `findOne`, `count`, `findManyPaginated`, `update`, `softDelete`, `softDeleteByDataset`                |
-| `document-chunks.js`       | `bulkInsert`, `deleteByFileId`, `countByDatasetFileId`, `deleteByDatasetId`                                     |
-| `audit-logs.js`            | `findMany`, `count`                                                                                             |
+| File                        | Exports                                                                                                         |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `users.js`                  | `create`, `findOne`, `findOneWithPassword`, `update`, `softDelete`                                              |
+| `email-tokens.js`           | `hashToken`, `create`, `findActiveByHash`, `markUsed`, `deleteExpired`, `deleteByUser`                          |
+| `refresh-tokens.js`         | `hashToken`, `create`, `findActiveByHash`, `revokeById`, `revokeAllForUser`, `purgeOld`                         |
+| `roles.js`                  | `create`, `findOne`, `findMany`, `update`, `remove`, `findPermissionsByRoleId`, `setPermissions`                |
+| `permissions.js`            | `findAll`, `findOne`, `findByIds`                                                                               |
+| `agents.js`                 | `create`, `findOne`, `findSystemAgent`, `count`, `findManyPaginated`, `update`, `softDelete`                    |
+| `conversations.js`          | `create`, `findOne`, `count`, `findManyPaginated`, `update`, `softDelete`                                       |
+| `conversation-datasets.js`  | `create`, `findByConversationId`, `findDatasetIds`, `remove`, `removeByConversationId`                          |
+| `messages.js`               | `create`, `findOne`, `findByConversationId`, `findVisibleByConversationId`                                      |
+| `message-citations.js`      | `bulkInsert`, `findByMessageId`, `findByConversationId`                                                         |
+| `workspaces.js`             | `create`, `findOne`, `findManyByUserId`, `update`, `softDelete`                                                 |
+| `workspace-members.js`      | `create`, `findOne`, `findManyByWorkspaceId`, `getPermissions`, `countActiveOwners`, `updateRole`, `softDelete` |
+| `datasets.js`               | `create`, `findOne`, `count`, `findManyPaginated`, `update`, `softDelete`                                       |
+| `dataset-files.js`          | `create`, `findOne`, `count`, `findManyPaginated`, `update`, `softDelete`, `softDeleteByDataset`                |
+| `document-chunks.js`        | `bulkInsert`, `deleteByFileId`, `countByDatasetFileId`, `deleteByDatasetId`, `count`, `findManyPaginated`       |
+| `dataset-file-questions.js` | `bulkInsert`, `findByFileId`, `deleteByFileId`, `deleteByDatasetId`                                             |
+| `audit-logs.js`             | `findMany`, `count`                                                                                             |
 
 ## Controller Catalog
 
-| File                | Exports                                                                                                                             |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `authentication.js` | `signup`, `verifyEmail`, `resendVerification`, `signin`, `forgotPassword`, `resetPassword`, `getMe`, `refreshAccessToken`, `logout` |
-| `permissions.js`    | `getPermissions`                                                                                                                    |
-| `roles.js`          | `createRole`, `getRoles`, `getRole`, `updateRole`, `deleteRole`                                                                     |
-| `agents.js`         | `createAgent`, `listAgents`, `getAgent`, `updateAgent`, `deleteAgent`                                                               |
-| `conversations.js`  | `createConversation`, `listConversations`, `getConversation`, `updateConversation`, `deleteConversation`                            |
-| `datasets.js`       | `createDataset`, `listDatasets`, `getDataset`, `updateDataset`, `deleteDataset`, `createConversationFromDataset`                    |
-| `chat.js`           | `sendMessage`                                                                                                                       |
-| `members.js`        | `listMembers`, `getMember`, `inviteMember`, `changeRole`, `removeMember`, `acceptInvitation`, `previewInvitation`                   |
-| `workspaces.js`     | `createWorkspace`, `getWorkspaces`, `getWorkspace`, `updateWorkspace`, `deleteWorkspace`                                            |
-| `dataset-files.js`  | `upload` (Multer middleware), `uploadFile`, `scrapeUrl`, `listFiles`, `getFile`, `updateFile`, `deleteFile`, `reprocessFile`        |
-| `audit-logs.js`     | `listAuditLogs`                                                                                                                     |
+| File                | Exports                                                                                                                                                             |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `authentication.js` | `signup`, `verifyEmail`, `resendVerification`, `signin`, `forgotPassword`, `resetPassword`, `getMe`, `refreshAccessToken`, `logout`                                 |
+| `permissions.js`    | `getPermissions`                                                                                                                                                    |
+| `roles.js`          | `createRole`, `getRoles`, `getRole`, `updateRole`, `deleteRole`                                                                                                     |
+| `agents.js`         | `createAgent`, `listAgents`, `getAgent`, `updateAgent`, `deleteAgent`                                                                                               |
+| `conversations.js`  | `createConversation`, `listConversations`, `getConversation`, `updateConversation`, `deleteConversation`                                                            |
+| `datasets.js`       | `createDataset`, `listDatasets`, `getDataset`, `updateDataset`, `deleteDataset`, `createConversationFromDataset`                                                    |
+| `chat.js`           | `sendMessage`                                                                                                                                                       |
+| `members.js`        | `listMembers`, `getMember`, `inviteMember`, `changeRole`, `removeMember`, `acceptInvitation`, `previewInvitation`                                                   |
+| `workspaces.js`     | `createWorkspace`, `getWorkspaces`, `getWorkspace`, `updateWorkspace`, `deleteWorkspace`                                                                            |
+| `dataset-files.js`  | `upload` (Multer middleware), `uploadFile`, `scrapeUrl`, `listFiles`, `getFile`, `updateFile`, `deleteFile`, `reprocessFile`, `listFileQuestions`, `listFileChunks` |
+| `audit-logs.js`     | `listAuditLogs`                                                                                                                                                     |
 
 ## Middleware Catalog
 
@@ -290,10 +293,10 @@ Audit logging is implemented and wired (not planned). `src/utils/audit.js` expor
 
 ## Queue & Worker Catalog
 
-| File                         | Exports                                   | Description                                                                                                     |
-| ---------------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `queues/file-processing.js`  | `fileProcessingQueue`, `addProcessingJob` | BullMQ queue (`file-processing`); enqueues `{ datasetFileId, datasetId }` jobs (3 retries, exponential backoff) |
-| `workers/file-processing.js` | `startWorker`                             | BullMQ worker (concurrency 2) running the split → embed → store → generate-questions pipeline                   |
+| File                         | Exports                                   | Description                                                                                                                              |
+| ---------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `queues/file-processing.js`  | `fileProcessingQueue`, `addProcessingJob` | BullMQ queue (`file-processing`); enqueues `{ datasetFileId, datasetId }` jobs (3 retries, exponential backoff)                          |
+| `workers/file-processing.js` | `startWorker`, `runProcessingPipeline`    | BullMQ worker (concurrency 2) running the split → embed → store → questions pipeline; questions stored in `dataset_file_questions` table |
 
 ## Code Style
 
@@ -319,7 +322,7 @@ Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_E
   - 001: Extensions (pgcrypto, vector) + 5 ENUM types
   - 002: Core tenancy (workspaces, users, email_tokens, refresh_tokens)
   - 003: Roles & permissions (permissions, roles, role_permissions, workspace_members)
-  - 004: RAG pipeline (datasets, dataset_files, document_chunks with HNSW vector index)
+  - 004: RAG pipeline (datasets, dataset_files, document_chunks with HNSW vector index, dataset_file_questions)
   - 005: Agents (configurable system prompt + model)
   - 006: Conversations & messages (conversations, conversation_datasets, messages, message_citations)
   - 007: Functions (trigger_set_updated_at on 9 tables, search_chunks SQL function)
@@ -328,7 +331,7 @@ Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_E
 - **Seeds**: `database/seeds/` — 2 seed files:
   - 01: 31 permissions across 8 resources (workspace, role, member, audit, dataset, file, agent, conversation)
   - 02: 2 test users (alice@example.com, bob@example.com, password: "Password123!")
-- 15 tables total, workspace-scoped via `workspace_id` with composite FKs
+- 16 tables total, workspace-scoped via `workspace_id` with composite FKs
 - Soft delete pattern on 8 tables via `deleted_at` column with partial unique indexes
 - pgvector `vector(1536)` column for OpenAI embeddings with HNSW index
 
@@ -346,7 +349,7 @@ Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_E
   - `getAuthHeaders(userId)` — generates JWT tokens, stores refresh hash in DB, returns Cookie header
   - `createTestWorkspace(userId)` — creates workspace + 4 system roles + permissions + adds creator as owner + creates system agent
   - `addWorkspaceMember(workspaceId, userId, roleId)` — adds member with active status
-  - `cleanAllTables()` — truncates all 15 tables in dependency order
+  - `cleanAllTables()` — truncates all 16 tables in dependency order
   - `seedPermissions()` — seeds 31 RAG permissions
 - **Current test status** — 181 test cases total (static count from the test files; live passing count comes from `corepack pnpm test:api`):
   - Integration: agents (16), auth (38), chat (7), conversations (11), dataset-files (11), datasets (14), health (5), members (6), permissions (13), roles (11), workspaces (6)

@@ -46,7 +46,7 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 - Health check (database connectivity, request ID)
 - Roles CRUD (workspace-scoped)
 - Full middleware stack (helmet, CORS, rate limiting, request ID, cookie parser, error handling)
-- Database schema — 9 migrations, 15 tables, pgvector HNSW index, `search_chunks()` SQL function
+- Database schema — 9 migrations, 16 tables, pgvector HNSW index, `search_chunks()` SQL function
 - Workspace CRUD + RBAC + member management (F3)
 - Datasets + file upload (LlamaIndex) + URL scraping (Firecrawl) + BullMQ processing pipeline (F4)
 - Agent management — CRUD with system agent protection (F5)
@@ -89,13 +89,14 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 
 ### Database schema
 
-15 tables across 9 migrations. Key entity tree:
+16 tables across 9 migrations. Key entity tree:
 
 ```
 workspaces (tenant root)
   +-- roles → role_permissions → permissions (global, 31 entries)
   +-- workspace_members (with role, soft delete)
   +-- datasets → dataset_files → document_chunks (vector(1536) + HNSW index)
+                              → dataset_file_questions
   +-- agents (system prompt + model config)
   +-- conversations → messages → message_citations → document_chunks
   +-- audit_logs (immutable, append-only)

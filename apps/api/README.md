@@ -42,7 +42,7 @@ You can still run package-local commands from `apps/api` with `pnpm`.
 
 ### Database
 
-- **PostgreSQL + pgvector**: 15 tables with vector similarity search (HNSW index)
+- **PostgreSQL + pgvector**: 16 tables with vector similarity search (HNSW index)
 - **Knex.js**: SQL query builder with migration support
 - **MVC Pattern**: Clean separation of concerns (Models, Controllers, Routes)
 - **ES Modules**: Modern JavaScript with `import/export` syntax
@@ -245,14 +245,17 @@ Authentication uses **httpOnly cookies** set by the server. Tokens are never exp
 
 ### Dataset Files
 
-| Method | Endpoint                                                 | Description    | Permission     |
-| ------ | -------------------------------------------------------- | -------------- | -------------- |
-| POST   | `/api/workspaces/:id/datasets/:did/files/upload`         | Upload file    | file:upload    |
-| POST   | `/api/workspaces/:id/datasets/:did/files/scrape-url`     | Scrape URL     | file:upload    |
-| GET    | `/api/workspaces/:id/datasets/:did/files`                | List files     | file:read      |
-| PUT    | `/api/workspaces/:id/datasets/:did/files/:fid`           | Update file    | file:update    |
-| DELETE | `/api/workspaces/:id/datasets/:did/files/:fid`           | Delete file    | file:delete    |
-| POST   | `/api/workspaces/:id/datasets/:did/files/:fid/reprocess` | Reprocess file | file:reprocess |
+| Method | Endpoint                                                 | Description                | Permission     |
+| ------ | -------------------------------------------------------- | -------------------------- | -------------- |
+| POST   | `/api/workspaces/:id/datasets/:did/files/upload`         | Upload file                | file:upload    |
+| POST   | `/api/workspaces/:id/datasets/:did/files/scrape-url`     | Scrape URL                 | file:upload    |
+| GET    | `/api/workspaces/:id/datasets/:did/files`                | List files                 | file:read      |
+| PUT    | `/api/workspaces/:id/datasets/:did/files/:fid`           | Update file                | file:update    |
+| DELETE | `/api/workspaces/:id/datasets/:did/files/:fid`           | Delete file                | file:delete    |
+| GET    | `/api/workspaces/:id/datasets/:did/files/:fid`           | Get file                   | file:read      |
+| POST   | `/api/workspaces/:id/datasets/:did/files/:fid/reprocess` | Reprocess file             | file:reprocess |
+| GET    | `/api/workspaces/:id/datasets/:did/files/:fid/questions` | List exploration questions | file:read      |
+| GET    | `/api/workspaces/:id/datasets/:did/files/:fid/chunks`    | List document chunks       | file:read      |
 
 ### Agents
 
@@ -391,7 +394,7 @@ apps/api/
 │   ├── app.js                   # Express app (middleware + routes)
 │   └── index.js                 # Entry point (env validation + server start)
 ├── database/
-│   ├── migrations/              # 9 Knex migrations (15 tables)
+│   ├── migrations/              # 9 Knex migrations (16 tables)
 │   └── seeds/                   # 2 seed files (31 permissions + test users)
 ├── tests/
 │   ├── integration/             # agents, auth, chat, conversations, dataset-files, datasets, health, members, permissions, roles, workspaces
