@@ -38,7 +38,7 @@ describe("useFileDetail", () => {
     expect(fd.hasMoreChunks.value).toBe(true)
     expect(filesApi.listFileChunks).toHaveBeenCalledWith("ws1", "ds1", "f1", {
       page: 1,
-      limit: 10,
+      limit: 5,
       sort_by: "chunk_index",
       sort_order: "asc",
     })
@@ -68,7 +68,7 @@ describe("useFileDetail", () => {
     expect(fd.hasMoreChunks.value).toBe(false)
     expect(filesApi.listFileChunks).toHaveBeenLastCalledWith("ws1", "ds1", "f1", {
       page: 2,
-      limit: 10,
+      limit: 5,
       sort_by: "chunk_index",
       sort_order: "asc",
     })

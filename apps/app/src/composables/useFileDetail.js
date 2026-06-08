@@ -2,7 +2,7 @@ import { ref, computed } from "vue"
 import { listFileQuestions, listFileChunks } from "@/api/datasetFiles"
 
 /** Chunks fetched per "Load more" page. */
-const CHUNK_PAGE_SIZE = 10
+const CHUNK_PAGE_SIZE = 5
 
 /** Chunk sort params reused by first-load and load-more. */
 function chunkParams(page) {
