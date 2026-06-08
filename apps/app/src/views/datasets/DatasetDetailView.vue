@@ -193,6 +193,18 @@ async function handleDeleteFile(id) {
   selected.delete(id)
 }
 
+/**
+ * Open a new chat seeded with an exploration question, this dataset linked.
+ * @param {string} question - The question text to pre-fill the composer with
+ */
+function onAskQuestion(question) {
+  router.push({
+    name: "NewChat",
+    params: { workspaceId },
+    query: { dataset: datasetId, q: question },
+  })
+}
+
 /** @param {string} dateStr @returns {string} */
 function shortDate(dateStr) {
   if (!dateStr) return "—"
@@ -482,9 +494,12 @@ const visiblePages = computed(() => {
     <FileDetailPanel
       :file="detailFile"
       :open="!!detailFile"
+      :workspace-id="workspaceId"
+      :dataset-id="datasetId"
       @close="detailFile = null"
       @reindex="handleReindexFile"
       @delete="handleDeleteFile"
+      @ask="onAskQuestion"
     />
 
     <!-- Edit dataset modal -->

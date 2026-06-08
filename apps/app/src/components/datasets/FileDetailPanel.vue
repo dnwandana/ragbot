@@ -1,13 +1,34 @@
 <script setup>
-import { computed } from "vue"
-import { FileText, X } from "lucide-vue-next"
+import { computed, watch } from "vue"
+import { FileText, X, Sparkles, ArrowRight, Loader, AlertTriangle } from "lucide-vue-next"
 import { humanSize, fileType, statusLabel, statusChipClass } from "@/utils/files"
+import { useFileDetail } from "@/composables/useFileDetail"
+import { useMarkdown } from "@/composables/useMarkdown"
 
 const props = defineProps({
   file: { type: Object, default: null },
   open: { type: Boolean, default: false },
+  workspaceId: { type: String, required: true },
+  datasetId: { type: String, required: true },
 })
-const emit = defineEmits(["close", "reindex", "delete"])
+const emit = defineEmits(["close", "reindex", "delete", "ask"])
+
+// workspaceId/datasetId are captured once here; safe because they are route-stable
+// for this component's lifetime (the panel is keyed per dataset detail route).
+const { renderChunk } = useMarkdown()
+const {
+  questions,
+  chunks,
+  chunksTotal,
+  loadingQuestions,
+  loadingChunks,
+  errored,
+  loadMoreError,
+  hasMoreChunks,
+  loadFile,
+  loadMoreChunks,
+  reset,
+} = useFileDetail(props.workspaceId, props.datasetId)
 
 /** @param {string} dateStr @returns {string} */
 function formatDate(dateStr) {
@@ -18,8 +39,23 @@ function formatDate(dateStr) {
 const isActive = computed(
   () => props.file?.status === "processing" || props.file?.status === "queued",
 )
-
+const isCompleted = computed(() => props.file?.status === "completed")
+const isFailed = computed(() => props.file?.status === "failed")
 const type = computed(() => fileType(props.file?.filename))
+
+/** @param {number} i @returns {string} Zero-padded 1-based index, e.g. "01". */
+function padIndex(i) {
+  return String(i + 1).padStart(2, "0")
+}
+
+watch(
+  () => [props.open, props.file?.id],
+  () => {
+    if (props.open && props.file) loadFile(props.file)
+    else if (!props.open) reset()
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -79,15 +115,114 @@ const type = computed(() => fileType(props.file?.filename))
             </dl>
           </section>
 
-          <!-- Chunk preview placeholder -->
-          <section class="chunk-section">
-            <h3 class="section-label">Chunk preview</h3>
-            <div class="chunk-placeholder">
-              <FileText :size="28" :stroke-width="1.3" style="color: var(--ink-4)" />
-              <p class="placeholder-title">Chunk preview</p>
-              <p class="placeholder-body">
-                Coming soon — will show indexed text segments and relevance scores.
+          <!-- Explore this document -->
+          <section
+            v-if="isCompleted && (loadingQuestions || questions.length)"
+            class="explore-section"
+          >
+            <div class="sec-head">
+              <h3 class="section-label section-label--spark">
+                <Sparkles :size="12" class="spark" />
+                Explore this document
+              </h3>
+              <span v-if="questions.length" class="sec-count">
+                {{ questions.length }} questions generated
+              </span>
+            </div>
+
+            <div v-if="loadingQuestions" class="muted-box">Generating starting points…</div>
+            <template v-else>
+              <div class="q-card">
+                <button
+                  v-for="(q, i) in questions"
+                  :key="q.id"
+                  class="q-row"
+                  @click="emit('ask', q.question)"
+                >
+                  <span class="q-idx">[{{ padIndex(i) }}]</span>
+                  <span class="q-txt">{{ q.question }}</span>
+                  <ArrowRight :size="14" class="q-arrow" />
+                </button>
+              </div>
+              <p class="q-foot">
+                Suggested starting points, generated from the indexed text. Pick one to open a
+                conversation grounded in this file.
               </p>
+            </template>
+          </section>
+
+          <!-- Chunk preview -->
+          <section class="chunk-section">
+            <div class="sec-head">
+              <h3 class="section-label">Chunk preview</h3>
+              <span v-if="isCompleted && chunksTotal" class="sec-count">
+                {{ chunksTotal }} chunks indexed
+              </span>
+            </div>
+
+            <!-- Completed: real chunks, with sub-states -->
+            <template v-if="isCompleted">
+              <div v-if="errored" class="placeholder placeholder--err">
+                <AlertTriangle :size="22" :stroke-width="1.4" />
+                <p class="placeholder-title">Couldn't load chunks</p>
+                <button class="btn-link" @click="loadFile(file)">Retry</button>
+              </div>
+              <div v-else-if="loadingChunks && !chunks.length" class="placeholder">
+                <Loader :size="22" :stroke-width="1.4" class="spin" />
+                <p class="placeholder-body">Loading chunks…</p>
+              </div>
+              <div v-else-if="!chunks.length" class="placeholder">
+                <FileText :size="22" :stroke-width="1.3" />
+                <p class="placeholder-body">No chunks were produced for this file.</p>
+              </div>
+              <template v-else>
+                <div class="chunks">
+                  <div v-for="c in chunks" :key="c.id" class="chunk">
+                    <div class="chunk-head">
+                      <span class="chunk-idx">Chunk #{{ c.chunk_index + 1 }}</span>
+                    </div>
+                    <!-- eslint-disable-next-line vue/no-v-html -->
+                    <div class="chunk-prose" v-html="renderChunk(c.content)" />
+                  </div>
+                </div>
+                <button
+                  v-if="hasMoreChunks"
+                  class="load-more"
+                  :disabled="loadingChunks"
+                  @click="loadMoreChunks(file)"
+                >
+                  {{ loadingChunks ? "Loading…" : "Load more chunks" }}
+                </button>
+                <p class="showing mono">Showing {{ chunks.length }} of {{ chunksTotal }}</p>
+                <p v-if="loadMoreError" class="load-more-err">
+                  Couldn't load more chunks.
+                  <button class="btn-link" @click="loadMoreChunks(file)">Retry</button>
+                </p>
+              </template>
+            </template>
+
+            <!-- Parsing -->
+            <div v-else-if="isActive" class="placeholder">
+              <Loader :size="22" :stroke-width="1.4" class="spin" />
+              <p class="placeholder-title">Extracting text…</p>
+              <p class="placeholder-body">
+                Parsing, chunking, and embedding the document. Usually under a minute.
+              </p>
+            </div>
+
+            <!-- Failed -->
+            <div v-else-if="isFailed" class="placeholder placeholder--err">
+              <AlertTriangle :size="22" :stroke-width="1.4" />
+              <p class="placeholder-title">Processing failed</p>
+              <p class="placeholder-body">
+                {{ file.error_message || "An error occurred while processing this file." }}
+              </p>
+            </div>
+
+            <!-- Queued / unknown -->
+            <div v-else class="placeholder">
+              <FileText :size="22" :stroke-width="1.3" />
+              <p class="placeholder-body">Queued for processing.</p>
             </div>
           </section>
         </div>
@@ -116,7 +251,8 @@ const type = computed(() => fileType(props.file?.filename))
   top: 0;
   right: 0;
   bottom: 0;
-  width: 300px;
+  width: 480px;
+  max-width: 100vw;
   background: var(--surface);
   border-left: 1px solid var(--line-2);
   box-shadow: var(--shadow-3);
@@ -145,7 +281,7 @@ const type = computed(() => fileType(props.file?.filename))
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  padding: 14px 16px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--line);
   flex-shrink: 0;
 }
@@ -154,11 +290,11 @@ const type = computed(() => fileType(props.file?.filename))
   min-width: 0;
 }
 .panel-filename {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--ink);
   word-break: break-all;
-  margin: 0 0 6px;
+  margin: 0 0 7px;
 }
 .panel-meta {
   display: flex;
@@ -225,10 +361,10 @@ const type = computed(() => fileType(props.file?.filename))
 .panel-body {
   flex: 1;
   overflow-y: auto;
-  padding: 14px 16px;
+  padding: 18px 20px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 22px;
 }
 .section-label {
   font-size: 10.5px;
@@ -236,12 +372,33 @@ const type = computed(() => fileType(props.file?.filename))
   color: var(--ink-4);
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  margin: 0 0 10px;
+  margin: 0;
+}
+.section-label--spark {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-3);
+}
+.spark {
+  color: var(--brand);
+}
+.sec-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 11px;
+}
+.sec-count {
+  font-size: 11px;
+  color: var(--ink-3);
+  flex-shrink: 0;
 }
 .info-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 9px;
   margin: 0;
 }
 .info-row {
@@ -308,38 +465,241 @@ const type = computed(() => fileType(props.file?.filename))
   animation: pulse 1.4s ease-in-out infinite;
 }
 
+/* Explore this document */
+.explore-section {
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+.q-card {
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+.q-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  text-align: left;
+  padding: 11px 14px;
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--line);
+  cursor: pointer;
+  transition: background var(--dur) var(--ease);
+}
+.q-row:first-child {
+  border-top: none;
+}
+.q-row:hover {
+  background: var(--brand-tint);
+}
+.q-idx {
+  font: 500 11px var(--font-mono);
+  color: var(--brand-3);
+  flex-shrink: 0;
+  letter-spacing: -0.02em;
+}
+.q-txt {
+  flex: 1;
+  min-width: 0;
+  font: 400 13px/1.45 var(--font-sans);
+  color: var(--ink-2);
+}
+.q-row:hover .q-txt {
+  color: var(--ink);
+}
+.q-arrow {
+  flex-shrink: 0;
+  color: var(--brand-3);
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+}
+.q-row:hover .q-arrow {
+  opacity: 1;
+}
+.q-foot {
+  font: 400 11px/1.5 var(--font-sans);
+  color: var(--ink-3);
+  margin: 9px 0 0;
+}
+.muted-box {
+  font-size: 12.5px;
+  color: var(--ink-3);
+  padding: 12px 0;
+}
+
+/* Chunk preview */
 .chunk-section {
   border-top: 1px solid var(--line);
   padding-top: 16px;
 }
-.chunk-placeholder {
+.chunks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.chunk {
+  padding: 11px 14px;
+  border-left: 3px solid var(--line);
+  background: var(--bg);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+}
+.chunk-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--ink-3);
+  margin-bottom: 6px;
+}
+.chunk-idx {
+  font-family: var(--font-mono);
+  color: var(--ink-2);
+}
+.chunk-prose {
+  font: 400 13px/1.6 var(--font-sans);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+/* Clamp markdown so wide/large elements can't break the panel */
+.chunk-prose :deep(h1),
+.chunk-prose :deep(h2),
+.chunk-prose :deep(h3),
+.chunk-prose :deep(h4) {
+  font-size: 13.5px;
+  font-weight: 600;
+  margin: 8px 0 4px;
+  line-height: 1.4;
+}
+.chunk-prose :deep(p) {
+  margin: 0 0 8px;
+}
+.chunk-prose :deep(p:last-child) {
+  margin-bottom: 0;
+}
+.chunk-prose :deep(ul),
+.chunk-prose :deep(ol) {
+  margin: 0 0 8px;
+  padding-left: 18px;
+}
+.chunk-prose :deep(pre) {
+  background: var(--bg-2);
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  overflow-x: auto;
+  font-size: 12px;
+}
+.chunk-prose :deep(code) {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.chunk-prose :deep(table) {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.chunk-prose :deep(th),
+.chunk-prose :deep(td) {
   border: 1px solid var(--line);
+  padding: 4px 8px;
+}
+.chunk-prose :deep(img) {
+  max-width: 100%;
+  height: auto;
+}
+.chunk-prose :deep(a) {
+  color: var(--brand-3);
+  text-decoration: underline;
+}
+.load-more {
+  margin-top: 10px;
+  align-self: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  color: var(--ink-2);
+  font: 600 12px var(--font-sans);
+  padding: 7px 12px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.load-more:hover:not(:disabled) {
+  background: var(--bg-2);
+}
+.load-more:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.showing {
+  font-size: 11px;
+  color: var(--ink-3);
+  margin: 8px 0 0;
+}
+.load-more-err {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--err);
+  margin: 8px 0 0;
+}
+
+.placeholder {
+  border: 1px dashed var(--line-2);
   border-radius: var(--r);
-  padding: 20px 14px;
+  padding: 28px 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
   text-align: center;
+  color: var(--ink-3);
+}
+.placeholder--err {
+  border-style: solid;
+  border-color: var(--err-border);
+  background: var(--err-bg);
+  color: var(--err);
 }
 .placeholder-title {
-  font-size: 12.5px;
-  font-weight: 500;
-  color: var(--ink-3);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
   margin: 0;
+}
+.placeholder--err .placeholder-title {
+  color: var(--err);
 }
 .placeholder-body {
   font-size: 12px;
-  color: var(--ink-4);
   line-height: 1.5;
-  max-width: 200px;
+  max-width: 260px;
   margin: 0;
+}
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--err);
+  font: 600 12.5px var(--font-sans);
+  text-decoration: underline;
+  cursor: pointer;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spin {
+  animation: spin 1.2s linear infinite;
 }
 
 .panel-foot {
   display: flex;
   gap: 8px;
-  padding: 12px 16px;
+  padding: 12px 20px;
   border-top: 1px solid var(--line);
   flex-shrink: 0;
 }
@@ -349,7 +709,7 @@ const type = computed(() => fileType(props.file?.filename))
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 7px 12px;
+  padding: 8px 12px;
   border-radius: var(--r-sm);
   font-size: 12.5px;
   font-weight: 600;
