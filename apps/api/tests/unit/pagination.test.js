@@ -86,4 +86,20 @@ describe("buildPaginationMeta", () => {
     expect(meta.has_next_page).toBe(false)
     expect(meta.has_previous_page).toBe(false)
   })
+
+  it("exposes exactly the documented pagination contract keys (README + openapi.json)", () => {
+    const meta = buildPaginationMeta(2, 10, 25)
+    expect(Object.keys(meta).toSorted()).toEqual(
+      [
+        "current_page",
+        "has_next_page",
+        "has_previous_page",
+        "items_per_page",
+        "next_page",
+        "previous_page",
+        "total_items",
+        "total_pages",
+      ].toSorted(),
+    )
+  })
 })

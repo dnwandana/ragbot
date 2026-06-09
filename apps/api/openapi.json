@@ -4018,24 +4018,49 @@
       "Pagination": {
         "type": "object",
         "properties": {
-          "page": {
+          "current_page": {
             "type": "integer",
             "minimum": 1
           },
-          "limit": {
+          "total_pages": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "total_items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "items_per_page": {
             "type": "integer",
             "minimum": 1
           },
-          "total": {
-            "type": "integer",
-            "minimum": 0
+          "has_next_page": {
+            "type": "boolean"
           },
-          "pages": {
+          "has_previous_page": {
+            "type": "boolean"
+          },
+          "next_page": {
             "type": "integer",
-            "minimum": 0
+            "minimum": 1,
+            "nullable": true
+          },
+          "previous_page": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
           }
         },
-        "required": ["page", "limit", "total", "pages"]
+        "required": [
+          "current_page",
+          "total_pages",
+          "total_items",
+          "items_per_page",
+          "has_next_page",
+          "has_previous_page",
+          "next_page",
+          "previous_page"
+        ]
       },
       "SignupRequest": {
         "type": "object",

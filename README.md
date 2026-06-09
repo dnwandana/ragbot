@@ -287,7 +287,16 @@ GET /health    # { status, uptime, database } (production omits uptime/database)
 {
   "message": "Success",
   "data": { ... },
-  "pagination": { "page": 1, "limit": 10, "total": 42, "totalPages": 5 }
+  "pagination": {
+    "current_page": 1,
+    "items_per_page": 10,
+    "total_items": 42,
+    "total_pages": 5,
+    "has_next_page": true,
+    "has_previous_page": false,
+    "next_page": 2,
+    "previous_page": null
+  }
 }
 ```
 
@@ -314,7 +323,7 @@ cp apps/api/.env.example apps/api/.env.test
 # Update PORT (e.g. 3001), LOG_LEVEL=error, LOG_TO_FILE=false
 ```
 
-The test suite uses real PostgreSQL (no mocks). Vitest runs migrations once before the session, and `cleanAllTables()` truncates between tests. Auth tests mock the Brevo email service; queue tests mock BullMQ so no Redis is required locally. 181 static test cases — run `corepack pnpm test:api` for the live passing count. Integration groups: agents, auth, chat, conversations, dataset-files, datasets, health, members, permissions, roles, workspaces. Unit groups: email-render, http-error, llamaindex-poll, pagination, redis, request-id, sanitize, validate-env.
+The test suite uses real PostgreSQL (no mocks). Vitest runs migrations once before the session, and `cleanAllTables()` truncates between tests. Auth tests mock the Brevo email service; queue tests mock BullMQ so no Redis is required locally. 182 static test cases — run `corepack pnpm test:api` for the live passing count. Integration groups: agents, auth, chat, conversations, dataset-files, datasets, health, members, permissions, roles, workspaces. Unit groups: email-render, http-error, llamaindex-poll, pagination, redis, request-id, sanitize, validate-env.
 
 The frontend app (`apps/app`) has its own Vitest suite (`corepack pnpm --filter app test`, jsdom environment): unit tests for API wrappers and composables, plus component-render tests via `@vue/test-utils`. No database or network is required — API modules and composables are mocked.
 

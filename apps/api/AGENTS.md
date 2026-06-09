@@ -351,9 +351,9 @@ Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_E
   - `addWorkspaceMember(workspaceId, userId, roleId)` — adds member with active status
   - `cleanAllTables()` — truncates all 16 tables in dependency order
   - `seedPermissions()` — seeds 31 RAG permissions
-- **Current test status** — 181 test cases total (static count from the test files; live passing count comes from `corepack pnpm test:api`):
+- **Current test status** — 182 test cases total (static count from the test files; live passing count comes from `corepack pnpm test:api`):
   - Integration: agents (16), auth (38), chat (7), conversations (11), dataset-files (11), datasets (14), health (5), members (6), permissions (13), roles (11), workspaces (6)
-  - Unit: email-render (4), http-error (3), llamaindex-poll (6), pagination (11), redis (5), request-id (4), sanitize (6), validate-env (4)
+  - Unit: email-render (4), http-error (3), llamaindex-poll (6), pagination (12), redis (5), request-id (4), sanitize (6), validate-env (4)
   - Skipped (0)
   - No Redis required for local test runs (queue module mocked via `tests/setup.js`)
 
