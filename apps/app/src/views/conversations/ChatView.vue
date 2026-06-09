@@ -94,6 +94,7 @@ import { useConversationsStore } from "@/stores/conversations"
 import { useChatStore } from "@/stores/chat"
 import * as agentsApi from "@/api/agents"
 import * as datasetsApi from "@/api/datasets"
+import { totalItems } from "@/utils/pagination"
 import { useChat } from "@/composables/useChat"
 import { useChatActions } from "@/composables/useChatActions"
 import { useTheme } from "@/composables/useTheme"
@@ -134,7 +135,7 @@ async function fetchAgentResults(search = "") {
       limit: PICKER_LIMIT,
     })
     agentResults.value = res.data.data
-    agentTotal.value = res.data.pagination?.total ?? res.data.data.length
+    agentTotal.value = totalItems(res.data.pagination, res.data.data.length)
   } catch {
     agentResults.value = []
     agentTotal.value = 0
@@ -183,7 +184,7 @@ async function fetchDatasetResults(search = "") {
       limit: PICKER_LIMIT,
     })
     datasetResults.value = res.data.data
-    datasetTotal.value = res.data.pagination?.total ?? res.data.data.length
+    datasetTotal.value = totalItems(res.data.pagination, res.data.data.length)
   } catch {
     datasetResults.value = []
     datasetTotal.value = 0

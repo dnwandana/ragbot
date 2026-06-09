@@ -12,7 +12,7 @@ import { useFileDetail } from "@/composables/useFileDetail"
 const completed = (id = "f1") => ({ id, status: "completed" })
 
 function mockChunks(chunks, total) {
-  return { data: { data: chunks, pagination: { total } }, status: 200 }
+  return { data: { data: chunks, pagination: { total_items: total } }, status: 200 }
 }
 
 describe("useFileDetail", () => {

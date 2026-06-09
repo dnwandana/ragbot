@@ -1,5 +1,6 @@
 import { ref, computed } from "vue"
 import { listFileQuestions, listFileChunks } from "@/api/datasetFiles"
+import { totalItems } from "@/utils/pagination"
 
 /** Chunks fetched per "Load more" page. */
 const CHUNK_PAGE_SIZE = 5
@@ -68,7 +69,7 @@ export function useFileDetail(workspaceId, datasetId) {
       questions.value = qRes.status === "fulfilled" ? (qRes.value?.data?.data ?? []) : []
       if (cRes.status === "fulfilled") {
         chunks.value = cRes.value?.data?.data ?? []
-        chunksTotal.value = cRes.value?.data?.pagination?.total ?? chunks.value.length
+        chunksTotal.value = totalItems(cRes.value?.data?.pagination, chunks.value.length)
         chunksPage.value = 1
       } else {
         errored.value = true
@@ -97,7 +98,7 @@ export function useFileDetail(workspaceId, datasetId) {
       const cRes = await listFileChunks(workspaceId, datasetId, fileId, chunkParams(next))
       if (activeFileId !== fileId) return
       chunks.value = chunks.value.concat(cRes?.data?.data ?? [])
-      chunksTotal.value = cRes?.data?.pagination?.total ?? chunksTotal.value
+      chunksTotal.value = totalItems(cRes?.data?.pagination, chunksTotal.value)
       chunksPage.value = next
     } catch {
       if (activeFileId === fileId) loadMoreError.value = true

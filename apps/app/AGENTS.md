@@ -203,6 +203,7 @@ Custom fetch-based client (NOT Axios). Key behaviors:
 | `utils/time.js`              | `relativeTime(dateStr)` — formats a date string as relative time ("Just now", "Xm ago", etc.)                                         |
 | `utils/files.js`             | `humanSize(bytes)`, `fileType(filename)`, `statusLabel(status)`, `statusChipClass(status)` — dataset-file display helpers             |
 | `utils/permissionCatalog.js` | `PERMISSION_GROUPS`, `PERMISSION_META` (consts), `groupPermissions(permissions)` — groups/labels permissions by resource for role UIs |
+| `utils/pagination.js`        | `totalItems(pagination, fallback)` — total item count from an API list response's `pagination` meta (reads `total_items`), falling back when the field/object is absent |
 
 ## Environment Configuration
 
