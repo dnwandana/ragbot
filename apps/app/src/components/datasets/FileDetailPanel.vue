@@ -195,8 +195,8 @@ watch(
           <section class="chunk-section">
             <div class="sec-head">
               <h3 class="section-label">Chunk preview</h3>
-              <span v-if="isCompleted && chunksTotal" class="sec-count">
-                {{ chunksTotal }} chunks indexed
+              <span v-if="isCompleted && chunks.length" class="sec-count">
+                Showing {{ chunks.length }} of {{ chunksTotal }}
               </span>
             </div>
 
@@ -233,7 +233,6 @@ watch(
                 >
                   {{ loadingChunks ? "Loading…" : "Load more chunks" }}
                 </button>
-                <p class="showing mono">Showing {{ chunks.length }} of {{ chunksTotal }}</p>
                 <p v-if="loadMoreError" class="load-more-err">
                   Couldn't load more chunks.
                   <button class="btn-link" @click="loadMoreChunks(file)">Retry</button>
@@ -691,11 +690,6 @@ watch(
 .load-more:disabled {
   opacity: 0.6;
   cursor: default;
-}
-.showing {
-  font-size: 11px;
-  color: var(--ink-3);
-  margin: 8px 0 0;
 }
 .load-more-err {
   display: flex;

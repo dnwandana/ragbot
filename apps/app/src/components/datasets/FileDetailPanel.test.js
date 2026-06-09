@@ -150,4 +150,28 @@ describe("FileDetailPanel", () => {
     })
     expect(wrapper.find(".panel-meta").text()).toContain("7 chunks")
   })
+
+  it("shows 'Showing X of Y' in the chunk-section header and drops 'chunks indexed'", () => {
+    const state = stubState({
+      chunks: ref([
+        { id: "c1", chunk_index: 0, content: "body one" },
+        { id: "c2", chunk_index: 1, content: "body two" },
+      ]),
+      chunksTotal: ref(42),
+      hasMoreChunks: ref(true),
+    })
+    vi.mocked(useFileDetail).mockReturnValue(state)
+    const wrapper = mountPanel({ id: "f1", filename: "doc.pdf", status: "completed" })
+
+    const secCount = wrapper.find(".chunk-section .sec-count")
+    expect(secCount.exists()).toBe(true)
+    expect(secCount.text()).toContain("Showing 2 of 42")
+    expect(wrapper.text()).not.toContain("chunks indexed")
+  })
+
+  it("hides the chunk-section count when completed but no chunks are loaded", () => {
+    vi.mocked(useFileDetail).mockReturnValue(stubState({ chunks: ref([]), chunksTotal: ref(0) }))
+    const wrapper = mountPanel({ id: "f1", filename: "doc.pdf", status: "completed" })
+    expect(wrapper.find(".chunk-section .sec-count").exists()).toBe(false)
+  })
 })
