@@ -59,6 +59,10 @@ const renameTarget = ref(null)
 const renameForm = reactive({ filename: "" })
 const deleteFileOpen = ref(false)
 const fileToDelete = ref(null)
+const bulkDeleteOpen = ref(false)
+const bulkDeleting = ref(false)
+const deletingDataset = ref(false)
+const deletingFile = ref(false)
 
 const PAGE_SIZE = 25
 const totalPages = computed(() => Math.max(1, Math.ceil(filteredFiles.value.length / PAGE_SIZE)))
@@ -82,6 +86,8 @@ const allSelected = computed(
 const someSelected = computed(
   () => !allSelected.value && pagedFiles.value.some((f) => selected.has(f.id)),
 )
+/** Pluralized noun for the current selection count. */
+const selectedNoun = computed(() => `file${selected.size === 1 ? "" : "s"}`)
 
 watchEffect(() => {
   if (selectAllRef.value) selectAllRef.value.indeterminate = someSelected.value
@@ -102,6 +108,24 @@ async function handleBulkDelete() {
   const failedIds = await bulkDelete(ids)
   for (const id of ids) {
     if (!failedIds.includes(id)) selected.delete(id)
+  }
+}
+
+/**
+ * Delete all selected files after confirmation, then close the confirm modal.
+ * Holds `bulkDeleting` while the request is in flight; on an unexpected rejection,
+ * toasts and keeps the modal open for retry.
+ * @returns {Promise<void>}
+ */
+async function confirmBulkDelete() {
+  bulkDeleting.value = true
+  try {
+    await handleBulkDelete()
+    bulkDeleteOpen.value = false
+  } catch {
+    message.error("Failed to delete files")
+  } finally {
+    bulkDeleting.value = false
   }
 }
 
@@ -170,9 +194,22 @@ async function submitEdit() {
   message.success("Dataset updated")
 }
 
+/**
+ * Delete the dataset after confirmation, then navigate back to the datasets list.
+ * Holds `deletingDataset` while the request is in flight; on rejection, toasts and
+ * keeps the modal open for retry.
+ * @returns {Promise<void>}
+ */
 async function confirmDeleteDataset() {
-  await datasetsStore.deleteDataset(workspaceId, dataset.value.id)
-  router.push(`/workspaces/${workspaceId}/datasets`)
+  deletingDataset.value = true
+  try {
+    await datasetsStore.deleteDataset(workspaceId, dataset.value.id)
+    router.push(`/workspaces/${workspaceId}/datasets`) // success path unmounts the view
+  } catch {
+    message.error("Failed to delete dataset")
+  } finally {
+    deletingDataset.value = false
+  }
 }
 
 /** @returns {void} */
@@ -288,13 +325,21 @@ function openDeleteFile(file) {
   deleteFileOpen.value = true
 }
 
-/** Delete the file queued in the confirm modal. @returns {Promise<void>} */
+/**
+ * Delete the file queued in the confirm modal.
+ * Holds `deletingFile` while the request is in flight; on rejection, toasts and
+ * keeps the modal open for retry.
+ * @returns {Promise<void>}
+ */
 async function confirmDeleteFile() {
+  deletingFile.value = true
   try {
     await handleDeleteFile(fileToDelete.value.id)
     deleteFileOpen.value = false
   } catch {
     message.error("Failed to delete file")
+  } finally {
+    deletingFile.value = false
   }
 }
 
@@ -430,13 +475,11 @@ const visiblePages = computed(() => {
 
     <!-- Bulk action bar -->
     <div v-if="selected.size > 0" class="bulk-bar">
-      <span class="bulk-label"
-        >{{ selected.size }} file{{ selected.size === 1 ? "" : "s" }} selected</span
-      >
+      <span class="bulk-label">{{ selected.size }} {{ selectedNoun }} selected</span>
       <span class="bulk-sep">·</span>
       <button class="bulk-clear" @click="selected.clear()">Clear selection</button>
       <div style="flex: 1" />
-      <button class="btn-danger" @click="handleBulkDelete">
+      <button class="btn-danger" @click="bulkDeleteOpen = true">
         <Trash2 :size="12" :stroke-width="1.7" />
         Delete selected
       </button>
@@ -649,7 +692,7 @@ const visiblePages = computed(() => {
       :width="480"
       @cancel="editOpen = false"
     >
-      <a-form layout="vertical" @finish="submitEdit" style="margin-top: 8px">
+      <a-form :model="editForm" layout="vertical" @finish="submitEdit" style="margin-top: 8px">
         <a-form-item
           label="Name"
           name="name"
@@ -671,6 +714,7 @@ const visiblePages = computed(() => {
     <!-- Delete dataset confirm -->
     <a-modal
       :open="deleteOpen"
+      :confirm-loading="deletingDataset"
       title="Delete dataset?"
       ok-text="Delete"
       ok-type="danger"
@@ -692,7 +736,7 @@ const visiblePages = computed(() => {
       :width="480"
       @cancel="renameOpen = false"
     >
-      <a-form layout="vertical" @finish="submitRename" style="margin-top: 8px">
+      <a-form :model="renameForm" layout="vertical" @finish="submitRename" style="margin-top: 8px">
         <a-form-item
           label="File name"
           name="filename"
@@ -707,6 +751,7 @@ const visiblePages = computed(() => {
     <!-- Delete file confirm -->
     <a-modal
       :open="deleteFileOpen"
+      :confirm-loading="deletingFile"
       title="Delete file?"
       ok-text="Delete"
       ok-type="danger"
@@ -716,6 +761,23 @@ const visiblePages = computed(() => {
     >
       <p style="margin: 8px 0">
         <strong>{{ fileToDelete?.filename }}</strong> will be permanently removed.
+      </p>
+    </a-modal>
+
+    <!-- Bulk delete confirm -->
+    <a-modal
+      :open="bulkDeleteOpen"
+      :confirm-loading="bulkDeleting"
+      title="Delete files?"
+      ok-text="Delete"
+      ok-type="danger"
+      cancel-text="Cancel"
+      @ok="confirmBulkDelete"
+      @cancel="bulkDeleteOpen = false"
+    >
+      <p style="margin: 8px 0">
+        <strong>{{ selected.size }}</strong> {{ selectedNoun }} will be permanently removed. This
+        can't be undone.
       </p>
     </a-modal>
   </div>
