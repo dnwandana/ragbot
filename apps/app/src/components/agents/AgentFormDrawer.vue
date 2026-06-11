@@ -578,15 +578,15 @@ async function handleToggleDefault() {
   font-size: 10.5px;
   font-weight: 600;
   background: var(--bg-2);
-  color: var(--ink-4);
+  color: var(--ink-3);
   border: 1px solid var(--line);
   flex-shrink: 0;
 }
 
 .model-badge--rec {
-  background: var(--brand);
-  color: #fff;
-  border-color: var(--brand);
+  background: var(--brand-tint);
+  color: var(--brand-3);
+  border-color: rgba(255, 107, 53, 0.25);
 }
 
 .model-opt-desc {
