@@ -1,6 +1,12 @@
 <script setup>
-import { reactive, ref, watch } from "vue"
+import { computed, reactive, ref, watch } from "vue"
 import { useAgentsStore } from "@/stores/agents"
+import {
+  DEFAULT_MODEL_CONFIG,
+  MODEL_RECOMMENDATIONS,
+  findModel,
+  selectableModels,
+} from "@/constants/models"
 const agentsStore = useAgentsStore()
 
 const settingDefault = ref(false)
@@ -13,19 +19,41 @@ const props = defineProps({
 
 const emit = defineEmits(["close", "submit"])
 
-const DEFAULT_MODEL_CONFIG = Object.freeze({
-  model: "openai/gpt-4.1",
-  temperature: 0.7,
-  top_p: 1,
-  max_tokens: 4096,
-})
-
 const form = reactive({
   name: "",
   description: "",
   system_prompt: "",
   model_config: { ...DEFAULT_MODEL_CONFIG },
 })
+
+const savedModel = ref("")
+
+const modelOptions = computed(() => selectableModels(savedModel.value))
+
+const showGuide = ref(false)
+const selectedChip = ref(null)
+
+const recommendation = computed(
+  () => MODEL_RECOMMENDATIONS.find((r) => r.key === selectedChip.value) || null,
+)
+
+/** Applies the guide's recommended model to the form and closes the panel. */
+function applyRecommendation() {
+  if (!recommendation.value) return
+  form.model_config.model = recommendation.value.model
+  showGuide.value = false
+  selectedChip.value = null
+}
+
+watch(
+  () => props.open,
+  (open) => {
+    if (!open) {
+      showGuide.value = false
+      selectedChip.value = null
+    }
+  },
+)
 
 watch(
   () => props.agent,
@@ -50,11 +78,13 @@ watch(
         top_p: mc.top_p ?? DEFAULT_MODEL_CONFIG.top_p,
         max_tokens: mc.max_tokens ?? DEFAULT_MODEL_CONFIG.max_tokens,
       }
+      savedModel.value = mc.model || ""
     } else {
       form.name = ""
       form.description = ""
       form.system_prompt = ""
       form.model_config = { ...DEFAULT_MODEL_CONFIG }
+      savedModel.value = ""
     }
   },
   { immediate: true },
@@ -159,19 +189,63 @@ async function handleToggleDefault() {
 
             <!-- Model -->
             <a-form-item label="Model">
-              <a-select v-model:value="form.model_config.model" :disabled="agent?.is_system">
-                <a-select-option value="openai/gpt-4.1">GPT-4.1</a-select-option>
-                <a-select-option value="openai/gpt-4.1-mini">GPT-4.1 Mini</a-select-option>
-                <a-select-option value="anthropic/claude-sonnet-4-6"
-                  >Claude Sonnet 4.6</a-select-option
+              <a-select
+                v-model:value="form.model_config.model"
+                :disabled="agent?.is_system"
+                option-label-prop="label"
+              >
+                <a-select-option
+                  v-for="opt in modelOptions"
+                  :key="opt.value"
+                  :value="opt.value"
+                  :label="opt.label"
                 >
-                <a-select-option value="anthropic/claude-haiku-4-5-20251001"
-                  >Claude Haiku 4.5</a-select-option
-                >
-                <a-select-option value="google/gemini-2.0-flash-001"
-                  >Gemini 2.0 Flash</a-select-option
-                >
+                  <div class="model-opt">
+                    <div class="model-opt-head">
+                      <span class="model-opt-label">{{ opt.label }}</span>
+                      <span
+                        class="model-badge"
+                        :class="{ 'model-badge--rec': opt.badge === 'Recommended' }"
+                      >
+                        {{ opt.badge }}
+                      </span>
+                    </div>
+                    <div v-if="opt.description" class="model-opt-desc">{{ opt.description }}</div>
+                  </div>
+                </a-select-option>
               </a-select>
+              <template v-if="!agent?.is_system">
+                <button type="button" class="guide-link" @click="showGuide = !showGuide">
+                  Not sure which to pick? Help me choose
+                </button>
+                <div v-if="showGuide" class="guide-panel">
+                  <div class="guide-question">What will you mostly use it for?</div>
+                  <div class="guide-chips">
+                    <button
+                      v-for="rec in MODEL_RECOMMENDATIONS"
+                      :key="rec.key"
+                      type="button"
+                      class="guide-chip"
+                      :class="{ 'guide-chip--on': selectedChip === rec.key }"
+                      @click="selectedChip = rec.key"
+                    >
+                      {{ rec.label }}
+                    </button>
+                  </div>
+                  <div v-if="recommendation" class="guide-reco">
+                    <div class="guide-reco-info">
+                      <span class="guide-reco-label">{{
+                        findModel(recommendation.model).label
+                      }}</span>
+                      <span class="model-badge model-badge--rec">Our pick</span>
+                      <div class="guide-reco-reason">{{ recommendation.reason }}</div>
+                    </div>
+                    <button type="button" class="guide-use-btn" @click="applyRecommendation">
+                      Use this
+                    </button>
+                  </div>
+                </div>
+              </template>
             </a-form-item>
 
             <!-- Temperature + Max tokens side by side -->
@@ -479,5 +553,136 @@ async function handleToggleDefault() {
 
 .toggle-switch--on .toggle-knob {
   transform: translateX(16px);
+}
+
+.model-opt {
+  padding: 2px 0;
+}
+
+.model-opt-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.model-opt-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.model-badge {
+  padding: 1px 8px;
+  border-radius: 20px;
+  font-size: 10.5px;
+  font-weight: 600;
+  background: var(--bg-2);
+  color: var(--ink-4);
+  border: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.model-badge--rec {
+  background: var(--brand);
+  color: #fff;
+  border-color: var(--brand);
+}
+
+.model-opt-desc {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  margin-top: 1px;
+}
+
+.guide-link {
+  margin-top: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 12px;
+  color: var(--brand);
+  cursor: pointer;
+}
+
+.guide-link:hover {
+  text-decoration: underline;
+}
+
+.guide-panel {
+  margin-top: 8px;
+  padding: 12px;
+  background: var(--brand-tint);
+  border: 1px solid var(--brand);
+  border-radius: var(--r);
+}
+
+.guide-question {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+
+.guide-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.guide-chip {
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--line-2);
+  background: var(--surface);
+  font-size: 12px;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.guide-chip--on {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+.guide-reco {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--brand);
+  border-radius: var(--r-sm);
+}
+
+.guide-reco-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-right: 6px;
+}
+
+.guide-reco-reason {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  margin-top: 2px;
+}
+
+.guide-use-btn {
+  padding: 6px 12px;
+  background: var(--brand);
+  color: #fff;
+  border: none;
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.guide-use-btn:hover {
+  background: var(--brand-2);
 }
 </style>
