@@ -93,7 +93,7 @@ RATE_LIMIT_GENERAL_MAX=100
 LOG_LEVEL=info
 LOG_TO_FILE=true
 DEFAULT_EMBEDDINGS_MODEL=openai/text-embedding-3-small
-DEFAULT_CHAT_MODEL=openai/gpt-4.1
+DEFAULT_CHAT_MODEL=openai/gpt-5.4-mini
 LLAMAINDEX_PARSE_TIER=cost_effective  # fast | cost_effective | agentic | agentic_plus
 S3_REGION=auto
 EMAIL_FROM_NAME=RAG Chatbot
@@ -323,7 +323,7 @@ cp apps/api/.env.example apps/api/.env.test
 # Update PORT (e.g. 3001), LOG_LEVEL=error, LOG_TO_FILE=false
 ```
 
-The test suite uses real PostgreSQL (no mocks). Vitest runs migrations once before the session, and `cleanAllTables()` truncates between tests. Auth tests mock the Brevo email service; queue tests mock BullMQ so no Redis is required locally. 182 static test cases — run `corepack pnpm test:api` for the live passing count. Integration groups: agents, auth, chat, conversations, dataset-files, datasets, health, members, permissions, roles, workspaces. Unit groups: email-render, http-error, llamaindex-poll, pagination, redis, request-id, sanitize, validate-env.
+The test suite uses real PostgreSQL (no mocks). Vitest runs migrations once before the session, and `cleanAllTables()` truncates between tests. Auth tests mock the Brevo email service; queue tests mock BullMQ so no Redis is required locally. 221 static test cases — run `corepack pnpm test:api` for the live passing count. Integration groups: agents, auth, chat, conversations, dataset-file-chunks, dataset-file-questions, dataset-files, datasets, file-processing, health, members, permissions, roles, workspaces. Unit groups: allowed-models, email-render, http-error, llamaindex-poll, pagination, redis, request-id, sanitize, url-slug, validate-env.
 
 The frontend app (`apps/app`) has its own Vitest suite (`corepack pnpm --filter app test`, jsdom environment): unit tests for API wrappers and composables, plus component-render tests via `@vue/test-utils`. No database or network is required — API modules and composables are mocked.
 

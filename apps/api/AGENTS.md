@@ -275,6 +275,7 @@ Audit logging is implemented and wired (not planned). `src/utils/audit.js` expor
 | `constant.js`     | `HTTP_STATUS_CODE`, `HTTP_STATUS_MESSAGE`                                                |
 | `logger.js`       | `logger` (default, Winston instance)                                                     |
 | `redis.js`        | `parseRedisUrl`                                                                          |
+| `allowed-models.js` | `ALLOWED_MODELS`, `DEFAULT_MODEL` — agent model allowlist and default chat model |
 | `audit.js`        | `logAuditEvent` — inserts an immutable audit_logs row for a workspace-scoped action      |
 | `validate-env.js` | `validateEnv` (default)                                                                  |
 
@@ -313,7 +314,7 @@ Audit logging is implemented and wired (not planned). `src/utils/audit.js` expor
 
 Required: `DATABASE_URL`, `REDIS_URL` (Redis connection string — `redis://localhost:6379` locally, `rediss://` for TLS), `ACCESS_TOKEN_SECRET` (≥32 chars), `REFRESH_TOKEN_SECRET` (≥32 chars, must differ), `JWT_ISSUER`, `JWT_AUDIENCE`, `OPENROUTER_API_KEY`, `BREVO_API_KEY`, `EMAIL_FROM_ADDRESS`, `APP_URL`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_ENDPOINT`, `LLAMAINDEX_API_KEY`, `FIRECRAWL_API_KEY`
 
-Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_EXPIRES_IN` (15m), `REFRESH_TOKEN_EXPIRES_IN` (7d), `LOG_LEVEL` (info), `LOG_TO_FILE` (true), `CORS_ALLOWED_ORIGINS` (http://localhost:8080), `RATE_LIMIT_AUTH_MAX` (10, capped at 50), `RATE_LIMIT_GENERAL_MAX` (100), `DEFAULT_EMBEDDINGS_MODEL` (openai/text-embedding-3-small), `DEFAULT_CHAT_MODEL` (openai/gpt-4.1), `S3_REGION` (auto), `EMAIL_FROM_NAME` ("RAG Chatbot"), `LLAMAINDEX_PARSE_TIER` (cost_effective), `OPENROUTER_STREAM_TIMEOUT_MS` (60000)
+Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_EXPIRES_IN` (15m), `REFRESH_TOKEN_EXPIRES_IN` (7d), `LOG_LEVEL` (info), `LOG_TO_FILE` (true), `CORS_ALLOWED_ORIGINS` (http://localhost:8080), `RATE_LIMIT_AUTH_MAX` (10, capped at 50), `RATE_LIMIT_GENERAL_MAX` (100), `DEFAULT_EMBEDDINGS_MODEL` (openai/text-embedding-3-small), `DEFAULT_CHAT_MODEL` (openai/gpt-5.4-mini), `S3_REGION` (auto), `EMAIL_FROM_NAME` ("RAG Chatbot"), `LLAMAINDEX_PARSE_TIER` (cost_effective), `OPENROUTER_STREAM_TIMEOUT_MS` (60000)
 
 ## Database
 
@@ -351,9 +352,9 @@ Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_E
   - `addWorkspaceMember(workspaceId, userId, roleId)` — adds member with active status
   - `cleanAllTables()` — truncates all 16 tables in dependency order
   - `seedPermissions()` — seeds 31 RAG permissions
-- **Current test status** — 182 test cases total (static count from the test files; live passing count comes from `corepack pnpm test:api`):
-  - Integration: agents (16), auth (38), chat (7), conversations (11), dataset-files (11), datasets (14), health (5), members (6), permissions (13), roles (11), workspaces (6)
-  - Unit: email-render (4), http-error (3), llamaindex-poll (6), pagination (12), redis (5), request-id (4), sanitize (6), validate-env (4)
+- **Current test status** — 221 test cases total (static count from the test files; live passing count comes from `corepack pnpm test:api`):
+  - Integration: agents (22), auth (38), chat (7), conversations (11), dataset-file-chunks (2), dataset-file-questions (4), dataset-files (20), datasets (14), file-processing (3), health (5), members (6), permissions (13), roles (15), workspaces (6)
+  - Unit: allowed-models (2), email-render (4), http-error (3), llamaindex-poll (6), pagination (12), redis (5), request-id (4), sanitize (6), url-slug (9), validate-env (4)
   - Skipped (0)
   - No Redis required for local test runs (queue module mocked via `tests/setup.js`)
 

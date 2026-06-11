@@ -204,6 +204,7 @@ Custom fetch-based client (NOT Axios). Key behaviors:
 | `utils/files.js`             | `humanSize(bytes)`, `fileType(filename)`, `statusLabel(status)`, `statusChipClass(status)` — dataset-file display helpers             |
 | `utils/permissionCatalog.js` | `PERMISSION_GROUPS`, `PERMISSION_META` (consts), `groupPermissions(permissions)` — groups/labels permissions by resource for role UIs |
 | `utils/pagination.js`        | `totalItems(pagination, fallback)` — total item count from an API list response's `pagination` meta (reads `total_items`), falling back when the field/object is absent |
+| `constants/models.js`        | `MODEL_CATALOG`, `MODEL_RECOMMENDATIONS`, `DEFAULT_MODEL_CONFIG` (consts), `findModel(value)`, `selectableModels(savedModel)` — agent model picker catalog, guide recommendations, default agent model config, and select-option helpers |
 
 ## Environment Configuration
 
