@@ -3,6 +3,7 @@ import db from "../src/config/database.js"
 import { generateAccessToken, generateRefreshToken } from "../src/utils/jwt.js"
 import { hashPassword } from "../src/utils/argon2.js"
 import { hashToken } from "../src/models/refresh-tokens.js"
+import { DEFAULT_MODEL } from "../src/utils/allowed-models.js"
 
 let _app
 
@@ -163,7 +164,7 @@ export async function createTestWorkspace(userId, overrides = {}) {
       system_prompt:
         "You are a helpful AI assistant. Use the provided context to answer questions accurately.",
       model_config: JSON.stringify({
-        model: process.env.DEFAULT_CHAT_MODEL || "openai/gpt-4.1",
+        model: process.env.DEFAULT_CHAT_MODEL || DEFAULT_MODEL,
         temperature: 0.7,
         top_p: 1,
         max_tokens: 4096,

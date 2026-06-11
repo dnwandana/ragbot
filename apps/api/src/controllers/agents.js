@@ -7,14 +7,23 @@ import { logAuditEvent } from "../utils/audit.js"
 import { validatePaginationQuery, executePaginatedQuery } from "../utils/pagination.js"
 import * as agentModel from "../models/agents.js"
 import db from "../config/database.js"
+import { ALLOWED_MODELS } from "../utils/allowed-models.js"
 
-/** Joi schema for the model_config JSONB field. */
-const MODEL_CONFIG_SCHEMA = joi.object({
-  model: joi.string().required(),
-  temperature: joi.number().min(0).max(2).default(0.7),
-  top_p: joi.number().min(0).max(1).default(1),
-  max_tokens: joi.number().integer().min(1).max(32768).default(4096),
-})
+/**
+ * Builds the Joi schema for the model_config JSONB field.
+ * @param {string[]} [extraModels] - Extra model values to accept (grandfathered on update).
+ * @returns {Object} Joi object schema.
+ */
+const modelConfigSchema = (extraModels = []) =>
+  joi.object({
+    model: joi
+      .string()
+      .valid(...ALLOWED_MODELS, ...extraModels)
+      .required(),
+    temperature: joi.number().min(0).max(2).default(0.7),
+    top_p: joi.number().min(0).max(1).default(1),
+    max_tokens: joi.number().integer().min(1).max(32768).default(4096),
+  })
 
 /** Joi schema for creating an agent. */
 const createSchema = joi
@@ -22,20 +31,26 @@ const createSchema = joi
     name: joi.string().min(1).max(255).required(),
     description: joi.string().max(1000).optional().allow(""),
     system_prompt: joi.string().min(1).max(10000).required(),
-    model_config: MODEL_CONFIG_SCHEMA.required(),
+    model_config: modelConfigSchema().required(),
   })
   .options({ stripUnknown: true })
 
-/** Joi schema for updating an agent. */
-const updateSchema = joi
-  .object({
-    name: joi.string().min(1).max(255).optional(),
-    description: joi.string().max(1000).optional().allow(""),
-    system_prompt: joi.string().min(1).max(10000).optional(),
-    model_config: MODEL_CONFIG_SCHEMA.optional(),
-    is_default: joi.boolean().valid(true).optional(),
-  })
-  .options({ stripUnknown: true })
+/**
+ * Builds the Joi schema for updating an agent. The agent's currently
+ * saved model stays valid (grandfathered) until it is switched away.
+ * @param {string} [currentModel] - The agent's saved model_config.model value.
+ * @returns {Object} Joi object schema.
+ */
+const updateSchemaFor = (currentModel) =>
+  joi
+    .object({
+      name: joi.string().min(1).max(255).optional(),
+      description: joi.string().max(1000).optional().allow(""),
+      system_prompt: joi.string().min(1).max(10000).optional(),
+      model_config: modelConfigSchema(currentModel ? [currentModel] : []).optional(),
+      is_default: joi.boolean().valid(true).optional(),
+    })
+    .options({ stripUnknown: true })
 
 /**
  * POST /api/workspaces/:workspace_id/agents — Create a custom agent.
@@ -142,16 +157,21 @@ export const getAgent = async (req, res, next) => {
  */
 export const updateAgent = async (req, res, next) => {
   try {
-    const { error, value } = updateSchema.validate(req.body)
-    if (error) throw new HttpError(HTTP_STATUS_CODE.BAD_REQUEST, error.details[0].message)
-    if (!Object.keys(value).length)
-      throw new HttpError(HTTP_STATUS_CODE.BAD_REQUEST, "No fields to update")
-
     const agent = await agentModel.findOne({
       id: req.params.agent_id,
       workspace_id: req.workspace.id,
     })
     if (!agent) throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "Agent not found")
+
+    const currentModel =
+      typeof agent.model_config === "string"
+        ? JSON.parse(agent.model_config).model
+        : agent.model_config?.model
+
+    const { error, value } = updateSchemaFor(currentModel).validate(req.body)
+    if (error) throw new HttpError(HTTP_STATUS_CODE.BAD_REQUEST, error.details[0].message)
+    if (!Object.keys(value).length)
+      throw new HttpError(HTTP_STATUS_CODE.BAD_REQUEST, "No fields to update")
 
     if (agent.is_system && value.name) {
       throw new HttpError(HTTP_STATUS_CODE.FORBIDDEN, "Cannot rename the system agent")

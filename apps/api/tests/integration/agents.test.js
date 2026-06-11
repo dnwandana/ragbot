@@ -1,6 +1,7 @@
 import crypto from "node:crypto"
 import { vi } from "vitest"
 import db from "../../src/config/database.js"
+import { ALLOWED_MODELS } from "../../src/utils/allowed-models.js"
 import {
   request,
   createTestUser,
@@ -331,6 +332,118 @@ describe("DELETE /api/workspaces/:id/agents/:agentId (default promotion)", () =>
       .set(await getAuthHeaders(user.id))
     const systemAgent = agentsRes.body.data.find((a) => a.is_system)
     expect(systemAgent.is_default).toBe(true)
+  })
+})
+
+describe("agent model allowlist", () => {
+  /**
+   * Inserts an agent directly in the DB with a model that is no longer
+   * offered, bypassing API validation — simulates a pre-allowlist agent.
+   */
+  async function createLegacyAgent(workspaceId, userId) {
+    const [agent] = await db("agents")
+      .insert({
+        id: crypto.randomUUID(),
+        workspace_id: workspaceId,
+        name: "Legacy Model Agent",
+        system_prompt: "Old agent",
+        model_config: JSON.stringify({
+          model: "anthropic/claude-sonnet-4-6",
+          temperature: 0.7,
+          top_p: 1,
+          max_tokens: 4096,
+        }),
+        is_system: false,
+        created_by: userId,
+      })
+      .returning("*")
+    return agent
+  }
+
+  it("rejects creating an agent with a model outside the allowlist", async () => {
+    const user = await createTestUser()
+    const ws = await createTestWorkspace(user.id)
+
+    const res = await (
+      await request()
+    )
+      .post(`/api/workspaces/${ws.id}/agents`)
+      .set(await getAuthHeaders(user.id))
+      .send({
+        name: "Bad Model",
+        system_prompt: "You are helpful.",
+        model_config: { model: "anthropic/claude-sonnet-4-6" },
+      })
+
+    expect(res.status).toBe(400)
+    expect(res.body.message).toMatch(/model/)
+  })
+
+  it("accepts creating an agent with each allowlisted model", async () => {
+    const user = await createTestUser()
+    const ws = await createTestWorkspace(user.id)
+    const headers = await getAuthHeaders(user.id)
+
+    for (const model of ALLOWED_MODELS) {
+      const res = await (
+        await request()
+      )
+        .post(`/api/workspaces/${ws.id}/agents`)
+        .set(headers)
+        .send({ name: `Agent ${model}`, system_prompt: "Hi.", model_config: { model } })
+      expect(res.status).toBe(201)
+    }
+  })
+
+  it("accepts an update that keeps the grandfathered model", async () => {
+    const user = await createTestUser()
+    const ws = await createTestWorkspace(user.id)
+    const agent = await createLegacyAgent(ws.id, user.id)
+
+    const res = await (
+      await request()
+    )
+      .put(`/api/workspaces/${ws.id}/agents/${agent.id}`)
+      .set(await getAuthHeaders(user.id))
+      .send({
+        description: "Renamed but same model",
+        model_config: { model: "anthropic/claude-sonnet-4-6", temperature: 0.5 },
+      })
+
+    expect(res.status).toBe(200)
+    expect(res.body.data.model_config.model).toBe("anthropic/claude-sonnet-4-6")
+    expect(res.body.data.model_config.temperature).toBe(0.5)
+  })
+
+  it("rejects updating a grandfathered agent to another non-allowlisted model", async () => {
+    const user = await createTestUser()
+    const ws = await createTestWorkspace(user.id)
+    const agent = await createLegacyAgent(ws.id, user.id)
+
+    const res = await (
+      await request()
+    )
+      .put(`/api/workspaces/${ws.id}/agents/${agent.id}`)
+      .set(await getAuthHeaders(user.id))
+      .send({ model_config: { model: "google/gemini-2.0-flash-001" } })
+
+    expect(res.status).toBe(400)
+  })
+
+  it("accepts updating a grandfathered agent to an allowlisted model", async () => {
+    const user = await createTestUser()
+    const ws = await createTestWorkspace(user.id)
+    const agent = await createLegacyAgent(ws.id, user.id)
+
+    const res = await (
+      await request()
+    )
+      .put(`/api/workspaces/${ws.id}/agents/${agent.id}`)
+      .set(await getAuthHeaders(user.id))
+      .send({ model_config: { model: "openai/gpt-5.4-mini" } })
+
+    expect(res.status).toBe(200)
+    expect(res.body.data.model_config.model).toBe("openai/gpt-5.4-mini")
   })
 })
 

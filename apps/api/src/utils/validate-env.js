@@ -1,4 +1,5 @@
 import joi from "joi"
+import { DEFAULT_MODEL } from "./allowed-models.js"
 
 const envSchema = joi
   .object({
@@ -28,7 +29,7 @@ const envSchema = joi
     // AI
     OPENROUTER_API_KEY: joi.string().required(),
     DEFAULT_EMBEDDINGS_MODEL: joi.string().default("openai/text-embedding-3-small"),
-    DEFAULT_CHAT_MODEL: joi.string().default("openai/gpt-4.1"),
+    DEFAULT_CHAT_MODEL: joi.string().default(DEFAULT_MODEL),
     OPENROUTER_STREAM_TIMEOUT_MS: joi.number().default(60000),
 
     // Email
