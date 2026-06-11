@@ -9,6 +9,7 @@ import { useDatasetFilesStore } from "@/stores/datasetFiles"
 import { useAgentsStore } from "@/stores/agents"
 import { inviteMember as apiInviteMember } from "@/api/members"
 import { DEFAULT_AGENT_PROMPT } from "./agentTemplates.js"
+import { DEFAULT_MODEL_CONFIG } from "@/constants/models"
 import OnboardingProgress from "@/components/onboarding/OnboardingProgress.vue"
 import OnboardingToast from "@/components/onboarding/OnboardingToast.vue"
 import OnboardingWelcome from "./steps/OnboardingWelcome.vue"
@@ -284,6 +285,7 @@ async function runAction(key) {
       await agentsStore.createAgent(createdWorkspaceId.value, {
         name: formData.agentName,
         system_prompt: formData.agentPrompt,
+        model_config: { ...DEFAULT_MODEL_CONFIG },
       })
       completed.value = new Set([...completed.value, "agent"])
       showToast("Agent created")
