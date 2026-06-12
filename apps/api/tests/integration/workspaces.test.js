@@ -6,6 +6,11 @@ import {
   cleanAllTables,
   seedPermissions,
 } from "../helpers.js"
+import {
+  SYSTEM_AGENT_NAME,
+  SYSTEM_AGENT_DESCRIPTION,
+  SYSTEM_AGENT_PROMPT,
+} from "../../src/utils/system-agent.js"
 
 // Mock email service to prevent Brevo SDK from initialising during import.
 vi.mock("../../src/services/email.js", () => ({
@@ -55,6 +60,28 @@ describe("POST /api/workspaces", () => {
     expect(agentsRes.status).toBe(200)
     const systemAgent = agentsRes.body.data.find((a) => a.is_system)
     expect(systemAgent).toBeDefined()
+    expect(systemAgent.is_default).toBe(true)
+  })
+
+  it("seeds the system agent with the RAGBot Assistant copy", async () => {
+    const user = await createTestUser()
+    const res = await (
+      await request()
+    )
+      .post("/api/workspaces")
+      .set(await getAuthHeaders(user.id))
+      .send({ name: "My Workspace" })
+
+    expect(res.status).toBe(201)
+
+    const agentsRes = await (await request())
+      .get(`/api/workspaces/${res.body.data.id}/agents`)
+      .set(await getAuthHeaders(user.id))
+
+    const systemAgent = agentsRes.body.data.find((a) => a.is_system)
+    expect(systemAgent.name).toBe(SYSTEM_AGENT_NAME)
+    expect(systemAgent.description).toBe(SYSTEM_AGENT_DESCRIPTION)
+    expect(systemAgent.system_prompt).toBe(SYSTEM_AGENT_PROMPT)
     expect(systemAgent.is_default).toBe(true)
   })
 

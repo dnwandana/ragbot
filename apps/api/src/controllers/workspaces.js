@@ -6,6 +6,11 @@ import apiResponse from "../utils/response.js"
 import { HTTP_STATUS_CODE } from "../utils/constant.js"
 import { logAuditEvent } from "../utils/audit.js"
 import * as workspaceModel from "../models/workspaces.js"
+import {
+  SYSTEM_AGENT_NAME,
+  SYSTEM_AGENT_DESCRIPTION,
+  SYSTEM_AGENT_PROMPT,
+} from "../utils/system-agent.js"
 
 /** Joi schema for workspace creation request body. */
 const bodySchema = joi
@@ -160,9 +165,9 @@ export const createWorkspace = async (req, res, next) => {
       await trx("agents").insert({
         id: crypto.randomUUID(),
         workspace_id: workspaceId,
-        name: "Default Assistant",
-        description: "System default agent for this workspace",
-        system_prompt: "You are a helpful assistant.",
+        name: SYSTEM_AGENT_NAME,
+        description: SYSTEM_AGENT_DESCRIPTION,
+        system_prompt: SYSTEM_AGENT_PROMPT,
         model_config: JSON.stringify({
           model: process.env.DEFAULT_CHAT_MODEL,
           temperature: 0.7,

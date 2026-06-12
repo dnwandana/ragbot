@@ -4,6 +4,11 @@ import { generateAccessToken, generateRefreshToken } from "../src/utils/jwt.js"
 import { hashPassword } from "../src/utils/argon2.js"
 import { hashToken } from "../src/models/refresh-tokens.js"
 import { DEFAULT_MODEL } from "../src/utils/allowed-models.js"
+import {
+  SYSTEM_AGENT_NAME,
+  SYSTEM_AGENT_DESCRIPTION,
+  SYSTEM_AGENT_PROMPT,
+} from "../src/utils/system-agent.js"
 
 let _app
 
@@ -159,10 +164,9 @@ export async function createTestWorkspace(userId, overrides = {}) {
     await trx("agents").insert({
       id: crypto.randomUUID(),
       workspace_id: workspaceId,
-      name: "Default Assistant",
-      description: "Default workspace AI assistant",
-      system_prompt:
-        "You are a helpful AI assistant. Use the provided context to answer questions accurately.",
+      name: SYSTEM_AGENT_NAME,
+      description: SYSTEM_AGENT_DESCRIPTION,
+      system_prompt: SYSTEM_AGENT_PROMPT,
       model_config: JSON.stringify({
         model: process.env.DEFAULT_CHAT_MODEL || DEFAULT_MODEL,
         temperature: 0.7,
@@ -171,6 +175,7 @@ export async function createTestWorkspace(userId, overrides = {}) {
       }),
       is_system: true,
       is_default: true,
+      created_by: userId,
       created_at: new Date(),
       updated_at: new Date(),
     })
