@@ -18,9 +18,10 @@ const COLUMNS = [
 /**
  * Insert a new agent row.
  * @param {Object} agent - Column values to insert.
+ * @param {Object} [trx] - Optional Knex transaction.
  * @returns {Promise<Object[]>} Array containing the inserted row.
  */
-export const create = (agent) => db.insert(agent).into(TABLE).returning(COLUMNS)
+export const create = (agent, trx) => (trx || db).insert(agent).into(TABLE).returning(COLUMNS)
 
 /**
  * Find a single non-deleted agent matching conditions.

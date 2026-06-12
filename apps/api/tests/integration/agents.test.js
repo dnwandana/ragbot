@@ -6,6 +6,7 @@ import {
   request,
   createTestUser,
   createTestWorkspace,
+  addWorkspaceMember,
   getAuthHeaders,
   cleanAllTables,
   seedPermissions,
@@ -447,6 +448,152 @@ describe("agent model allowlist", () => {
   })
 })
 
+describe("POST /api/workspaces/:id/agents (create as default)", () => {
+  it("creates an agent as the workspace default and clears the previous default", async () => {
+    const user = await createTestUser()
+    const ws = await createTestWorkspace(user.id)
+
+    const res = await (
+      await request()
+    )
+      .post(`/api/workspaces/${ws.id}/agents`)
+      .set(await getAuthHeaders(user.id))
+      .send({
+        name: "Support Sidekick",
+        description: "Answer customer questions from your docs",
+        system_prompt: "You are a friendly support assistant.",
+        model_config: { model: "openai/gpt-4.1" },
+        is_default: true,
+      })
+
+    expect(res.status).toBe(201)
+    expect(res.body.data.is_default).toBe(true)
+    expect(res.body.data.description).toBe("Answer customer questions from your docs")
+
+    // Exactly one default in the workspace, and it is the new agent
+    const agentsRes = await (await request())
+      .get(`/api/workspaces/${ws.id}/agents`)
+      .set(await getAuthHeaders(user.id))
+    const defaults = agentsRes.body.data.filter((a) => a.is_default)
+    expect(defaults).toHaveLength(1)
+    expect(defaults[0].id).toBe(res.body.data.id)
+    expect(agentsRes.body.data.find((a) => a.is_system).is_default).toBe(false)
+  })
+
+  it("creates a non-default agent when is_default is omitted", async () => {
+    const user = await createTestUser()
+    const ws = await createTestWorkspace(user.id)
+
+    const res = await (
+      await request()
+    )
+      .post(`/api/workspaces/${ws.id}/agents`)
+      .set(await getAuthHeaders(user.id))
+      .send({
+        name: "Plain Agent",
+        system_prompt: "You are a plain agent.",
+        model_config: { model: "openai/gpt-4.1" },
+      })
+
+    expect(res.status).toBe(201)
+    expect(res.body.data.is_default).toBe(false)
+
+    const agentsRes = await (await request())
+      .get(`/api/workspaces/${ws.id}/agents`)
+      .set(await getAuthHeaders(user.id))
+    expect(agentsRes.body.data.find((a) => a.is_system).is_default).toBe(true)
+  })
+
+  it("returns 400 when is_default is false on create", async () => {
+    const user = await createTestUser()
+    const ws = await createTestWorkspace(user.id)
+
+    const res = await (
+      await request()
+    )
+      .post(`/api/workspaces/${ws.id}/agents`)
+      .set(await getAuthHeaders(user.id))
+      .send({
+        name: "Nope",
+        system_prompt: "You are a plain agent.",
+        model_config: { model: "openai/gpt-4.1" },
+        is_default: false,
+      })
+
+    expect(res.status).toBe(400)
+  })
+})
+
+describe("POST /api/workspaces/:id/agents (is_default permission guard)", () => {
+  /** Create a custom role holding the given permission names and return its id. */
+  async function createRoleWithPermissions(workspaceId, headers, name, permissionNames) {
+    const perms = await db("permissions").whereIn("name", permissionNames).select("id")
+    const res = await (
+      await request()
+    )
+      .post(`/api/workspaces/${workspaceId}/roles`)
+      .set(headers)
+      .send({ name, permission_ids: perms.map((p) => p.id) })
+    return res.body.data.id
+  }
+
+  /** Create a member holding agent:create + agent:read but not agent:update. */
+  async function createAgentCreatorMember(ws, ownerHeaders) {
+    const roleId = await createRoleWithPermissions(ws.id, ownerHeaders, "Agent Creator", [
+      "agent:create",
+      "agent:read",
+    ])
+    const member = await createTestUser()
+    await addWorkspaceMember(ws.id, member.id, roleId)
+    return member
+  }
+
+  it("returns 403 when a member without agent:update sends is_default", async () => {
+    const owner = await createTestUser()
+    const ws = await createTestWorkspace(owner.id)
+    const member = await createAgentCreatorMember(ws, await getAuthHeaders(owner.id))
+
+    const res = await (
+      await request()
+    )
+      .post(`/api/workspaces/${ws.id}/agents`)
+      .set(await getAuthHeaders(member.id))
+      .send({
+        name: "Sneaky Default",
+        system_prompt: "You are an agent.",
+        model_config: { model: "openai/gpt-4.1" },
+        is_default: true,
+      })
+
+    expect(res.status).toBe(403)
+    expect(res.body.message).toBe("You do not have permission to perform this action")
+
+    // The system agent remains the workspace default.
+    const systemAgent = await db("agents").where({ workspace_id: ws.id, is_system: true }).first()
+    expect(systemAgent.is_default).toBe(true)
+  })
+
+  it("allows the same member to create a non-default agent", async () => {
+    const owner = await createTestUser()
+    const ws = await createTestWorkspace(owner.id)
+    const member = await createAgentCreatorMember(ws, await getAuthHeaders(owner.id))
+
+    const res = await (
+      await request()
+    )
+      .post(`/api/workspaces/${ws.id}/agents`)
+      .set(await getAuthHeaders(member.id))
+      .send({
+        name: "Plain Creation",
+        system_prompt: "You are an agent.",
+        model_config: { model: "openai/gpt-4.1" },
+      })
+
+    expect(res.status).toBe(201)
+    expect(res.body.data.is_default).toBe(false)
+  })
+})
+
 describe("PUT /api/workspaces/:id/agents/:agentId (set default)", () => {
   it("transfers is_default from system agent to custom agent", async () => {
     const user = await createTestUser()
@@ -529,5 +676,41 @@ describe("PUT /api/workspaces/:id/agents/:agentId (set default)", () => {
     expect(res.status).toBe(200)
     expect(res.body.data.is_default).toBe(true)
     expect(res.body.data.name).toBe("Renamed")
+  })
+
+  it("writes the set_default audit event for a promotion", async () => {
+    const user = await createTestUser()
+    const ws = await createTestWorkspace(user.id)
+
+    const createRes = await (
+      await request()
+    )
+      .post(`/api/workspaces/${ws.id}/agents`)
+      .set(await getAuthHeaders(user.id))
+      .send({
+        name: "Promotable",
+        system_prompt: "You are promotable.",
+        model_config: { model: "openai/gpt-4.1" },
+      })
+    const agentId = createRes.body.data.id
+
+    const res = await (
+      await request()
+    )
+      .put(`/api/workspaces/${ws.id}/agents/${agentId}`)
+      .set(await getAuthHeaders(user.id))
+      .send({ is_default: true })
+    expect(res.status).toBe(200)
+
+    const auditRow = await db("audit_logs")
+      .where({
+        workspace_id: ws.id,
+        action: "set_default",
+        entity_type: "agent",
+        entity_id: agentId,
+      })
+      .first()
+    expect(auditRow).toBeDefined()
+    expect(auditRow.user_id).toBe(user.id)
   })
 })

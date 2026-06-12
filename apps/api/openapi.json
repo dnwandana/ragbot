@@ -2863,7 +2863,7 @@
       "post": {
         "tags": ["Agents"],
         "summary": "Create agent",
-        "description": "**Permission required**: `agent:create`",
+        "description": "**Permission required**: `agent:create`. When `is_default` is `true`, also requires `agent:update`.",
         "operationId": "createAgent",
         "security": [
           {
@@ -2924,6 +2924,19 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "Conflict — the default agent was changed concurrently. Retry the request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "message": "The default agent was changed by someone else. Please try again."
+                }
+              }
+            }
           }
         }
       }
@@ -3053,6 +3066,19 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "Conflict — the default agent was changed concurrently. Retry the request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "message": "The default agent was changed by someone else. Please try again."
+                }
+              }
+            }
           }
         }
       },
@@ -4888,6 +4914,11 @@
           },
           "model_config": {
             "$ref": "#/components/schemas/ModelConfig"
+          },
+          "is_default": {
+            "type": "boolean",
+            "enum": [true],
+            "description": "When true, this agent becomes the workspace default (the previous default is cleared atomically). Only true is accepted. Requires the agent:update permission in addition to agent:create."
           }
         },
         "required": ["name", "system_prompt"]
@@ -4907,6 +4938,11 @@
           },
           "model_config": {
             "$ref": "#/components/schemas/ModelConfig"
+          },
+          "is_default": {
+            "type": "boolean",
+            "enum": [true],
+            "description": "When true, this agent becomes the workspace default (the previous default is cleared atomically). Only true is accepted."
           }
         }
       },

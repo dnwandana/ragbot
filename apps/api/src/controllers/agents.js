@@ -32,6 +32,7 @@ const createSchema = joi
     description: joi.string().max(1000).optional().allow(""),
     system_prompt: joi.string().min(1).max(10000).required(),
     model_config: modelConfigSchema().required(),
+    is_default: joi.boolean().valid(true).optional(),
   })
   .options({ stripUnknown: true })
 
@@ -53,10 +54,32 @@ const updateSchemaFor = (currentModel) =>
     .options({ stripUnknown: true })
 
 /**
+ * Translate a default-promotion unique violation into a retryable 409 conflict.
+ * Matches the idx_agents_workspace_default partial unique index by name so no
+ * other unique violation can masquerade as this conflict; any other error
+ * passes through unchanged.
+ * @param {Error} error - Error thrown by a default-promotion code path.
+ * @returns {Error} HttpError(409) for the default collision, otherwise the original error.
+ */
+const asDefaultConflict = (error) =>
+  error.code === "23505" && error.constraint === "idx_agents_workspace_default"
+    ? new HttpError(
+        HTTP_STATUS_CODE.CONFLICT,
+        "The default agent was changed by someone else. Please try again.",
+      )
+    : error
+
+/**
  * POST /api/workspaces/:workspace_id/agents — Create a custom agent.
  *
  * Validates body against createSchema, inserts a non-system agent,
- * logs an audit event, and returns 201.
+ * logs an audit event, and returns 201. When is_default is true, the
+ * previous default is cleared, the new agent is promoted, and the audit
+ * event is written, all in one transaction, preserving the
+ * one-default-per-workspace invariant and ensuring the audit trail is
+ * never missing for a promoted agent. Because promotion demotes the
+ * current default, is_default additionally requires the agent:update
+ * permission (the route guard only checks agent:create).
  * @param {Object} req - Express request object.
  * @param {Object} res - Express response object.
  * @param {Function} next - Express next middleware.
@@ -67,7 +90,14 @@ export const createAgent = async (req, res, next) => {
     const { error, value } = createSchema.validate(req.body)
     if (error) throw new HttpError(HTTP_STATUS_CODE.BAD_REQUEST, error.details[0].message)
 
-    const [agent] = await agentModel.create({
+    if (value.is_default && !req.permissions.includes("agent:update")) {
+      throw new HttpError(
+        HTTP_STATUS_CODE.FORBIDDEN,
+        "You do not have permission to perform this action",
+      )
+    }
+
+    const row = {
       id: crypto.randomUUID(),
       workspace_id: req.workspace.id,
       name: value.name,
@@ -78,23 +108,45 @@ export const createAgent = async (req, res, next) => {
       created_by: req.user.id,
       created_at: new Date(),
       updated_at: new Date(),
-    })
+    }
 
-    await logAuditEvent({
-      workspace_id: req.workspace.id,
-      user_id: req.user.id,
-      entity_type: "agent",
-      entity_id: agent.id,
-      action: "created",
-      changes: { name: value.name },
-      context: { request_id: req.id },
-    })
+    let agent
+    if (value.is_default) {
+      const [result] = await db.transaction(async (trx) => {
+        await agentModel.clearDefault(req.workspace.id, trx)
+        const created = await agentModel.create({ ...row, is_default: true }, trx)
+        await logAuditEvent({
+          trx,
+          workspace_id: req.workspace.id,
+          user_id: req.user.id,
+          entity_type: "agent",
+          entity_id: row.id,
+          action: "created",
+          changes: { name: value.name, is_default: true },
+          context: { request_id: req.id },
+        })
+        return created
+      })
+      agent = result
+    } else {
+      const [result] = await agentModel.create(row)
+      agent = result
+      await logAuditEvent({
+        workspace_id: req.workspace.id,
+        user_id: req.user.id,
+        entity_type: "agent",
+        entity_id: agent.id,
+        action: "created",
+        changes: { name: value.name },
+        context: { request_id: req.id },
+      })
+    }
 
     return res
       .status(HTTP_STATUS_CODE.CREATED)
       .json(apiResponse({ message: "Created", data: agent }))
   } catch (error) {
-    return next(error)
+    return next(asDefaultConflict(error))
   }
 }
 
@@ -149,7 +201,8 @@ export const getAgent = async (req, res, next) => {
  * PUT /api/workspaces/:workspace_id/agents/:agent_id — Update an agent.
  *
  * System agents can have their system_prompt updated but cannot be renamed.
- * Other agents accept all fields.
+ * Other agents accept all fields. When is_default is true, the demotion,
+ * promotion, and set_default audit event are written in one transaction.
  * @param {Object} req - Express request object.
  * @param {Object} res - Express response object.
  * @param {Function} next - Express next middleware.
@@ -185,19 +238,7 @@ export const updateAgent = async (req, res, next) => {
     if (value.model_config !== undefined)
       updateData.model_config = JSON.stringify(value.model_config)
 
-    let updated
-    if (value.is_default) {
-      const [result] = await db.transaction(async (trx) => {
-        await agentModel.clearDefault(req.workspace.id, trx)
-        return agentModel.update({ id: agent.id }, updateData, trx)
-      })
-      updated = result
-    } else {
-      const [result] = await agentModel.update({ id: agent.id }, updateData)
-      updated = result
-    }
-
-    await logAuditEvent({
+    const auditEvent = {
       workspace_id: req.workspace.id,
       user_id: req.user.id,
       entity_type: "agent",
@@ -205,11 +246,26 @@ export const updateAgent = async (req, res, next) => {
       action: value.is_default ? "set_default" : "updated",
       changes: value,
       context: { request_id: req.id },
-    })
+    }
+
+    let updated
+    if (value.is_default) {
+      const [result] = await db.transaction(async (trx) => {
+        await agentModel.clearDefault(req.workspace.id, trx)
+        const rows = await agentModel.update({ id: agent.id }, updateData, trx)
+        await logAuditEvent({ trx, ...auditEvent })
+        return rows
+      })
+      updated = result
+    } else {
+      const [result] = await agentModel.update({ id: agent.id }, updateData)
+      updated = result
+      await logAuditEvent(auditEvent)
+    }
 
     return res.json(apiResponse({ message: "OK", data: updated }))
   } catch (error) {
-    return next(error)
+    return next(asDefaultConflict(error))
   }
 }
 
