@@ -1,6 +1,6 @@
 <script setup>
 import { Bot, ArrowLeft, LoaderCircle, Check, CircleAlert } from "lucide-vue-next"
-import { AGENT_TEMPLATES } from "../agentTemplates.js"
+import { AGENT_TEMPLATES, nameForTemplate } from "../agentTemplates.js"
 
 const props = defineProps({
   ctx: { type: Object, required: true },
@@ -8,14 +8,14 @@ const props = defineProps({
 const ctx = props.ctx
 
 /**
- * @param {{ key: string, label: string, prompt: string }} tpl
+ * Apply a template: select it, replace the prompt, and update the agent
+ * name via the shared fill rule (user-typed names are preserved).
+ * @param {{ key: string, label: string, name: string, prompt: string }} tpl - Picked template
  */
 function pickTemplate(tpl) {
   ctx.formData.agentTemplate = tpl.key
   ctx.formData.agentPrompt = tpl.prompt
-  if (tpl.key !== "blank" && !ctx.formData.agentName.trim()) {
-    ctx.formData.agentName = tpl.label
-  }
+  ctx.formData.agentName = nameForTemplate(ctx.formData.agentName, tpl)
 }
 </script>
 
@@ -23,10 +23,10 @@ function pickTemplate(tpl) {
   <div class="ob-head">
     <div class="ob-head-icon"><Bot :size="16" /></div>
     <div class="ob-eyebrow">Step 4 · Optional</div>
-    <h1 class="ob-title">Create your first agent</h1>
+    <h1 class="ob-title">Meet your first agent</h1>
     <p class="ob-subtitle">
-      An agent is a saved persona with its own instructions. Start from a template or a blank
-      prompt.
+      An agent is your knowledge base with a job and a personality. Pick a template to see how one
+      is built — everything stays editable.
     </p>
   </div>
 
@@ -38,7 +38,7 @@ function pickTemplate(tpl) {
         class="ob-input"
         :class="{ 'is-error': ctx.errors.agent }"
         :value="ctx.formData.agentName"
-        placeholder="Knowledge assistant"
+        placeholder="e.g. Support Sidekick"
         autofocus
         @input="
           (e) => {
@@ -80,7 +80,9 @@ function pickTemplate(tpl) {
         placeholder="e.g. You are a knowledge assistant. Answer only from the indexed sources and cite the document for every claim…"
         @input="(e) => (ctx.formData.agentPrompt = e.target.value)"
       />
-      <div class="ob-hint">Edit freely — the template is just a starting point.</div>
+      <div class="ob-hint">
+        This is your agent's job description. Edit freely — the template is just a head start.
+      </div>
     </div>
   </div>
 
