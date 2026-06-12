@@ -84,7 +84,7 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 
 ### Tests
 
-**221 static test cases** (live passing count via `corepack pnpm test:api`). Integration: agents, auth, chat, conversations, dataset-file-chunks, dataset-file-questions, dataset-files, datasets, file-processing, health, members, permissions, roles, workspaces. Unit: allowed-models, email-render, http-error, llamaindex-poll, pagination, redis, request-id, sanitize, url-slug, validate-env.
+**230 static test cases** (live passing count via `corepack pnpm test:api`). Integration: agents, agents-default-conflict, auth, chat, conversations, dataset-file-chunks, dataset-file-questions, dataset-files, datasets, file-processing, health, members, permissions, roles, workspaces. Unit: allowed-models, email-render, http-error, llamaindex-poll, pagination, redis, request-id, sanitize, url-slug, validate-env.
 **No Redis required locally:** queue module mocked via `tests/setup.js`
 
 ### Database schema

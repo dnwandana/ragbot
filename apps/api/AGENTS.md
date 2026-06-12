@@ -263,21 +263,21 @@ Audit logging is implemented and wired (not planned). `src/utils/audit.js` expor
 
 ## Utility Catalog
 
-| File              | Exports                                                                                  |
-| ----------------- | ---------------------------------------------------------------------------------------- |
-| `argon2.js`       | `hashPassword`, `verifyPassword`                                                         |
-| `jwt.js`          | `generateAccessToken`, `generateRefreshToken`, `verifyAccessToken`, `verifyRefreshToken` |
-| `cookies.js`      | `setAccessTokenCookie`, `setRefreshTokenCookie`, `clearAuthCookies`                      |
-| `http-error.js`   | `HttpError` (default)                                                                    |
-| `response.js`     | `apiResponse` (default)                                                                  |
-| `pagination.js`   | `validatePaginationQuery`, `buildPaginationMeta`, `executePaginatedQuery`                |
-| `sanitize.js`     | `escapeIlike`                                                                            |
-| `constant.js`     | `HTTP_STATUS_CODE`, `HTTP_STATUS_MESSAGE`                                                |
-| `logger.js`       | `logger` (default, Winston instance)                                                     |
-| `redis.js`        | `parseRedisUrl`                                                                          |
-| `allowed-models.js` | `ALLOWED_MODELS`, `DEFAULT_MODEL` — agent model allowlist and default chat model |
-| `audit.js`        | `logAuditEvent` — inserts an immutable audit_logs row for a workspace-scoped action      |
-| `validate-env.js` | `validateEnv` (default)                                                                  |
+| File                | Exports                                                                                  |
+| ------------------- | ---------------------------------------------------------------------------------------- |
+| `argon2.js`         | `hashPassword`, `verifyPassword`                                                         |
+| `jwt.js`            | `generateAccessToken`, `generateRefreshToken`, `verifyAccessToken`, `verifyRefreshToken` |
+| `cookies.js`        | `setAccessTokenCookie`, `setRefreshTokenCookie`, `clearAuthCookies`                      |
+| `http-error.js`     | `HttpError` (default)                                                                    |
+| `response.js`       | `apiResponse` (default)                                                                  |
+| `pagination.js`     | `validatePaginationQuery`, `buildPaginationMeta`, `executePaginatedQuery`                |
+| `sanitize.js`       | `escapeIlike`                                                                            |
+| `constant.js`       | `HTTP_STATUS_CODE`, `HTTP_STATUS_MESSAGE`                                                |
+| `logger.js`         | `logger` (default, Winston instance)                                                     |
+| `redis.js`          | `parseRedisUrl`                                                                          |
+| `allowed-models.js` | `ALLOWED_MODELS`, `DEFAULT_MODEL` — agent model allowlist and default chat model         |
+| `audit.js`          | `logAuditEvent` — inserts an immutable audit_logs row for a workspace-scoped action      |
+| `validate-env.js`   | `validateEnv` (default)                                                                  |
 
 ## Service Catalog
 
@@ -352,8 +352,8 @@ Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_E
   - `addWorkspaceMember(workspaceId, userId, roleId)` — adds member with active status
   - `cleanAllTables()` — truncates all 16 tables in dependency order
   - `seedPermissions()` — seeds 31 RAG permissions
-- **Current test status** — 221 test cases total (static count from the test files; live passing count comes from `corepack pnpm test:api`):
-  - Integration: agents (22), auth (38), chat (7), conversations (11), dataset-file-chunks (2), dataset-file-questions (4), dataset-files (20), datasets (14), file-processing (3), health (5), members (6), permissions (13), roles (15), workspaces (6)
+- **Current test status** — 230 test cases total (static count from the test files; live passing count comes from `corepack pnpm test:api`):
+  - Integration: agents (28), agents-default-conflict (2), auth (38), chat (7), conversations (11), dataset-file-chunks (2), dataset-file-questions (4), dataset-files (20), datasets (14), file-processing (3), health (5), members (6), permissions (13), roles (15), workspaces (7)
   - Unit: allowed-models (2), email-render (4), http-error (3), llamaindex-poll (6), pagination (12), redis (5), request-id (4), sanitize (6), url-slug (9), validate-env (4)
   - Skipped (0)
   - No Redis required for local test runs (queue module mocked via `tests/setup.js`)
