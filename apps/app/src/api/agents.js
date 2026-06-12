@@ -25,7 +25,7 @@ export function getAgent(workspaceId, id) {
 /**
  * Create a custom agent.
  * @param {string} workspaceId
- * @param {Object} data - { name, description?, system_prompt, model_config }.
+ * @param {Object} data - { name, description?, system_prompt, model_config, is_default? }.
  * @returns {Promise<Object>}
  */
 export function createAgent(workspaceId, data) {

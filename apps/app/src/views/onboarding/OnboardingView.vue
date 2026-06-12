@@ -8,7 +8,11 @@ import { useDatasetsStore } from "@/stores/datasets"
 import { useDatasetFilesStore } from "@/stores/datasetFiles"
 import { useAgentsStore } from "@/stores/agents"
 import { inviteMember as apiInviteMember } from "@/api/members"
-import { DEFAULT_AGENT_PROMPT } from "./agentTemplates.js"
+import {
+  DEFAULT_AGENT_NAME,
+  DEFAULT_AGENT_PROMPT,
+  descriptionForTemplate,
+} from "./agentTemplates.js"
 import { DEFAULT_MODEL_CONFIG } from "@/constants/models"
 import OnboardingProgress from "@/components/onboarding/OnboardingProgress.vue"
 import OnboardingToast from "@/components/onboarding/OnboardingToast.vue"
@@ -44,7 +48,7 @@ const formData = reactive({
   invites: [],
   datasetName: "",
   files: [],
-  agentName: "Knowledge assistant",
+  agentName: DEFAULT_AGENT_NAME,
   agentTemplate: "support",
   agentPrompt: DEFAULT_AGENT_PROMPT,
 })
@@ -284,8 +288,10 @@ async function runAction(key) {
     try {
       await agentsStore.createAgent(createdWorkspaceId.value, {
         name: formData.agentName,
+        description: descriptionForTemplate(formData.agentTemplate),
         system_prompt: formData.agentPrompt,
         model_config: { ...DEFAULT_MODEL_CONFIG },
+        is_default: true,
       })
       completed.value = new Set([...completed.value, "agent"])
       showToast("Agent created")

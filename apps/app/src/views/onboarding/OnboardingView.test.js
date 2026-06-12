@@ -28,6 +28,7 @@ vi.mock("@/api/members", () => ({ inviteMember: vi.fn() }))
 
 import OnboardingView from "@/views/onboarding/OnboardingView.vue"
 import { DEFAULT_MODEL_CONFIG } from "@/constants/models"
+import { descriptionForTemplate } from "@/views/onboarding/agentTemplates.js"
 
 const AgentStepStub = {
   props: ["ctx"],
@@ -81,8 +82,10 @@ describe("OnboardingView agent step", () => {
     await flushPromises()
     expect(createAgent).toHaveBeenCalledWith("ws1", {
       name: "Helper",
+      description: descriptionForTemplate("support"),
       system_prompt: "You are helpful.",
       model_config: { ...DEFAULT_MODEL_CONFIG },
+      is_default: true,
     })
   })
 })
