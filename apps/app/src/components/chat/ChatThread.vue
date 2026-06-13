@@ -9,17 +9,17 @@
       />
       <div class="chat-thread__greeting">{{ greetingText }}</div>
       <div class="chat-thread__sub">
-        Ask anything and I'll search across {{ sourceLabel }}, then cite every passage I draw from.
-        Start with one of these, or write your own.
+        Ask anything and I'll search across {{ sourceLabel }}, then cite every passage I draw
+        from.<template v-if="prompts.length"> Start with one of these, or write your own.</template>
       </div>
-      <div class="chat-thread__prompts">
+      <div v-if="prompts.length" class="chat-thread__prompts">
         <button
           v-for="(prompt, i) in prompts"
           :key="i"
           class="chat-thread__prompt"
           @click="emit('send', prompt.text)"
         >
-          <span class="chat-thread__prompt-icon">
+          <span v-if="prompt.icon" class="chat-thread__prompt-icon">
             <component :is="promptIcon(prompt.icon)" :size="17" />
           </span>
           <span>{{ prompt.text }}</span>

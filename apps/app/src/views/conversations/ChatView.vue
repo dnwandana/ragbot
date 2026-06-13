@@ -98,6 +98,7 @@ import { totalItems } from "@/utils/pagination"
 import { useChat } from "@/composables/useChat"
 import { useChatActions } from "@/composables/useChatActions"
 import { useTheme } from "@/composables/useTheme"
+import { useSuggestedPrompts } from "@/composables/useSuggestedPrompts"
 import ChatThread from "@/components/chat/ChatThread.vue"
 import ChatComposer from "@/components/chat/ChatComposer.vue"
 import MarkdownRenderer from "@/components/chat/MarkdownRenderer.vue"
@@ -291,6 +292,8 @@ const linkedDatasetIds = computed(() =>
   isNew.value ? pendingDatasetIds.value : conversation.value?.dataset_ids || [],
 )
 
+const { prompts: suggestedPrompts } = useSuggestedPrompts(workspaceId, linkedDatasetIds)
+
 watch(
   () => (isNew.value ? null : conversation.value?.dataset_ids),
   (ids) => {
@@ -376,14 +379,6 @@ const sourceLabel = computed(() => {
   // TODO: Use linked datasets when API provides them
   return "your sources"
 })
-
-// Suggested prompts for welcome screen
-const suggestedPrompts = [
-  { icon: "key", text: "How do I authenticate and what are the rate limits?" },
-  { icon: "code", text: "Show me how to run a search query." },
-  { icon: "table", text: "Compare the available plans." },
-  { icon: "book", text: "What changed in the latest release?" },
-]
 
 const activeSources = computed(() => {
   if (!activeMsgId.value) return []
