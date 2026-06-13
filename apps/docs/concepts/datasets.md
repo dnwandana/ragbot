@@ -30,6 +30,14 @@ RAGBot reads the document formats people use every day:
 
 Text-based documents work best. A PDF that's really a photo of a page (a scan with no selectable text) may not be readable — if you can't highlight the words in the file, an agent probably can't read them either.
 
+## Add a web page
+
+Documents aren't the only source. Inside a dataset, choose **Add URL** and paste the address of a public web page — a help article, a product page, a published policy. RAGBot fetches the page, extracts its readable text, and indexes it exactly like an uploaded file. The page then processes and turns **Ready** the same way, and agents cite it just like any other source.
+
+::: tip When to scrape vs. upload
+Use a URL when the canonical version lives on the web and changes rarely. If a page sits behind a login or renders entirely from scripts, upload an exported copy (PDF or text) instead — RAGBot only reads what a public visitor would see.
+:::
+
 ## What "processing" and "indexing" mean
 
 When you upload a file, RAGBot doesn't just store it — it **reads** the text, splits it into small passages, and builds a searchable **index** of them. That index is what lets an agent later find the three most relevant paragraphs out of hundreds of pages in a fraction of a second.
