@@ -295,6 +295,96 @@ describe("POST .../messages — ReAct tool-call + citation linkage", () => {
     expect(citations).toHaveLength(1)
     expect(citations[0].chunk_id).toBe(chunkId)
   })
+
+  it("persists a citation for every retrieved chunk (no 5-citation cap)", async () => {
+    // Model is shown up to matchCount (10) chunks; all must be persisted so that
+    // every [n] marker in the reply resolves to a source in the drawer.
+    const user = await createTestUser()
+    const ws = await createTestWorkspace(user.id)
+
+    const agentsRes = await (await request())
+      .get(`/api/workspaces/${ws.id}/agents`)
+      .set(await getAuthHeaders(user.id))
+    const agentId = agentsRes.body.data.find((a) => a.is_system).id
+
+    // Create a dataset + file so we can insert real chunks. Each citation needs a
+    // distinct, non-null chunk_id: UNIQUE (message_id, chunk_id) plus a partial
+    // unique index on (message_id) WHERE chunk_id IS NULL (at most one null per
+    // message) together rule out repeated or null chunk references on one message.
+    const dsRes = await (
+      await request()
+    )
+      .post(`/api/workspaces/${ws.id}/datasets`)
+      .set(await getAuthHeaders(user.id))
+      .send({ name: "Cap Test" })
+    const datasetId = dsRes.body.data.id
+
+    const fileId = crypto.randomUUID()
+    await db("dataset_files").insert({
+      id: fileId,
+      dataset_id: datasetId,
+      workspace_id: ws.id,
+      filename: "doc.pdf",
+      mime_type: "application/pdf",
+      file_size_bytes: 100,
+      storage_provider: "r2",
+      storage_path: "doc/file.pdf",
+      status: "completed",
+      metadata: JSON.stringify({}),
+      created_at: new Date(),
+      updated_at: new Date(),
+    })
+
+    const chunkIds = await Promise.all(
+      Array.from({ length: 7 }, async (_, i) => {
+        const id = crypto.randomUUID()
+        await db("dataset_file_chunks").insert({
+          id,
+          dataset_file_id: fileId,
+          content: `Chunk ${i + 1} content about the topic.`,
+          chunk_index: i,
+          created_at: new Date(),
+        })
+        return id
+      }),
+    )
+
+    const convRes = await (
+      await request()
+    )
+      .post(`/api/workspaces/${ws.id}/conversations`)
+      .set(await getAuthHeaders(user.id))
+      .send({ agent_id: agentId, dataset_ids: [datasetId] })
+    const conversation = convRes.body.data
+
+    ragService.searchChunks.mockResolvedValue(
+      chunkIds.map((chunk_id, i) => ({
+        chunk_id,
+        content: `Chunk ${i + 1} content about the topic.`,
+        similarity: 0.9 - i * 0.05,
+        dataset_id: datasetId,
+        file_id: fileId,
+        filename: "doc.pdf",
+        chunk_index: i,
+      })),
+    )
+
+    const res = await (
+      await request()
+    )
+      .post(`/api/workspaces/${ws.id}/conversations/${conversation.id}/messages`)
+      .set({ ...(await getAuthHeaders(user.id)), Accept: "application/json" })
+      .send({ content: "Tell me everything, citing as many sources as possible" })
+
+    expect(res.status).toBe(200)
+
+    const citations = await db("conversation_message_citations")
+      .where({ message_id: res.body.data.message_id })
+      .orderBy("citation_number")
+
+    expect(citations).toHaveLength(7)
+    expect(citations.map((c) => c.citation_number)).toEqual([1, 2, 3, 4, 5, 6, 7])
+  })
 })
 
 describe("POST .../messages (SSE streaming)", () => {

@@ -260,8 +260,9 @@ async function runReActLoop({
     created_at: new Date(),
   })
 
-  // Store citations for top chunks (bulkInsert is a no-op on an empty array)
-  const citations = chunks.slice(0, 5).map((chunk, i) => ({
+  // Store a citation for every retrieved chunk the model was shown, so each [n]
+  // marker in the reply resolves to a source (bulkInsert is a no-op on []).
+  const citations = chunks.map((chunk, i) => ({
     id: crypto.randomUUID(),
     message_id: finalMessageId,
     workspace_id: conversation.workspace_id,
