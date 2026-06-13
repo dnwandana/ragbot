@@ -91,9 +91,17 @@ export function useChat(workspaceId, conversationId) {
             } else if (currentEvent === "citation") {
               chatStore.pendingCitations.push(data)
             } else if (currentEvent === "done") {
-              // Reload conversation to get stored messages
+              // Reload the conversation to pull in the persisted messages, then
+              // drop the streaming bubble immediately so the answer is never
+              // shown twice (persisted message + leftover streaming bubble).
               await conversationsStore.fetchConversation(unref(workspaceId), unref(conversationId))
               chatStore.currentContent = ""
+              // Refresh the sidebar so a newly-created (now auto-titled)
+              // conversation appears and reorders to the top. Cosmetic and
+              // result-less: fire-and-forget (do NOT await — awaiting prolongs
+              // isStreaming and blocks the read loop) and swallow failure so a
+              // stale sidebar never surfaces as a chat error.
+              conversationsStore.fetchConversations(unref(workspaceId)).catch(() => {})
             } else if (currentEvent === "error") {
               chatStore.error = data.message
             }
