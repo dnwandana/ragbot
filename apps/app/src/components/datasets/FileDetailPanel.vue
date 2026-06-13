@@ -4,6 +4,7 @@ import { FileText, X, Sparkles, ArrowRight, Loader, AlertTriangle, Shuffle } fro
 import { humanSize, fileType, statusLabel, statusChipClass } from "@/utils/files"
 import { useFileDetail } from "@/composables/useFileDetail"
 import { useMarkdown } from "@/composables/useMarkdown"
+import { useFormattedTime } from "@/composables/useFormattedTime"
 
 const props = defineProps({
   file: { type: Object, default: null },
@@ -16,6 +17,7 @@ const emit = defineEmits(["close", "reindex", "delete", "ask"])
 // workspaceId/datasetId are captured once here; safe because they are route-stable
 // for this component's lifetime (the panel is keyed per dataset detail route).
 const { renderChunk } = useMarkdown()
+const { shortDate } = useFormattedTime()
 const {
   questions,
   chunks,
@@ -29,12 +31,6 @@ const {
   loadMoreChunks,
   reset,
 } = useFileDetail(props.workspaceId, props.datasetId)
-
-/** @param {string} dateStr @returns {string} */
-function formatDate(dateStr) {
-  if (!dateStr) return "—"
-  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-}
 
 const isActive = computed(
   () => props.file?.status === "processing" || props.file?.status === "queued",
@@ -133,7 +129,7 @@ watch(
               </div>
               <div class="info-row">
                 <dt>Added</dt>
-                <dd>{{ formatDate(file.created_at) }}</dd>
+                <dd>{{ shortDate(file.created_at) || "—" }}</dd>
               </div>
               <div class="info-row">
                 <dt>Chunks</dt>

@@ -296,20 +296,3 @@ export function memberFilterOptions(members) {
     .filter((m) => m.user_id)
     .map((m) => ({ value: m.user_id, label: m.full_name || m.email || shortId(m.user_id) }))
 }
-
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-const pad = (n) => (n < 10 ? "0" + n : "" + n)
-
-/** Full absolute timestamp, e.g. "Jun 4, 2026 · 11:12:30". @param {string} dateStr @returns {string} */
-export function absoluteTime(dateStr) {
-  if (!dateStr) return ""
-  const d = new Date(dateStr)
-  return `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} · ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
-}
-
-/** Time of day, e.g. "11:12:30". @param {string} dateStr @returns {string} */
-export function timeOfDay(dateStr) {
-  if (!dateStr) return ""
-  const d = new Date(dateStr)
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
-}

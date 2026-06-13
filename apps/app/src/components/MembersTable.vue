@@ -21,6 +21,7 @@
 import { h, computed } from "vue"
 import { Table, Tag, Select, Button, Space, Popconfirm } from "ant-design-vue"
 import { Trash2 } from "lucide-vue-next"
+import { useFormattedTime } from "@/composables/useFormattedTime"
 
 const props = defineProps({
   members: {
@@ -46,6 +47,8 @@ const props = defineProps({
 })
 
 const emit = defineEmits(["roleChange", "remove"])
+
+const { calendarDate } = useFormattedTime()
 
 /**
  * Handle role change from the Select dropdown.
@@ -117,12 +120,7 @@ const columns = computed(() => {
       dataIndex: "joined_at",
       key: "joined_at",
       // Format the ISO timestamp as a locale date string
-      customRender: ({ text }) => {
-        if (text) {
-          return new Date(text).toLocaleDateString()
-        }
-        return "—"
-      },
+      customRender: ({ text }) => (text ? calendarDate(text) : "—"),
     },
   ]
 

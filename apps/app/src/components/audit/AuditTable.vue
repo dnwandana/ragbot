@@ -1,8 +1,8 @@
 <script setup>
 import { ChevronRight } from "lucide-vue-next"
-import { category, entityIcon, verb, resourceLabel, timeOfDay } from "@/components/audit/auditMaps"
+import { category, entityIcon, verb, resourceLabel } from "@/components/audit/auditMaps"
 import { auditIcon } from "@/components/audit/auditIcons"
-import { relativeTime } from "@/utils/time"
+import { useFormattedTime } from "@/composables/useFormattedTime"
 
 defineProps({
   events: { type: Array, default: () => [] },
@@ -10,6 +10,8 @@ defineProps({
   selectedId: { type: String, default: null },
 })
 const emit = defineEmits(["open"])
+
+const { relativeTime, timeOfDay } = useFormattedTime()
 </script>
 
 <template>

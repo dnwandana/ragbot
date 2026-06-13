@@ -5,6 +5,7 @@ import { message } from "ant-design-vue"
 import { useDatasetsStore } from "@/stores/datasets"
 import { useDatasetFiles } from "@/composables/useDatasetFiles"
 import { relativeTime } from "@/utils/time"
+import { useFormattedTime } from "@/composables/useFormattedTime"
 import { humanSize, fileType, statusLabel, statusChipClass } from "@/utils/files"
 import AddSourceDrawer from "@/components/datasets/AddSourceDrawer.vue"
 import FileDetailPanel from "@/components/datasets/FileDetailPanel.vue"
@@ -63,6 +64,8 @@ const bulkDeleteOpen = ref(false)
 const bulkDeleting = ref(false)
 const deletingDataset = ref(false)
 const deletingFile = ref(false)
+
+const { shortDate } = useFormattedTime()
 
 const PAGE_SIZE = 25
 const totalPages = computed(() => Math.max(1, Math.ceil(filteredFiles.value.length / PAGE_SIZE)))
@@ -361,12 +364,6 @@ function onAskQuestion(question) {
   })
 }
 
-/** @param {string} dateStr @returns {string} */
-function shortDate(dateStr) {
-  if (!dateStr) return "—"
-  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-}
-
 const FILTERS = [
   { value: "all", label: "All" },
   { value: "indexed", label: "Indexed" },
@@ -587,7 +584,7 @@ const visiblePages = computed(() => {
               {{ statusLabel(file.status) }}
             </span>
           </div>
-          <div class="muted">{{ shortDate(file.created_at) }}</div>
+          <div class="muted">{{ shortDate(file.created_at) || "—" }}</div>
           <div @click.stop>
             <button
               class="row-menu-btn"

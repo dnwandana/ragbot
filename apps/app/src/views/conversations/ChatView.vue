@@ -9,6 +9,7 @@
       :prompts="suggestedPrompts"
       :source-label="sourceLabel"
       :theme="theme"
+      :time-zone="timeZone"
       @send="onSend"
       @copy="chatActions.copyMessage"
       @cite="onCite"
@@ -99,6 +100,7 @@ import { useChat } from "@/composables/useChat"
 import { useChatActions } from "@/composables/useChatActions"
 import { useTheme } from "@/composables/useTheme"
 import { useSuggestedPrompts } from "@/composables/useSuggestedPrompts"
+import { useFormattedTime } from "@/composables/useFormattedTime"
 import ChatThread from "@/components/chat/ChatThread.vue"
 import ChatComposer from "@/components/chat/ChatComposer.vue"
 import MarkdownRenderer from "@/components/chat/MarkdownRenderer.vue"
@@ -112,6 +114,7 @@ const conversationId = computed(() => route.params.conversationId)
 const chat = useChat(workspaceId, conversationId)
 const chatActions = useChatActions()
 const { theme } = useTheme()
+const { clockTime, timeZone } = useFormattedTime()
 
 const isNew = computed(() => route.name === "NewChat")
 const pendingAgentId = ref(null)
@@ -348,7 +351,7 @@ const streamingMessage = computed(() => {
     sources: [],
     // Citations aren't known until the stream finishes — chip every marker.
     citationNumbers: null,
-    time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    time: clockTime(new Date().toISOString()),
   }
 })
 
@@ -361,11 +364,7 @@ const displayMessages = computed(() => {
     return {
       ...m,
       text: m.text || m.content || "",
-      time:
-        m.time ||
-        (m.created_at
-          ? new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-          : ""),
+      time: m.time || (m.created_at ? clockTime(m.created_at) : ""),
       sources: [...new Set(cits.map((c) => c.filename || `Source ${c.citation_number}`))],
       // Markers not in this list render as plain text, never as dead chips.
       citationNumbers: cits.map((c) => c.citation_number),

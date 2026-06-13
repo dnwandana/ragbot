@@ -1,8 +1,10 @@
 <script setup>
 import { onMounted } from "vue"
 import { useInvitations } from "@/composables/useInvitations"
+import { useFormattedTime } from "@/composables/useFormattedTime"
 
 const { myInvitations, loading, fetchMyInvitations, handleAccept, handleDecline } = useInvitations()
+const { calendarDate } = useFormattedTime()
 
 onMounted(fetchMyInvitations)
 
@@ -46,9 +48,7 @@ const otherInvitations = (invs) => invs.filter((i) => i.status !== "pending")
           <div class="inv-body">
             <div class="inv-ws-name">{{ inv.workspace_name || inv.org_id }}</div>
             <div class="inv-details">
-              <span v-if="inv.expires_at"
-                >Expires {{ new Date(inv.expires_at).toLocaleDateString() }}</span
-              >
+              <span v-if="inv.expires_at">Expires {{ calendarDate(inv.expires_at) }}</span>
             </div>
           </div>
           <div class="inv-actions">

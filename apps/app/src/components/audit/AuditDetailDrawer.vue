@@ -8,15 +8,17 @@ import {
   resourceLabel,
   diffRows,
   keyValueRows,
-  absoluteTime,
 } from "@/components/audit/auditMaps"
 import { auditIcon } from "@/components/audit/auditIcons"
+import { useFormattedTime } from "@/composables/useFormattedTime"
 
 const props = defineProps({
   event: { type: Object, default: null },
   actor: { type: Object, default: null },
 })
 const emit = defineEmits(["close"])
+
+const { absoluteDateTime } = useFormattedTime()
 
 const tab = ref("details")
 watch(
@@ -180,7 +182,7 @@ onUnmounted(() => {
             </div>
             <div class="ad-field">
               <div class="ad-fl">Occurred</div>
-              <div class="ad-fv">{{ absoluteTime(event.created_at) }}</div>
+              <div class="ad-fv">{{ absoluteDateTime(event.created_at) }}</div>
             </div>
 
             <template v-if="diff">

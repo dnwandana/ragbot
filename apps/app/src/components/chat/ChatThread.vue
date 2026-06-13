@@ -61,6 +61,7 @@
 <script setup>
 import { ref, computed, watch, nextTick } from "vue"
 import { promptIcon } from "./promptIcons"
+import { hourOfDay } from "@/utils/time"
 import ChatMessage from "./ChatMessage.vue"
 
 const props = defineProps({
@@ -73,6 +74,7 @@ const props = defineProps({
   sourceLabel: { type: String, default: "your sources" },
   theme: { type: String, default: "light" },
   density: { type: String, default: "comfortable" },
+  timeZone: { type: String, default: undefined },
 })
 
 const emit = defineEmits(["send", "copy", "cite", "open-panel"])
@@ -83,7 +85,7 @@ const emptyThreadLight = "/assets/empty-thread.svg"
 const emptyThreadDark = "/assets/empty-thread-dark.svg"
 
 const greetingText = computed(() => {
-  const h = new Date().getHours()
+  const h = hourOfDay(new Date(), { timeZone: props.timeZone })
   if (h < 12) return "Good morning"
   if (h < 18) return "Good afternoon"
   return "Good evening"

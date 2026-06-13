@@ -15,6 +15,7 @@ import {
 import { useDatasets } from "@/composables/useDatasets"
 import { usePaginationUI } from "@/composables/usePaginationUI"
 import { relativeTime } from "@/utils/time"
+import { useFormattedTime } from "@/composables/useFormattedTime"
 
 const route = useRoute()
 const workspaceId = route.params.workspaceId
@@ -41,6 +42,8 @@ const {
 
 const { SORT_OPTIONS, currentSortLabel, totalCount, paginationInfo, pageNumbers, showPagination } =
   usePaginationUI({ pagination, page, sortBy, sortOrder })
+
+const { shortDate } = useFormattedTime()
 
 const menuOpenId = ref(null)
 const deleteTarget = ref(null)
@@ -70,12 +73,6 @@ function selectSort(option) {
   sortBy.value = option.sortBy
   sortOrder.value = option.sortOrder
   sortMenuOpen.value = false
-}
-
-/** @param {string} dateStr @returns {string} */
-function shortDate(dateStr) {
-  if (!dateStr) return ""
-  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
 /** @param {object} ds */

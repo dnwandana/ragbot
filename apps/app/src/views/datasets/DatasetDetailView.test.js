@@ -26,6 +26,10 @@ vi.mock("@/stores/datasets", () => ({
 }))
 
 const files = ref([])
+vi.mock("@/composables/useFormattedTime", () => ({
+  useFormattedTime: () => ({ shortDate: (s) => s ?? "" }),
+}))
+
 vi.mock("@/composables/useDatasetFiles", () => ({
   useDatasetFiles: () => ({
     files,

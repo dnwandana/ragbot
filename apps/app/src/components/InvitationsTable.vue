@@ -17,6 +17,7 @@
 
 import { h, computed } from "vue"
 import { Table, Tag, Button, Space, Popconfirm } from "ant-design-vue"
+import { useFormattedTime } from "@/composables/useFormattedTime"
 
 const props = defineProps({
   invitations: {
@@ -34,6 +35,8 @@ const props = defineProps({
 })
 
 const emit = defineEmits(["revoke"])
+
+const { calendarDate } = useFormattedTime()
 
 /**
  * Map invitation status values to Ant Design Tag colors.
@@ -91,24 +94,14 @@ const columns = computed(() => {
       dataIndex: "expires_at",
       key: "expires_at",
       // Format the ISO timestamp as a locale date string
-      customRender: ({ text }) => {
-        if (text) {
-          return new Date(text).toLocaleDateString()
-        }
-        return "—"
-      },
+      customRender: ({ text }) => (text ? calendarDate(text) : "—"),
     },
     {
       title: "Created",
       dataIndex: "created_at",
       key: "created_at",
       // Format the ISO timestamp as a locale date string
-      customRender: ({ text }) => {
-        if (text) {
-          return new Date(text).toLocaleDateString()
-        }
-        return "—"
-      },
+      customRender: ({ text }) => (text ? calendarDate(text) : "—"),
     },
   ]
 

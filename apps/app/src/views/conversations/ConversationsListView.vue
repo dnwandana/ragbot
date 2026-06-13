@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from "vue"
 import { useRoute, useRouter } from "vue-router"
 import { useConversations } from "@/composables/useConversations"
 import { useAgentsStore } from "@/stores/agents"
-import { relativeTime } from "@/utils/time"
+import { useFormattedTime } from "@/composables/useFormattedTime"
 import { Plus, MessageSquare, Trash2 } from "lucide-vue-next"
 
 const route = useRoute()
@@ -11,6 +11,7 @@ const router = useRouter()
 const workspaceId = route.params.workspaceId
 
 const { conversations, loading, handleDelete, fetchConversations } = useConversations(workspaceId)
+const { relativeTime, calendarDaysAgo } = useFormattedTime()
 
 const agentsStore = useAgentsStore()
 const agents = ref([])
@@ -34,14 +35,13 @@ function startNewConversation() {
 }
 
 const grouped = computed(() => {
-  const now = Date.now()
   const today = [],
     thisWeek = [],
     older = []
   for (const c of conversations.value) {
-    const diff = (now - new Date(c.created_at)) / 86400000
-    if (diff < 1) today.push(c)
-    else if (diff < 7) thisWeek.push(c)
+    const days = calendarDaysAgo(c.created_at)
+    if (days === 0) today.push(c)
+    else if (days !== null && days < 7) thisWeek.push(c)
     else older.push(c)
   }
   return [

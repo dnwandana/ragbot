@@ -31,6 +31,21 @@ const dirty = computed(
     draft.value.timezone !== (currentUser.value?.timezone ?? "UTC"),
 )
 
+/**
+ * Case-insensitive search filter for the timezone select.
+ *
+ * Ant Design Vue invokes the option filter for opt-group nodes as well as
+ * leaf options; group nodes have no `value`, so guard against it (an undefined
+ * value never matches and should not throw).
+ *
+ * @param {string} input - The user's search text.
+ * @param {Object} option - The option (or opt-group) node being tested.
+ * @returns {boolean} True when the option's value contains the input.
+ */
+function filterTimezone(input, option) {
+  return (option.value ?? "").toLowerCase().includes(input.toLowerCase())
+}
+
 async function handleSave() {
   const success = await saveProfile({
     full_name: draft.value.full_name.trim(),
@@ -72,9 +87,7 @@ function handleDiscard() {
           <a-select
             v-model:value="draft.timezone"
             show-search
-            :filter-option="
-              (input, option) => option.value.toLowerCase().includes(input.toLowerCase())
-            "
+            :filter-option="filterTimezone"
             class="field-input"
           >
             <a-select-opt-group

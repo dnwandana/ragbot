@@ -7,6 +7,9 @@ vi.mock("@/composables/useFileDetail", () => ({ useFileDetail: vi.fn() }))
 vi.mock("@/composables/useMarkdown", () => ({
   useMarkdown: () => ({ renderChunk: (s) => s ?? "" }),
 }))
+vi.mock("@/composables/useFormattedTime", () => ({
+  useFormattedTime: () => ({ shortDate: (s) => s ?? "" }),
+}))
 
 import { useFileDetail } from "@/composables/useFileDetail"
 import FileDetailPanel from "@/components/datasets/FileDetailPanel.vue"

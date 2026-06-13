@@ -28,7 +28,7 @@ import { useConversationsStore } from "@/stores/conversations"
 import { useInvitations } from "@/composables/useInvitations"
 import { useTheme } from "@/composables/useTheme"
 import { usePermissions } from "@/composables/usePermissions"
-import { relativeTime } from "@/utils/time"
+import { useFormattedTime } from "@/composables/useFormattedTime"
 
 const route = useRoute()
 const router = useRouter()
@@ -37,6 +37,7 @@ const workspacesStore = useWorkspacesStore()
 const { pendingCount } = useInvitations()
 const { theme, toggleTheme } = useTheme()
 const { can } = usePermissions()
+const { relativeTime, calendarDaysAgo } = useFormattedTime()
 
 const workspaceId = computed(() => route.params.workspaceId || null)
 const currentWorkspace = computed(() =>
@@ -75,14 +76,10 @@ const filteredConversations = computed(() => {
 })
 
 function conversationGroup(c) {
-  if (!c.updated_at && !c.created_at) return "Earlier"
-  const d = new Date(c.updated_at || c.created_at)
-  const now = new Date()
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const itemDay = new Date(d.getFullYear(), d.getMonth(), d.getDate())
-  const diffDays = Math.round((today - itemDay) / 86_400_000)
-  if (diffDays === 0) return "Today"
-  if (diffDays === 1) return "Yesterday"
+  const days = calendarDaysAgo(c.updated_at || c.created_at)
+  if (days === null) return "Earlier"
+  if (days === 0) return "Today"
+  if (days === 1) return "Yesterday"
   return "Earlier"
 }
 
