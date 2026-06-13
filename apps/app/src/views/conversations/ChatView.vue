@@ -76,7 +76,7 @@
                 <span class="chat-view__source-num">[{{ citation.n }}]</span>
               </div>
               <div v-if="citation.cited_text" class="chat-view__source-excerpt">
-                <MarkdownRenderer :text="citation.cited_text" />
+                <MarkdownRenderer :text="citation.cited_text" :citation-numbers="[]" />
               </div>
             </div>
           </div>
@@ -346,6 +346,8 @@ const streamingMessage = computed(() => {
     text: chatStore.currentContent,
     streaming: true,
     sources: [],
+    // Citations aren't known until the stream finishes — chip every marker.
+    citationNumbers: null,
     time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
   }
 })
@@ -354,22 +356,21 @@ const streamingMessage = computed(() => {
 // Normalises API field names: content→text, created_at→time, and injects
 // per-message citations from the conversation-level citations array.
 const displayMessages = computed(() => {
-  const base = filteredMessages.value.map((m) => ({
-    ...m,
-    text: m.text || m.content || "",
-    time:
-      m.time ||
-      (m.created_at
-        ? new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-        : ""),
-    sources: [
-      ...new Set(
-        (citationsByMsgId.value.get(m.id) || []).map(
-          (c) => c.filename || `Source ${c.citation_number}`,
-        ),
-      ),
-    ],
-  }))
+  const base = filteredMessages.value.map((m) => {
+    const cits = citationsByMsgId.value.get(m.id) || []
+    return {
+      ...m,
+      text: m.text || m.content || "",
+      time:
+        m.time ||
+        (m.created_at
+          ? new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          : ""),
+      sources: [...new Set(cits.map((c) => c.filename || `Source ${c.citation_number}`))],
+      // Markers not in this list render as plain text, never as dead chips.
+      citationNumbers: cits.map((c) => c.citation_number),
+    }
+  })
   if (streamingMessage.value) return [...base, streamingMessage.value]
   return base
 })

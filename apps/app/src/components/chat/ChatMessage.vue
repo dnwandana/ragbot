@@ -22,6 +22,7 @@
       <MarkdownRenderer
         :text="msg.text"
         :streaming="msg.streaming"
+        :citation-numbers="citationNumbers"
         @cite="(n) => emit('cite', n)"
       />
 
@@ -106,6 +107,8 @@ const props = defineProps({
   msg: { type: Object, required: true },
   /** ReAct steps for streaming state: { thoughts: [], observations: [] } */
   reActSteps: { type: Object, default: null },
+  /** Citation numbers backed by a source for this message (null while streaming) */
+  citationNumbers: { type: Array, default: null },
 })
 
 const emit = defineEmits(["copy", "cite", "open-panel"])

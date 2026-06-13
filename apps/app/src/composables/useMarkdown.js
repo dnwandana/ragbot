@@ -1,6 +1,12 @@
 import { marked, Marked } from "marked"
 import DOMPurify from "dompurify"
 
+// When non-null, only citation numbers in this set render as clickable chips;
+// any other [n] marker falls back to literal text. Set synchronously around
+// each marked.parse() call — parse is synchronous, so this module-scoped state
+// is race-free across renders.
+let activeCitations = null
+
 const citationExtension = {
   name: "citation",
   level: "inline",
@@ -12,6 +18,12 @@ const citationExtension = {
     if (match) return { type: "citation", raw: match[0], num: match[1] }
   },
   renderer(token) {
+    // Unknown citation number (stale message capped before the source existed,
+    // model hallucinating a marker, or a literal bracket inside a source
+    // excerpt) → keep it as plain text instead of a dead, unclickable chip.
+    if (activeCitations && !activeCitations.has(Number(token.num))) {
+      return `[${token.num}]`
+    }
     return `<span class="cite-ref" data-cite="${token.num}">[${token.num}]</span>`
   },
 }
@@ -37,16 +49,25 @@ chunkMarked.use({
 
 export function useMarkdown() {
   /**
-   * @param {string|null} content
-   * @returns {string}
+   * Render chat markdown. Citation markers ([n]) become clickable chips.
+   *
+   * @param {string|null} content - Raw markdown.
+   * @param {number[]|null} [citationNumbers] - Citation numbers that have a
+   *   backing source for this message. When provided, any [n] NOT in the list
+   *   renders as literal text instead of a chip. Pass null/omit to chip every
+   *   marker (used while streaming, before citations are known).
+   * @returns {string} Sanitized HTML.
    */
-  function render(content) {
+  function render(content, citationNumbers = null) {
     if (!content) return ""
+    activeCitations = citationNumbers ? new Set(citationNumbers.map(Number)) : null
     try {
       const html = marked.parse(content)
       return DOMPurify.sanitize(html, { ADD_ATTR: ["target", "rel", "data-cite"] })
     } catch {
       return DOMPurify.sanitize(content)
+    } finally {
+      activeCitations = null
     }
   }
 

@@ -11,6 +11,12 @@ const props = defineProps({
   text: { type: String, default: "" },
   /** Whether the response is currently streaming */
   streaming: { type: Boolean, default: false },
+  /**
+   * Citation numbers with a backing source for this message. Any [n] not in
+   * this list renders as literal text instead of a clickable chip. Null (the
+   * default) chips every marker — used while streaming, before citations load.
+   */
+  citationNumbers: { type: Array, default: null },
 })
 
 const emit = defineEmits(["cite"])
@@ -22,7 +28,7 @@ const renderedHtml = computed(() => {
 
   if (!content) return ""
 
-  let html = render(content)
+  let html = render(content, props.citationNumbers)
 
   // Append streaming cursor outside open code fences
   if (props.streaming) {

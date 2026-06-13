@@ -34,3 +34,27 @@ describe("useMarkdown.renderChunk", () => {
     expect(renderChunk("")).toBe("")
   })
 })
+
+describe("useMarkdown.render citation gating", () => {
+  const { render } = useMarkdown()
+
+  it("chips every [n] when no citation list is given", () => {
+    const html = render("See [1] and [7].")
+    expect(html).toContain('data-cite="1"')
+    expect(html).toContain('data-cite="7"')
+  })
+
+  it("chips only numbers backed by a source, leaving others literal", () => {
+    const html = render("See [1] and [7].", [1, 2, 3, 4, 5])
+    expect(html).toContain('data-cite="1"')
+    expect(html).not.toContain('data-cite="7"')
+    expect(html).toContain("[7]")
+  })
+
+  it("renders no chips when the citation list is empty", () => {
+    const html = render("Reference [1] W. Dai, [2] H. Massias.", [])
+    expect(html).not.toContain("cite-ref")
+    expect(html).toContain("[1]")
+    expect(html).toContain("[2]")
+  })
+})
