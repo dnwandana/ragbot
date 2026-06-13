@@ -2664,6 +2664,61 @@
         }
       }
     },
+    "/api/workspaces/{workspace_id}/datasets/{dataset_id}/questions": {
+      "get": {
+        "tags": ["Datasets"],
+        "summary": "Sample a dataset's exploration questions",
+        "description": "**Permission required**: `file:read`. Returns a random sample of exploration questions drawn from the dataset's completed files, used to seed chat suggested prompts.",
+        "operationId": "listDatasetQuestions",
+        "security": [{ "AccessToken": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/WorkspaceIdParam" },
+          { "$ref": "#/components/parameters/DatasetIdParam" },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "maximum": 20, "default": 8 },
+            "description": "Maximum number of questions to return."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sampled exploration questions",
+            "headers": { "X-Request-Id": { "$ref": "#/components/headers/X-Request-Id" } },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/ApiResponse" },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": { "type": "string", "format": "uuid" },
+                              "question": { "type": "string" },
+                              "dataset_file_id": { "type": "string", "format": "uuid" }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
     "/api/workspaces/{workspace_id}/datasets/{dataset_id}/files/{file_id}/chunks": {
       "get": {
         "tags": ["Files"],

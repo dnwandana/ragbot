@@ -28,6 +28,13 @@ const updateSchema = joi
   })
   .options({ stripUnknown: true })
 
+/** Query params for the dataset suggested-questions endpoint. */
+const questionsQuerySchema = joi
+  .object({
+    limit: joi.number().integer().min(1).max(20).default(8),
+  })
+  .options({ stripUnknown: true })
+
 /**
  * POST /api/workspaces/:workspace_id/datasets — Create a new dataset in the workspace.
  *
@@ -113,6 +120,35 @@ export const getDataset = async (req, res, next) => {
     })
     if (!dataset) throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "Dataset not found")
     return res.json(apiResponse({ message: "OK", data: dataset }))
+  } catch (error) {
+    return next(error)
+  }
+}
+
+/**
+ * GET /api/workspaces/:workspace_id/datasets/:dataset_id/questions — Sample exploration questions.
+ *
+ * Returns a random sample of auto-generated exploration questions drawn from the
+ * dataset's completed files. Used to seed the chat welcome screen's suggested prompts.
+ *
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next middleware function
+ * @returns {Promise<void>}
+ */
+export const listDatasetQuestions = async (req, res, next) => {
+  try {
+    const { error, value } = questionsQuerySchema.validate(req.query)
+    if (error) throw new HttpError(HTTP_STATUS_CODE.BAD_REQUEST, error.details[0].message)
+
+    const dataset = await datasetModel.findOne({
+      id: req.params.dataset_id,
+      workspace_id: req.workspace.id,
+    })
+    if (!dataset) throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "Dataset not found")
+
+    const questions = await questionModel.findByDatasetId(dataset.id, value.limit)
+    return res.json(apiResponse({ message: "OK", data: questions }))
   } catch (error) {
     return next(error)
   }

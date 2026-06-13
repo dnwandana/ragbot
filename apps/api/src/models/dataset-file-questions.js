@@ -28,6 +28,28 @@ export const findByFileId = (datasetFileId) =>
     .orderBy("id", "asc")
 
 /**
+ * Return a random sample of exploration questions across a dataset's completed,
+ * non-deleted files. Used to seed the chat welcome screen's suggested prompts.
+ *
+ * @param {string} datasetId - UUID of the parent dataset
+ * @param {number} [limit=8] - Maximum number of questions to return
+ * @returns {Promise<Array<{ id: string, question: string, dataset_file_id: string }>>}
+ */
+export const findByDatasetId = (datasetId, limit = 8) =>
+  db(`${TABLE} as q`)
+    .join("dataset_files as f", "f.id", "q.dataset_file_id")
+    .where("f.dataset_id", datasetId)
+    .where("f.status", "completed")
+    .whereNull("f.deleted_at")
+    .select("q.id", "q.question", "q.dataset_file_id")
+    // ORDER BY random() is a full scan + sort over the dataset's questions. This is a
+    // deliberate small-N choice: the only caller (chat suggested-prompts) fetches once
+    // per first-dataset selection. Revisit (e.g. TABLESAMPLE or a random-offset scheme)
+    // if this is reused on a hot path or datasets grow to many thousands of questions.
+    .orderByRaw("random()")
+    .limit(limit)
+
+/**
  * Delete all exploration questions belonging to a dataset file.
  *
  * @param {string} datasetFileId - UUID of the parent dataset_files record

@@ -16,6 +16,8 @@ router
   .put(requirePermission("dataset:update"), datasets.updateDataset)
   .delete(requirePermission("dataset:delete"), datasets.deleteDataset)
 
+router.get("/:dataset_id/questions", requirePermission("file:read"), datasets.listDatasetQuestions)
+
 router.post(
   "/:dataset_id/conversations",
   requirePermission("conversation:create"),
