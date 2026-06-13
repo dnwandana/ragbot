@@ -20,7 +20,7 @@ const caps = [
         <tr>
           <th>Capability</th>
           <th><span class="role-h">Owner / Admin</span></th>
-          <th><span class="role-h">Member</span></th>
+          <th><span class="role-h">Editor</span></th>
           <th>
             <span class="role-h">Viewer<small>read-only</small></span>
           </th>
