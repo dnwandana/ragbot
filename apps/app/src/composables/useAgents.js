@@ -9,9 +9,11 @@ import { useAgentsStore } from "@/stores/agents"
 export function useAgents(workspaceId) {
   const store = useAgentsStore()
 
-  // Drawer state
+  // Drawer state — track the edited agent by id and derive the live record from
+  // the store so updates (e.g. default-toggle) reflect immediately without reopening.
   const isDrawerOpen = ref(false)
-  const drawerAgent = ref(null)
+  const drawerAgentId = ref(null)
+  const drawerAgent = computed(() => store.agents.find((a) => a.id === drawerAgentId.value) ?? null)
   const isEditing = computed(() => !!drawerAgent.value)
 
   // View state
@@ -68,19 +70,19 @@ export function useAgents(workspaceId) {
   onUnmounted(() => clearTimeout(debounceTimer))
 
   function openCreate() {
-    drawerAgent.value = null
+    drawerAgentId.value = null
     isDrawerOpen.value = true
   }
 
   /** @param {object} agent */
   function openEdit(agent) {
-    drawerAgent.value = agent
+    drawerAgentId.value = agent.id
     isDrawerOpen.value = true
   }
 
   function closeDrawer() {
     isDrawerOpen.value = false
-    drawerAgent.value = null
+    drawerAgentId.value = null
   }
 
   /** @param {object} formData */

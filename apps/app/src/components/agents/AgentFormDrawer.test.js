@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { mount } from "@vue/test-utils"
+import { mount, flushPromises } from "@vue/test-utils"
 
-vi.mock("@/stores/agents", () => ({
-  useAgentsStore: () => ({ setDefaultAgent: vi.fn() }),
-}))
+const { setDefaultAgent } = vi.hoisted(() => ({ setDefaultAgent: vi.fn() }))
+vi.mock("@/stores/agents", () => ({ useAgentsStore: () => ({ setDefaultAgent }) }))
+vi.mock("ant-design-vue", () => ({ message: { success: vi.fn(), error: vi.fn() } }))
 
+import { message } from "ant-design-vue"
 import AgentFormDrawer from "@/components/agents/AgentFormDrawer.vue"
 
 const SelectStub = {
@@ -114,5 +115,73 @@ describe("AgentFormDrawer help-me-choose guide", () => {
       model_config: { model: "openai/gpt-4.1" },
     })
     expect(wrapper.find(".guide-link").exists()).toBe(false)
+  })
+})
+
+describe("AgentFormDrawer default-agent toggle feedback", () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it("calls setDefaultAgent and shows a success toast when toggled on", async () => {
+    setDefaultAgent.mockResolvedValue({})
+    const wrapper = mountDrawer({
+      id: "a1",
+      name: "Knowledge assistant",
+      is_default: false,
+      model_config: { model: "openai/gpt-4.1" },
+    })
+
+    await wrapper.find(".toggle-switch").trigger("click")
+    await flushPromises()
+
+    expect(setDefaultAgent).toHaveBeenCalledWith("ws1", "a1")
+    expect(message.success).toHaveBeenCalledWith("Knowledge assistant is now the default agent")
+  })
+
+  it("shows an error toast and does not show success when setDefaultAgent fails", async () => {
+    setDefaultAgent.mockRejectedValue(new Error("nope"))
+    const wrapper = mountDrawer({
+      id: "a1",
+      name: "Knowledge assistant",
+      is_default: false,
+      model_config: { model: "openai/gpt-4.1" },
+    })
+
+    await wrapper.find(".toggle-switch").trigger("click")
+    await flushPromises()
+
+    expect(setDefaultAgent).toHaveBeenCalledWith("ws1", "a1")
+    expect(message.error).toHaveBeenCalledWith("Couldn't set the default agent. Please try again.")
+    expect(message.success).not.toHaveBeenCalled()
+  })
+
+  it("reflects is_default reactively without re-seeding the form on a same-id update", async () => {
+    const wrapper = mountDrawer({
+      id: "a1",
+      name: "A",
+      is_default: false,
+      model_config: { model: "openai/gpt-4.1" },
+    })
+    expect(wrapper.findComponent(SelectStub).props("value")).toBe("openai/gpt-4.1")
+
+    // Same id, flipped default, different model → form must NOT re-seed (model stays),
+    // but the is_default display must update.
+    await wrapper.setProps({
+      agent: { id: "a1", name: "A", is_default: true, model_config: { model: "openai/gpt-4o" } },
+    })
+
+    expect(wrapper.findComponent(SelectStub).props("value")).toBe("openai/gpt-4.1")
+    expect(wrapper.find(".default-toggle-row--on").exists()).toBe(true)
+  })
+
+  it("re-seeds the form when a different agent is opened", async () => {
+    const wrapper = mountDrawer({
+      id: "a1",
+      name: "A",
+      model_config: { model: "openai/gpt-4.1" },
+    })
+    await wrapper.setProps({
+      agent: { id: "a2", name: "B", model_config: { model: "openai/gpt-4o" } },
+    })
+    expect(wrapper.findComponent(SelectStub).props("value")).toBe("openai/gpt-4o")
   })
 })

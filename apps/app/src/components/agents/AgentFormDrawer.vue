@@ -1,5 +1,6 @@
 <script setup>
 import { computed, reactive, ref, watch } from "vue"
+import { message } from "ant-design-vue"
 import { useAgentsStore } from "@/stores/agents"
 import {
   DEFAULT_MODEL_CONFIG,
@@ -56,8 +57,9 @@ watch(
 )
 
 watch(
-  () => props.agent,
-  (a) => {
+  () => props.agent?.id,
+  () => {
+    const a = props.agent
     if (a) {
       form.name = a.name || ""
       form.description = a.description || ""
@@ -112,6 +114,9 @@ async function handleToggleDefault() {
   settingDefault.value = true
   try {
     await agentsStore.setDefaultAgent(props.workspaceId, props.agent.id)
+    message.success(`${props.agent.name} is now the default agent`)
+  } catch {
+    message.error("Couldn't set the default agent. Please try again.")
   } finally {
     settingDefault.value = false
   }
