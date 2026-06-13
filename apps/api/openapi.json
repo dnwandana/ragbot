@@ -528,7 +528,7 @@
       "put": {
         "tags": ["Authentication"],
         "summary": "Update profile",
-        "description": "Update the authenticated user's full_name and/or email. At least one field must be provided.",
+        "description": "Update the authenticated user's full_name and timezone. Both fields are required.",
         "operationId": "updateProfile",
         "security": [
           {
@@ -579,25 +579,15 @@
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
-          "409": {
-            "description": "Email already in use by another account",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                },
-                "example": {
-                  "message": "Email already in use"
-                }
-              }
-            }
+          "404": {
+            "$ref": "#/components/responses/NotFound"
           }
         }
       },
       "delete": {
         "tags": ["Authentication"],
         "summary": "Delete account",
-        "description": "Soft-delete the authenticated user's account and clear auth cookies.",
+        "description": "Soft-delete the authenticated user's account, revoke all refresh tokens, and clear auth cookies.",
         "operationId": "deleteProfile",
         "security": [
           {
@@ -605,11 +595,40 @@
           }
         ],
         "responses": {
-          "204": {
-            "description": "Account deleted — auth cookies cleared"
+          "200": {
+            "description": "Account deleted — auth cookies cleared",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "message": "Account deleted",
+                  "data": null
+                }
+              }
+            }
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "description": "Sole owner of one or more workspaces — transfer ownership first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "message": "You are the sole owner of one or more workspaces. Transfer ownership before deleting your account."
+                }
+              }
+            }
           }
         }
       }
@@ -618,7 +637,7 @@
       "put": {
         "tags": ["Authentication"],
         "summary": "Change password",
-        "description": "Change the authenticated user's password. Requires the current password for verification.",
+        "description": "Change the authenticated user's password. Requires the current password for verification; revokes all refresh tokens so other sessions are signed out.",
         "operationId": "changePassword",
         "security": [
           {
@@ -636,14 +655,33 @@
           }
         },
         "responses": {
-          "204": {
-            "description": "Password changed successfully"
+          "200": {
+            "description": "Password changed successfully",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "message": "Password updated",
+                  "data": null
+                }
+              }
+            }
           },
           "400": {
             "$ref": "#/components/responses/BadRequest"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
           }
         }
       }
@@ -1656,9 +1694,7 @@
                 "properties": {
                   "token": {
                     "type": "string",
-                    "minLength": 64,
-                    "maxLength": 64,
-                    "description": "Invitation token from the email link"
+                    "description": "Compound invitation token from the email link, in the form `memberId:rawToken`"
                   }
                 },
                 "required": ["token"]
@@ -3241,8 +3277,12 @@
                           "items": {
                             "$ref": "#/components/schemas/Conversation"
                           }
+                        },
+                        "pagination": {
+                          "$ref": "#/components/schemas/Pagination"
                         }
-                      }
+                      },
+                      "required": ["data", "pagination"]
                     }
                   ]
                 }
@@ -4687,35 +4727,33 @@
       },
       "UpdateProfileRequest": {
         "type": "object",
-        "description": "At least one field required.",
+        "description": "Both fields required. Unknown fields are stripped.",
         "properties": {
           "full_name": {
             "type": "string",
             "minLength": 1,
             "maxLength": 100
           },
-          "email": {
+          "timezone": {
             "type": "string",
-            "format": "email"
+            "description": "A valid IANA time zone name (e.g. \"Asia/Bangkok\"), validated against Intl.supportedValuesOf(\"timeZone\")."
           }
-        }
+        },
+        "required": ["full_name", "timezone"]
       },
       "ChangePasswordRequest": {
         "type": "object",
         "properties": {
-          "old_password": {
+          "current_password": {
             "type": "string"
           },
           "new_password": {
             "type": "string",
             "minLength": 8,
             "maxLength": 72
-          },
-          "confirmation_password": {
-            "type": "string"
           }
         },
-        "required": ["old_password", "new_password", "confirmation_password"]
+        "required": ["current_password", "new_password"]
       },
       "UpdateDatasetRequest": {
         "type": "object",

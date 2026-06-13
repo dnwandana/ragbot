@@ -174,7 +174,7 @@ Append `:api`, `:app`, `:web`, or `:docs` to target a single workspace (e.g. `pn
 | POST   | `/api/auth/forgot-password`     | —             | Request password reset email (always returns 200)        |
 | POST   | `/api/auth/reset-password`      | —             | Reset password via token, revokes all sessions           |
 | GET    | `/api/auth/me`                  | Access Token  | Return current user                                      |
-| PUT    | `/api/auth/profile`             | Access Token  | Update `full_name` and/or `email`                        |
+| PUT    | `/api/auth/profile`             | Access Token  | Update `full_name` and `timezone`                        |
 | DELETE | `/api/auth/profile`             | Access Token  | Delete account (soft delete, clears cookies)             |
 | PUT    | `/api/auth/password`            | Access Token  | Change password                                          |
 | POST   | `/api/auth/refresh`             | Refresh Token | Rotate tokens via httpOnly cookie                        |
@@ -238,6 +238,7 @@ Append `:api`, `:app`, `:web`, or `:docs` to target a single workspace (e.g. `pn
 | GET    | `/api/workspaces/:id/datasets/:did`               | `dataset:read`        |
 | PUT    | `/api/workspaces/:id/datasets/:did`               | `dataset:update`      |
 | DELETE | `/api/workspaces/:id/datasets/:did`               | `dataset:delete`      |
+| GET    | `/api/workspaces/:id/datasets/:did/questions`     | `file:read`           |
 | POST   | `/api/workspaces/:id/datasets/:did/conversations` | `conversation:create` |
 
 ### Dataset Files
@@ -323,7 +324,7 @@ cp apps/api/.env.example apps/api/.env.test
 # Update PORT (e.g. 3001), LOG_LEVEL=error, LOG_TO_FILE=false
 ```
 
-The test suite uses real PostgreSQL (no mocks). Vitest runs migrations once before the session, and `cleanAllTables()` truncates between tests. Auth tests mock the Brevo email service; queue tests mock BullMQ so no Redis is required locally. 230 static test cases — run `corepack pnpm test:api` for the live passing count. Integration groups: agents, agents-default-conflict, auth, chat, conversations, dataset-file-chunks, dataset-file-questions, dataset-files, datasets, file-processing, health, members, permissions, roles, workspaces. Unit groups: allowed-models, email-render, http-error, llamaindex-poll, pagination, redis, request-id, sanitize, url-slug, validate-env.
+The test suite uses real PostgreSQL (no mocks). Vitest runs migrations once before the session, and `cleanAllTables()` truncates between tests. Auth tests mock the Brevo email service; queue tests mock BullMQ so no Redis is required locally. 238 static test cases — run `corepack pnpm test:api` for the live passing count. Integration groups: agents, agents-default-conflict, auth, chat, conversations, dataset-file-chunks, dataset-file-questions, dataset-questions, dataset-files, datasets, file-processing, health, members, permissions, roles, workspaces. Unit groups: allowed-models, email-render, http-error, llamaindex-poll, pagination, redis, request-id, sanitize, url-slug, validate-env.
 
 The frontend app (`apps/app`) has its own Vitest suite (`corepack pnpm --filter app test`, jsdom environment): unit tests for API wrappers and composables, plus component-render tests via `@vue/test-utils`. No database or network is required — API modules and composables are mocked.
 
@@ -474,96 +475,60 @@ rag-chatbot/
 │   │   │   ├── index.js            # Entry point (env validation, server start, graceful shutdown)
 │   │   │   ├── config/
 │   │   │   │   └── database.js     # Knex instance
-│   │   │   ├── controllers/
-│   │   │   │   ├── authentication.js
-│   │   │   │   ├── chat.js
-│   │   │   │   ├── permissions.js
-│   │   │   │   └── roles.js
+│   │   │   ├── controllers/        # 11: authentication, workspaces, roles, members,
+│   │   │   │   │                    #     datasets, dataset-files, agents, conversations,
+│   │   │   │   │                    #     chat, audit-logs, permissions
 │   │   │   ├── emails/
 │   │   │   │   ├── render.js             # Template loader with {{var}} substitution
 │   │   │   │   └── templates/            # verify-email, reset-password, workspace-invitation HTML
-│   │   │   ├── models/
-│   │   │   │   ├── email-tokens.js
-│   │   │   │   ├── permissions.js
-│   │   │   │   ├── refresh-tokens.js
-│   │   │   │   ├── roles.js
-│   │   │   │   └── users.js
-│   │   │   ├── services/
-│   │   │   │   ├── email.js             # Brevo transactional email via inline HTML
-│   │   │   │   ├── openrouter.js        # LLM inference + streaming chat completions
-│   │   │   │   └── rag.js               # RAG pipeline: embed, search, build context
-│   │   │   ├── routes/
-│   │   │   │   ├── authentication.js
-│   │   │   │   ├── conversations.js    # Conversation CRUD + chat messages route
-│   │   │   │   ├── health.js
-│   │   │   │   ├── index.js
-│   │   │   │   └── permissions.js
-│   │   │   ├── middlewares/
-│   │   │   │   ├── authorization.js   # requireAccessToken, requireRefreshToken
-│   │   │   │   ├── error.js           # errorHandler, notFoundHandler
-│   │   │   │   ├── logger.js          # httpLogger (Morgan), requestLogger (Winston)
-│   │   │   │   ├── rate-limit.js      # authLimiter, generalLimiter
-│   │   │   │   └── request-id.js
-│   │   │   └── utils/
-│   │   │       ├── argon2.js
-│   │   │       ├── constant.js
-│   │   │       ├── cookies.js
-│   │   │       ├── http-error.js
-│   │   │       ├── jwt.js
-│   │   │       ├── logger.js
-│   │   │       ├── pagination.js
-│   │   │       ├── response.js
-│   │   │       ├── sanitize.js
-│   │   │       └── validate-env.js
+│   │   │   ├── models/             # 17 (Knex queries only): users, email/refresh-tokens,
+│   │   │   │   │                    #     roles, permissions, workspaces, workspace-members,
+│   │   │   │   │                    #     datasets, dataset-files/-chunks/-questions, agents,
+│   │   │   │   │                    #     conversations(+datasets/messages/citations), audit-logs
+│   │   │   ├── services/           # 8: email (Brevo), openrouter (LLM + streaming),
+│   │   │   │   │                    #     rag, firecrawl, llamaindex, question-generator,
+│   │   │   │   │                    #     storage (S3/R2), text-splitter
+│   │   │   ├── routes/             # per-resource routers aggregated in index.js
+│   │   │   ├── middlewares/        # 7: request-id, authorization, resolve-workspace,
+│   │   │   │   │                    #     require-permission, rate-limit, logger, error
+│   │   │   ├── queues/             # file-processing (BullMQ queue + addProcessingJob)
+│   │   │   ├── workers/            # file-processing (split → embed → store → questions)
+│   │   │   └── utils/              # 15: argon2, jwt, cookies, http-error, response,
+│   │   │                            #     pagination, sanitize, constant, logger, redis,
+│   │   │                            #     allowed-models, audit, system-agent, url-slug, validate-env
 │   │   ├── database/
-│   │   │   ├── migrations/         # 9 Knex migrations (workspace-based RAG schema)
+│   │   │   ├── migrations/         # 9 Knex migrations (18-table workspace-based RAG schema)
 │   │   │   └── seeds/
 │   │   │       ├── 01_permissions.js  # 31 permissions across 8 resources
 │   │   │       └── 02_test_users.js   # 2 test users (alice, bob)
+│   │   ├── openapi.json            # OpenAPI 3 REST reference
 │   │   └── tests/
 │   │       ├── helpers.js          # createTestUser, createTestWorkspace, getAuthHeaders, cleanAllTables
 │   │       ├── global-setup.js
-│   │       ├── global-teardown.js
-│   │       ├── integration/        # auth, health, permissions
-│   │       └── unit/               # http-error, pagination, request-id, sanitize
+│   │       ├── setup.js            # mocks the BullMQ queue (no Redis needed)
+│   │       ├── integration/        # 16 files (agents, auth, chat, conversations, datasets, …)
+│   │       └── unit/               # 10 files (allowed-models, pagination, validate-env, …)
 │   │
 │   └── app/
 │       └── src/
-│           ├── api/                # HTTP service layer (fetch-based)
-│           │   ├── auth.js
-│           │   ├── chat.js             # SSE chat via native fetch
-│           │   ├── invitations.js
-│           │   ├── permissions.js
-│           │   └── roles.js
-│           ├── stores/             # Pinia stores
-│           │   ├── auth.js
-│           │   ├── chat.js             # Chat streaming state
-│           │   ├── invitations.js
-│           │   ├── members.js
-│           │   └── roles.js
-│           ├── composables/        # Bridge: stores -> components
-│           │   ├── useAuth.js
-│           │   ├── useChat.js          # Chat sendMessage + abort
-│           │   ├── useInvitations.js
-│           │   ├── useMembers.js
-│           │   ├── usePermissions.js
-│           │   └── useRoles.js
-│           ├── views/              # Routed page components
-│           │   ├── auth/           # LoginView, SignupView, VerifyEmailView, ForgotPasswordView, ResetPasswordView
-│           │   ├── conversations/  # ConversationsListView, ChatView
-│           │   └── invitations/    # MyInvitationsView
-│           ├── components/         # Reusable UI components
-│           │   ├── AppLayout.vue
-│           │   ├── AppSidebar.vue
-│           │   ├── InviteFormModal.vue
-│           │   ├── InvitationsTable.vue
-│           │   ├── MembersTable.vue
-│           │   └── roles/             # RoleEditor, DeleteRoleModal, RolePermissionMatrix
-│           │       ├── RoleEditor.vue
-│           │       ├── DeleteRoleModal.vue
-│           │       └── RolePermissionMatrix.vue
+│           ├── api/                # 14 fetch-based service modules: auth, chat,
+│           │                        #   conversations, datasets, datasetFiles, agents,
+│           │                        #   workspaces, members, invitations, roles,
+│           │                        #   permissions, auditLogs, account, profile
+│           ├── stores/             # 11 Pinia stores (auth, chat, conversations,
+│           │                        #   datasets, datasetFiles, agents, workspaces,
+│           │                        #   members, invitations, roles, auditLogs)
+│           ├── composables/        # 18 composables bridging stores → components
+│           ├── views/              # auth/, workspaces/, settings/, datasets/, agents/,
+│           │                        #   conversations/ (incl. ChatView), audit-logs/,
+│           │                        #   onboarding/ (step wizard), invitations/
+│           ├── components/         # shell + agents/, audit/, chat/, datasets/,
+│           │                        #   onboarding/, roles/ subgroups
+│           ├── config/             # antd-theme.js (Ant Design tokens)
+│           ├── constants/          # models.js (agent model picker catalog)
 │           ├── router/             # Vue Router + auth guards
-│           └── utils/              # Fetch client, localStorage helpers
+│           └── utils/              # http (fetch client), storage, time, files,
+│                                    #   pagination, permissionCatalog
 │   │
 │   ├── web/                        # Astro 6 static marketing site
 │   │   ├── astro.config.mjs        # output: 'static' + sitemap

@@ -46,7 +46,7 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 - Health check (database connectivity, request ID)
 - Roles CRUD (workspace-scoped)
 - Full middleware stack (helmet, CORS, rate limiting, request ID, cookie parser, error handling)
-- Database schema — 9 migrations, 16 tables, pgvector HNSW index, `search_chunks()` SQL function
+- Database schema — 9 migrations, 18 tables, pgvector HNSW index, `search_chunks()` SQL function
 - Workspace CRUD + RBAC + member management (F3)
 - Datasets + file upload (LlamaIndex) + URL scraping (Firecrawl) + BullMQ processing pipeline (F4)
 - Agent management — CRUD with system agent protection (F5)
@@ -59,18 +59,19 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 **Wired and working:**
 
 - Auth views (Login, Signup, VerifyEmail, ForgotPassword, ResetPassword)
+- Workspaces views (WorkspacesListView, WorkspaceFormModal) + store/composable/API module
+- Workspace settings views (general, members, roles, profile, account) under `views/settings/`
 - Invitations view (MyInvitationsView)
-- AppLayout, AppSidebar, RoleEditor, InviteFormModal, MembersTable, InvitationsTable
-- Auth, roles, invitations, members, permissions stores and composables
+- Onboarding flow (OnboardingView + step wizard under `views/onboarding/steps/`)
+- AppLayout, AppSidebar, AppUserMenu, RoleEditor, InviteFormModal, MembersTable, InvitationsTable
+- Auth, roles, invitations, members, permissions, workspaces stores and composables
 - HTTP client with automatic token refresh and 401 retry queue
 - Vue Router with auth guards
-- Agent views (AgentsListView, AgentFormModal), store, composable, and API module
+- Agent views (AgentsListView, AgentFormDrawer), store, composable, and API module (F5)
+- Dataset views (DatasetsListView, DatasetDetailView) + datasets/datasetFiles stores, composables, and API modules (F4)
 - Conversation views (ConversationsListView), store, composable, and API module (F6)
 - Chat view (ChatView) with SSE streaming, chat store, composable, and API module (F7)
-
-**Referenced but deleted (router/stores point to non-existent files):**
-
-- Org/project/todo views, stores, composables, and API modules were removed in the schema migration. These need to be replaced with workspace/dataset/agent/conversation equivalents when the corresponding API features are built.
+- Audit-logs view (AuditLogsView) with store, composable, and API module
 
 ### Web (`apps/web`)
 
@@ -84,12 +85,12 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 
 ### Tests
 
-**230 static test cases** (live passing count via `corepack pnpm test:api`). Integration: agents, agents-default-conflict, auth, chat, conversations, dataset-file-chunks, dataset-file-questions, dataset-files, datasets, file-processing, health, members, permissions, roles, workspaces. Unit: allowed-models, email-render, http-error, llamaindex-poll, pagination, redis, request-id, sanitize, url-slug, validate-env.
+**238 static test cases** (live passing count via `corepack pnpm test:api`). Integration: agents, agents-default-conflict, auth, chat, conversations, dataset-file-chunks, dataset-file-questions, dataset-questions, dataset-files, datasets, file-processing, health, members, permissions, roles, workspaces. Unit: allowed-models, email-render, http-error, llamaindex-poll, pagination, redis, request-id, sanitize, url-slug, validate-env.
 **No Redis required locally:** queue module mocked via `tests/setup.js`
 
 ### Database schema
 
-16 tables across 9 migrations. Key entity tree:
+18 tables across 9 migrations. Key entity tree:
 
 ```
 workspaces (tenant root)
@@ -98,7 +99,8 @@ workspaces (tenant root)
   +-- datasets → dataset_files → dataset_file_chunks (vector(1536) + HNSW index)
                               → dataset_file_questions
   +-- agents (system prompt + model config)
-  +-- conversations → conversation_messages → conversation_message_citations → dataset_file_chunks
+  +-- conversations → conversation_datasets (join to datasets)
+                    → conversation_messages → conversation_message_citations → dataset_file_chunks
   +-- audit_logs (immutable, append-only)
 
 users (global)

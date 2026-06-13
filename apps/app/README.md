@@ -159,11 +159,14 @@ src/
 │   ├── onboarding/      # OnboardingProgress, OnboardingToast
 │   └── roles/           # RoleEditor, DeleteRoleModal, RolePermissionMatrix
 ├── router/        # Vue Router configuration with auth guards
+├── config/        # App config (antd-theme.js — Ant Design theme tokens)
+├── constants/     # Shared constants (models.js — agent model picker catalog)
 └── utils/         # Utilities (fetch-based HTTP client, localStorage, time/file helpers)
     ├── http.js
     ├── storage.js
     ├── time.js
     ├── files.js
+    ├── pagination.js
     └── permissionCatalog.js
 ```
 

@@ -87,8 +87,8 @@ Custom fetch-based client (NOT Axios). Key behaviors:
   3. On success: server rotates and sets new httpOnly cookies, replays queued requests
   4. On failure: clears auth data, redirects to `/login`
 - **Excluded from refresh retry**: `/auth/signin`, `/auth/signup`, `/auth/refresh`
-- **Error handling**: Non-401 errors trigger `message.error()` toast automatically
-- **Exports**: `baseURL` (const), `HttpError` (class), `request` (object with `send`, `get`, `post`, `put`, `del`)
+- **Error handling**: Non-401 errors trigger `message.error()` toast automatically, unless the call passes `{ silent: true }` to opt out
+- **Exports**: `baseURL` (const), `HttpError` (class), `request` (object with `send`, `get`, `post`, `put`, `patch`, `del`)
 
 ## Authentication Flow
 
@@ -198,7 +198,7 @@ Custom fetch-based client (NOT Axios). Key behaviors:
 
 | File                         | Exports                                                                                                                               |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `utils/http.js`              | `baseURL` (const), `HttpError` (class), `request` object (`send`, `get`, `post`, `put`, `del`)                                        |
+| `utils/http.js`              | `baseURL` (const), `HttpError` (class), `request` object (`send`, `get`, `post`, `put`, `patch`, `del`)                                        |
 | `utils/storage.js`           | `getUserData`, `setUserData`, `clearUserData`                                                                                         |
 | `utils/time.js`              | `relativeTime(dateStr)` — formats a date string as relative time ("Just now", "Xm ago", etc.)                                         |
 | `utils/files.js`             | `humanSize(bytes)`, `fileType(filename)`, `statusLabel(status)`, `statusChipClass(status)` — dataset-file display helpers             |

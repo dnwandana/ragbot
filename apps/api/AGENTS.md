@@ -104,6 +104,9 @@ req.permissions // [] of permission names (populated by resolveWorkspace)
 - POST `/api/auth/reset-password` → validates reset token, updates password, revokes all refresh tokens for the user
 - POST `/api/auth/refresh` → **token rotation**: revokes old refresh token, stores new hash, sets new `access_token` and `refresh_token` cookies
 - POST `/api/auth/logout` → revokes the refresh token in DB, clears cookies. Idempotent (succeeds even if token already revoked).
+- PUT `/api/auth/profile` → updates the authenticated user's `full_name` and `timezone` (must be a valid IANA zone), returns the updated user
+- DELETE `/api/auth/profile` → soft-deletes the account, revokes all refresh tokens, clears cookies. Rejects with 409 if the user is the sole owner of any workspace
+- PUT `/api/auth/password` → verifies `current_password`, sets `new_password` (8–72 chars), then revokes all refresh tokens so other sessions are signed out
 
 Token cookies: `access_token` and `refresh_token` (httpOnly cookies set by server). JWT algorithm pinned to HS256 with explicit verification.
 
@@ -179,6 +182,9 @@ The chat feature uses a server-side ReAct (Reason-Act-Observe) loop with dual-mo
 | POST   | `/api/auth/forgot-password`     | `authentication.forgotPassword`     | No                  | authLimiter         |
 | POST   | `/api/auth/reset-password`      | `authentication.resetPassword`      | No                  | authLimiter         |
 | GET    | `/api/auth/me`                  | `authentication.getMe`              | requireAccessToken  | authLimiter         |
+| PUT    | `/api/auth/profile`             | `authentication.updateProfile`      | requireAccessToken  | authLimiter         |
+| DELETE | `/api/auth/profile`             | `authentication.deleteProfile`      | requireAccessToken  | authLimiter         |
+| PUT    | `/api/auth/password`            | `authentication.changePassword`     | requireAccessToken  | authLimiter         |
 | POST   | `/api/auth/refresh`             | `authentication.refreshAccessToken` | requireRefreshToken | authLimiter         |
 | POST   | `/api/auth/logout`              | `authentication.logout`             | requireRefreshToken | authLimiter         |
 
@@ -200,6 +206,7 @@ The chat feature uses a server-side ReAct (Reason-Act-Observe) loop with dual-mo
 | POST   | `/api/workspaces/:workspace_id/datasets/:dataset_id/conversations`            | `datasets.createConversationFromDataset` | `conversation:create` |
 | POST   | `/api/workspaces/:workspace_id/conversations/:conversation_id/messages`       | `chat.sendMessage`                       | `conversation:chat`   |
 | GET    | `/api/workspaces/:workspace_id/audit-logs`                                    | `audit-logs.listAuditLogs`               | `audit:read`          |
+| GET    | `/api/workspaces/:workspace_id/datasets/:dataset_id/questions`                | `datasets.listDatasetQuestions`          | `file:read`           |
 | GET    | `/api/workspaces/:workspace_id/datasets/:dataset_id/files/:file_id/questions` | `dataset-files.listFileQuestions`        | `file:read`           |
 | GET    | `/api/workspaces/:workspace_id/datasets/:dataset_id/files/:file_id/chunks`    | `dataset-files.listFileChunks`           | `file:read`           |
 
@@ -233,19 +240,19 @@ Audit logging is implemented and wired (not planned). `src/utils/audit.js` expor
 
 ## Controller Catalog
 
-| File                | Exports                                                                                                                                                             |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `authentication.js` | `signup`, `verifyEmail`, `resendVerification`, `signin`, `forgotPassword`, `resetPassword`, `getMe`, `refreshAccessToken`, `logout`                                 |
-| `permissions.js`    | `getPermissions`                                                                                                                                                    |
-| `roles.js`          | `createRole`, `getRoles`, `getRole`, `updateRole`, `deleteRole`                                                                                                     |
-| `agents.js`         | `createAgent`, `listAgents`, `getAgent`, `updateAgent`, `deleteAgent`                                                                                               |
-| `conversations.js`  | `createConversation`, `listConversations`, `getConversation`, `updateConversation`, `deleteConversation`                                                            |
-| `datasets.js`       | `createDataset`, `listDatasets`, `getDataset`, `updateDataset`, `deleteDataset`, `createConversationFromDataset`                                                    |
-| `chat.js`           | `sendMessage`                                                                                                                                                       |
-| `members.js`        | `listMembers`, `getMember`, `inviteMember`, `changeRole`, `removeMember`, `acceptInvitation`, `previewInvitation`                                                   |
-| `workspaces.js`     | `createWorkspace`, `getWorkspaces`, `getWorkspace`, `updateWorkspace`, `deleteWorkspace`                                                                            |
-| `dataset-files.js`  | `upload` (Multer middleware), `uploadFile`, `scrapeUrl`, `listFiles`, `getFile`, `updateFile`, `deleteFile`, `reprocessFile`, `listFileQuestions`, `listFileChunks` |
-| `audit-logs.js`     | `listAuditLogs`                                                                                                                                                     |
+| File                | Exports                                                                                                                                                                                 |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `authentication.js` | `signup`, `verifyEmail`, `resendVerification`, `signin`, `forgotPassword`, `resetPassword`, `getMe`, `updateProfile`, `deleteProfile`, `changePassword`, `refreshAccessToken`, `logout` |
+| `permissions.js`    | `getPermissions`                                                                                                                                                                        |
+| `roles.js`          | `createRole`, `getRoles`, `getRole`, `updateRole`, `deleteRole`                                                                                                                         |
+| `agents.js`         | `createAgent`, `listAgents`, `getAgent`, `updateAgent`, `deleteAgent`                                                                                                                   |
+| `conversations.js`  | `createConversation`, `listConversations`, `getConversation`, `updateConversation`, `deleteConversation`                                                                                |
+| `datasets.js`       | `createDataset`, `listDatasets`, `getDataset`, `listDatasetQuestions`, `updateDataset`, `deleteDataset`, `createConversationFromDataset`                                                |
+| `chat.js`           | `sendMessage`                                                                                                                                                                           |
+| `members.js`        | `listMembers`, `getMember`, `inviteMember`, `changeRole`, `removeMember`, `acceptInvitation`, `previewInvitation`                                                                       |
+| `workspaces.js`     | `createWorkspace`, `getWorkspaces`, `getWorkspace`, `updateWorkspace`, `deleteWorkspace`                                                                                                |
+| `dataset-files.js`  | `upload` (Multer middleware), `uploadFile`, `scrapeUrl`, `listFiles`, `getFile`, `updateFile`, `deleteFile`, `reprocessFile`, `listFileQuestions`, `listFileChunks`                     |
+| `audit-logs.js`     | `listAuditLogs`                                                                                                                                                                         |
 
 ## Middleware Catalog
 
@@ -332,8 +339,8 @@ Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_E
 - **Seeds**: `database/seeds/` — 2 seed files:
   - 01: 31 permissions across 8 resources (workspace, role, member, audit, dataset, file, agent, conversation)
   - 02: 2 test users (alice@example.com, bob@example.com, password: "Password123!")
-- 16 tables total, workspace-scoped via `workspace_id` with composite FKs
-- Soft delete pattern on 8 tables via `deleted_at` column with partial unique indexes
+- 18 tables total, workspace-scoped via `workspace_id` with composite FKs
+- Soft delete pattern on 7 tables (`workspaces`, `users`, `workspace_members`, `datasets`, `dataset_files`, `agents`, `conversations`) via `deleted_at` column with partial unique indexes
 - pgvector `vector(1536)` column for OpenAI embeddings with HNSW index
 
 ## Testing
@@ -350,10 +357,10 @@ Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_E
   - `getAuthHeaders(userId)` — generates JWT tokens, stores refresh hash in DB, returns Cookie header
   - `createTestWorkspace(userId)` — creates workspace + 4 system roles + permissions + adds creator as owner + creates system agent
   - `addWorkspaceMember(workspaceId, userId, roleId)` — adds member with active status
-  - `cleanAllTables()` — truncates all 16 tables in dependency order
+  - `cleanAllTables()` — truncates all 18 tables in dependency order
   - `seedPermissions()` — seeds 31 RAG permissions
-- **Current test status** — 230 test cases total (static count from the test files; live passing count comes from `corepack pnpm test:api`):
-  - Integration: agents (28), agents-default-conflict (2), auth (38), chat (7), conversations (11), dataset-file-chunks (2), dataset-file-questions (4), dataset-files (20), datasets (14), file-processing (3), health (5), members (6), permissions (13), roles (15), workspaces (7)
+- **Current test status** — 238 test cases total (static count from the test files; live passing count comes from `corepack pnpm test:api`):
+  - Integration: agents (28), agents-default-conflict (2), auth (38), chat (8), conversations (11), dataset-file-chunks (2), dataset-file-questions (6), dataset-questions (5), dataset-files (20), datasets (14), file-processing (3), health (5), members (6), permissions (13), roles (15), workspaces (7)
   - Unit: allowed-models (2), email-render (4), http-error (3), llamaindex-poll (6), pagination (12), redis (5), request-id (4), sanitize (6), url-slug (9), validate-env (4)
   - Skipped (0)
   - No Redis required for local test runs (queue module mocked via `tests/setup.js`)

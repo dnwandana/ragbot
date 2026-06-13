@@ -42,7 +42,7 @@ You can still run package-local commands from `apps/api` with `pnpm`.
 
 ### Database
 
-- **PostgreSQL + pgvector**: 16 tables with vector similarity search (HNSW index)
+- **PostgreSQL + pgvector**: 18 tables with vector similarity search (HNSW index)
 - **Knex.js**: SQL query builder with migration support
 - **MVC Pattern**: Clean separation of concerns (Models, Controllers, Routes)
 - **ES Modules**: Modern JavaScript with `import/export` syntax
@@ -68,7 +68,7 @@ You can still run package-local commands from `apps/api` with `pnpm`.
 | **Validation**      | Joi ^17.13.3                           | Schema validation             |
 | **Security**        | Helmet ^8.1.0, CORS ^2.8.5, HPP ^0.2.3 | Security middleware           |
 | **Rate Limiting**   | express-rate-limit ^8.2.1              | Request throttling            |
-| **Job Queue**       | BullMQ ^5.53.0                         | Redis-backed async processing |
+| **Job Queue**       | BullMQ ^5.76.10                        | Redis-backed async processing |
 | **File Upload**     | Multer ^2.1.1                          | Multipart form handling       |
 | **AWS SDK**         | @aws-sdk/client-s3 ^3.1048.0           | S3-compatible storage access  |
 | **Email**           | @getbrevo/brevo ^5.0.4                 | Transactional email           |
@@ -143,7 +143,7 @@ npm run test:coverage # Run tests with coverage report
 
 Tests require a PostgreSQL test database with pgvector. Copy `.env.example` to `.env.test` and configure a separate database.
 
-The suite contains 181 test cases (integration + unit). The live passing count comes from running `corepack pnpm test:api`.
+The suite contains 238 test cases (integration + unit). The live passing count comes from running `corepack pnpm test:api`.
 
 ### Linting & Formatting
 
@@ -174,20 +174,20 @@ npm run seed:make <name>       # Create a new seed file
 
 ### Authentication
 
-| Method | Endpoint                        | Description                                               | Auth Required |
-| ------ | ------------------------------- | --------------------------------------------------------- | ------------- |
-| POST   | `/api/auth/signup`              | Create account, sends verification email                  | No            |
-| POST   | `/api/auth/verify-email`        | Verify email via token from email link                    | No            |
-| POST   | `/api/auth/resend-verification` | Resend verification email (always returns 200)            | No            |
-| POST   | `/api/auth/signin`              | Sign in (requires verified email); sets httpOnly cookies  | No            |
-| POST   | `/api/auth/forgot-password`     | Request password reset email (always returns 200)         | No            |
-| POST   | `/api/auth/reset-password`      | Reset password via token, revokes all sessions            | No            |
-| GET    | `/api/auth/me`                  | Verify cookie validity, return user                       | Access Token  |
-| PUT    | `/api/auth/profile`             | Update `full_name` and/or `email`                         | Access Token  |
-| DELETE | `/api/auth/profile`             | Delete account (soft delete, clears cookies)              | Access Token  |
-| PUT    | `/api/auth/password`            | Change password (`old_password`, `new_password`, confirm) | Access Token  |
-| POST   | `/api/auth/refresh`             | Rotate tokens via httpOnly cookie                         | Refresh Token |
-| POST   | `/api/auth/logout`              | Revoke refresh token, clear cookies                       | Refresh Token |
+| Method | Endpoint                        | Description                                              | Auth Required |
+| ------ | ------------------------------- | -------------------------------------------------------- | ------------- |
+| POST   | `/api/auth/signup`              | Create account, sends verification email                 | No            |
+| POST   | `/api/auth/verify-email`        | Verify email via token from email link                   | No            |
+| POST   | `/api/auth/resend-verification` | Resend verification email (always returns 200)           | No            |
+| POST   | `/api/auth/signin`              | Sign in (requires verified email); sets httpOnly cookies | No            |
+| POST   | `/api/auth/forgot-password`     | Request password reset email (always returns 200)        | No            |
+| POST   | `/api/auth/reset-password`      | Reset password via token, revokes all sessions           | No            |
+| GET    | `/api/auth/me`                  | Verify cookie validity, return user                      | Access Token  |
+| PUT    | `/api/auth/profile`             | Update `full_name` and `timezone`                        | Access Token  |
+| DELETE | `/api/auth/profile`             | Delete account (soft delete, clears cookies)             | Access Token  |
+| PUT    | `/api/auth/password`            | Change password (`current_password`, `new_password`)     | Access Token  |
+| POST   | `/api/auth/refresh`             | Rotate tokens via httpOnly cookie                        | Refresh Token |
+| POST   | `/api/auth/logout`              | Revoke refresh token, clear cookies                      | Refresh Token |
 
 ### Permissions
 
@@ -235,13 +235,14 @@ Authentication uses **httpOnly cookies** set by the server. Tokens are never exp
 
 ### Datasets
 
-| Method | Endpoint                            | Description    | Permission     |
-| ------ | ----------------------------------- | -------------- | -------------- |
-| POST   | `/api/workspaces/:id/datasets`      | Create dataset | dataset:create |
-| GET    | `/api/workspaces/:id/datasets`      | List datasets  | dataset:read   |
-| GET    | `/api/workspaces/:id/datasets/:did` | Get dataset    | dataset:read   |
-| PUT    | `/api/workspaces/:id/datasets/:did` | Update dataset | dataset:update |
-| DELETE | `/api/workspaces/:id/datasets/:did` | Delete dataset | dataset:delete |
+| Method | Endpoint                                      | Description            | Permission     |
+| ------ | --------------------------------------------- | ---------------------- | -------------- |
+| POST   | `/api/workspaces/:id/datasets`                | Create dataset         | dataset:create |
+| GET    | `/api/workspaces/:id/datasets`                | List datasets          | dataset:read   |
+| GET    | `/api/workspaces/:id/datasets/:did`           | Get dataset            | dataset:read   |
+| PUT    | `/api/workspaces/:id/datasets/:did`           | Update dataset         | dataset:update |
+| DELETE | `/api/workspaces/:id/datasets/:did`           | Delete dataset         | dataset:delete |
+| GET    | `/api/workspaces/:id/datasets/:did/questions` | List dataset questions | file:read      |
 
 ### Dataset Files
 
@@ -316,7 +317,7 @@ apps/api/
 │   ├── controllers/
 │   │   ├── agents.js            # Agent CRUD (system agent protection)
 │   │   ├── audit-logs.js        # List paginated workspace audit logs
-│   │   ├── authentication.js    # Signup, verify-email, signin, forgot/reset password, refresh, logout, me
+│   │   ├── authentication.js    # Signup, verify-email, signin, forgot/reset password, refresh, logout, me, profile, change-password
 │   │   ├── chat.js              # SSE ReAct loop for chat messaging
 │   │   ├── conversations.js     # Conversation CRUD
 │   │   ├── dataset-files.js     # File upload, URL scrape, list/update/delete, reprocess
@@ -381,20 +382,25 @@ apps/api/
 │   │   ├── workspace-members.js
 │   │   └── workspaces.js
 │   ├── utils/
+│   │   ├── allowed-models.js    # Agent model allowlist + default
 │   │   ├── argon2.js            # Password hashing
+│   │   ├── audit.js             # logAuditEvent — append-only audit writes
 │   │   ├── constant.js          # HTTP constants
 │   │   ├── cookies.js           # httpOnly cookie helpers
 │   │   ├── http-error.js        # Custom error class
 │   │   ├── jwt.js               # JWT utilities
 │   │   ├── logger.js            # Winston logger
 │   │   ├── pagination.js        # Reusable pagination & search
+│   │   ├── redis.js             # parseRedisUrl
 │   │   ├── response.js          # Response formatter
 │   │   ├── sanitize.js          # ILIKE escaping
+│   │   ├── system-agent.js      # System agent helper
+│   │   ├── url-slug.js          # URL slug generation
 │   │   └── validate-env.js      # Startup env validation
 │   ├── app.js                   # Express app (middleware + routes)
 │   └── index.js                 # Entry point (env validation + server start)
 ├── database/
-│   ├── migrations/              # 9 Knex migrations (16 tables)
+│   ├── migrations/              # 9 Knex migrations (18 tables)
 │   └── seeds/                   # 2 seed files (31 permissions + test users)
 ├── tests/
 │   ├── integration/             # agents, auth, chat, conversations, dataset-files, datasets, health, members, permissions, roles, workspaces

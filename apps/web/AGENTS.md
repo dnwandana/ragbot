@@ -42,7 +42,7 @@ apps/web/
 │   ├── layouts/
 │   │   └── BaseLayout.astro    # <head> meta/OG/Twitter, anti-flash theme script, loads app.js
 │   ├── components/             # Nav, Hero, HowItWorks, Benefits, Reassurance, FinalCta, Footer, NotFound
-│   ├── icons/                  # static .astro SVG icon components (Logo, Mark, Icon*)
+│   ├── icons/                  # static .astro SVG icon components (Logo, Mark)
 │   └── styles/                 # colors_and_type.css, marketing.css
 └── public/
     ├── assets/                 # logo/mark SVGs
