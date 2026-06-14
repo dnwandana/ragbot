@@ -1,10 +1,7 @@
 import { message } from "ant-design-vue"
 import { clearUserData } from "./storage"
+import { useAuthStore } from "@/stores/auth"
 import router from "@/router"
-
-// ---------------------------------------------------------------------------
-// Config
-// ---------------------------------------------------------------------------
 
 export const baseURL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api"
 
@@ -12,10 +9,6 @@ const DEFAULT_TIMEOUT = 10000
 
 // Auth endpoints that must never trigger the refresh-retry logic
 const NO_RETRY_ENDPOINTS = ["/auth/signin", "/auth/signup", "/auth/refresh"]
-
-// ---------------------------------------------------------------------------
-// HttpError — axios-compatible error shape
-// ---------------------------------------------------------------------------
 
 // Stores access `error.response?.data?.message` in catch blocks (see auth store).
 // We attach a `response` property so existing store error handling works
@@ -30,71 +23,54 @@ export class HttpError extends Error {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Token refresh queuing (mirrors the current axios interceptor)
-// ---------------------------------------------------------------------------
+// Single shared refresh promise so concurrent 401s trigger only one refresh.
+let refreshPromise = null
 
-let isRefreshing = false
-let failedQueue = []
-
-function processQueue(error, token = null) {
-  failedQueue.forEach((prom) => {
-    if (error) {
-      prom.reject(error)
-    } else {
-      prom.resolve(token)
-    }
-  })
-  failedQueue = []
-}
-
-async function handleRefresh(originalOptions) {
-  // If a refresh is already in flight, queue this request
-  if (isRefreshing) {
-    return new Promise((resolve, reject) => {
-      failedQueue.push({ resolve, reject })
-    }).then(() => {
-      // Retry the original request after refresh succeeds
-      return send(originalOptions.method, originalOptions.url, {
-        ...originalOptions,
-        _retry: true,
+/**
+ * Refresh the auth tokens at most once for any number of concurrent callers.
+ * All callers await the same in-flight promise, which is cleared once it settles.
+ *
+ * @returns {Promise<void>}
+ * @throws {HttpError} When the refresh request fails.
+ */
+function refreshOnce() {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      const response = await fetch(`${baseURL}/auth/refresh`, {
+        method: "POST",
+        credentials: "include",
       })
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new HttpError(response.status, errorData, errorData.message || "Refresh failed")
+      }
+      await response.json().catch(() => ({}))
+    })().finally(() => {
+      refreshPromise = null
     })
   }
+  return refreshPromise
+}
 
-  isRefreshing = true
-
+/**
+ * Run a single shared refresh, then replay the original request once. On
+ * refresh failure, clear local auth state and redirect to the login page.
+ *
+ * @param {Object} originalOptions - Snapshot of the original request to replay.
+ * @returns {Promise<{data: any, status: number}>}
+ * @throws {HttpError}
+ */
+async function handleRefresh(originalOptions) {
   try {
-    const response = await fetch(`${baseURL}/auth/refresh`, {
-      method: "POST",
-      credentials: "include",
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new HttpError(response.status, errorData, errorData.message || "Refresh failed")
-    }
-
-    await response.json()
-    processQueue(null, true)
-
-    return send(originalOptions.method, originalOptions.url, {
-      ...originalOptions,
-      _retry: true,
-    })
+    await refreshOnce()
+    return send(originalOptions.method, originalOptions.url, { ...originalOptions, _retry: true })
   } catch (error) {
-    processQueue(error)
     clearUserData()
+    useAuthStore().user = null
     router.push("/login")
     throw error
-  } finally {
-    isRefreshing = false
   }
 }
-
-// ---------------------------------------------------------------------------
-// URL builder
-// ---------------------------------------------------------------------------
 
 function buildURL(url, params) {
   let fullURL = `${baseURL}${url}`
@@ -107,10 +83,6 @@ function buildURL(url, params) {
   }
   return fullURL
 }
-
-// ---------------------------------------------------------------------------
-// Core send function
-// ---------------------------------------------------------------------------
 
 async function send(method, url, options = {}) {
   const {
@@ -151,9 +123,18 @@ async function send(method, url, options = {}) {
       if (
         response.status === 401 &&
         !_retry &&
+        !(body instanceof FormData) &&
         !NO_RETRY_ENDPOINTS.some((ep) => url.includes(ep))
       ) {
-        return handleRefresh({ method, url, body, headers: customHeaders, params, timeout })
+        return handleRefresh({
+          method,
+          url,
+          body,
+          headers: customHeaders,
+          params,
+          timeout,
+          silent: options.silent,
+        })
       }
 
       // Show error toast for non-401 errors unless caller opts out with { silent: true }
@@ -180,10 +161,6 @@ async function send(method, url, options = {}) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Public API — convenience methods matching current axios usage patterns
-// ---------------------------------------------------------------------------
-
 export const request = {
   send,
 
@@ -208,12 +185,26 @@ export const request = {
     return send("POST", url, { body, ...options })
   },
 
-  put(url, body) {
-    return send("PUT", url, { body })
+  /**
+   * @param {string} url
+   * @param {object|FormData} body
+   * @param {{ headers?: object, timeout?: number, silent?: boolean }} [options={}]
+   * @returns {Promise<{data: any, status: number}>}
+   * @throws {HttpError}
+   */
+  put(url, body, options = {}) {
+    return send("PUT", url, { body, ...options })
   },
 
-  patch(url, body) {
-    return send("PATCH", url, { body })
+  /**
+   * @param {string} url
+   * @param {object|FormData} body
+   * @param {{ headers?: object, timeout?: number, silent?: boolean }} [options={}]
+   * @returns {Promise<{data: any, status: number}>}
+   * @throws {HttpError}
+   */
+  patch(url, body, options = {}) {
+    return send("PATCH", url, { body, ...options })
   },
 
   del(url, options = {}) {
