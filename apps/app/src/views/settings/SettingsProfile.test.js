@@ -4,7 +4,9 @@ import { ref, computed } from "vue"
 import { mount } from "@vue/test-utils"
 
 vi.mock("@/stores/auth", () => ({
-  useAuthStore: () => ({ currentUser: computed(() => ({ full_name: "John Doe", timezone: "UTC" })) }),
+  useAuthStore: () => ({
+    currentUser: computed(() => ({ full_name: "John Doe", timezone: "UTC" })),
+  }),
 }))
 
 vi.mock("@/composables/useProfile", () => ({

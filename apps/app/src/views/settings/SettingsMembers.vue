@@ -79,8 +79,6 @@ onMounted(() => {
   gap: 12px;
   margin-bottom: 18px;
 }
-.hd-left {
-}
 .section-title {
   font-size: var(--t-md);
   font-weight: 600;

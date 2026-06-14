@@ -24,6 +24,7 @@
           ref="textareaRef"
           v-model="value"
           class="chat-composer__textarea"
+          aria-label="Message"
           :placeholder="
             busy ? 'Searching…' : 'Ask anything across your sources…  (Shift+Enter for newline)'
           "

@@ -34,7 +34,7 @@ const otherInvitations = (invs) => invs.filter((i) => i.status !== "pending")
 
     <!-- Empty state -->
     <div v-else-if="!myInvitations.length" class="empty-state">
-      <div class="empty-icon">✉️</div>
+      <div class="empty-icon"><span aria-hidden="true">✉️</span></div>
       <div class="empty-title">No pending invitations</div>
       <p class="empty-text">When someone invites you to a workspace, it will appear here.</p>
     </div>
@@ -44,7 +44,9 @@ const otherInvitations = (invs) => invs.filter((i) => i.status !== "pending")
       <template v-if="pendingInvitations(myInvitations).length">
         <div class="section-label">Pending</div>
         <div v-for="inv in pendingInvitations(myInvitations)" :key="inv.id" class="inv-card">
-          <div class="inv-ws-icon">{{ wsEmoji(inv.workspace_name || inv.org_id) }}</div>
+          <div class="inv-ws-icon">
+            <span aria-hidden="true">{{ wsEmoji(inv.workspace_name || inv.org_id) }}</span>
+          </div>
           <div class="inv-body">
             <div class="inv-ws-name">{{ inv.workspace_name || inv.org_id }}</div>
             <div class="inv-details">
@@ -73,7 +75,9 @@ const otherInvitations = (invs) => invs.filter((i) => i.status !== "pending")
           :key="inv.id"
           class="inv-card inv-card--muted"
         >
-          <div class="inv-ws-icon">{{ wsEmoji(inv.workspace_name || inv.org_id) }}</div>
+          <div class="inv-ws-icon">
+            <span aria-hidden="true">{{ wsEmoji(inv.workspace_name || inv.org_id) }}</span>
+          </div>
           <div class="inv-body">
             <div class="inv-ws-name">{{ inv.workspace_name || inv.org_id }}</div>
             <div class="inv-details">Status: {{ inv.status }}</div>

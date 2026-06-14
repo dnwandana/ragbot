@@ -176,6 +176,7 @@ function onClose() {
             <input
               v-model="urlInput"
               class="url-input"
+              aria-label="Source URL"
               placeholder="https://…"
               @keydown.enter="submitUrl"
             />

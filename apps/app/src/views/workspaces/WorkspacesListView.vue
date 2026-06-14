@@ -11,7 +11,7 @@
     <a-skeleton v-if="loading && !workspaces.length" active :paragraph="{ rows: 4 }" />
 
     <div v-else-if="!workspaces.length" class="empty-state">
-      <div class="empty-icon">🏢</div>
+      <div class="empty-icon"><span aria-hidden="true">🏢</span></div>
       <h3 class="empty-title">No workspaces yet</h3>
       <p class="empty-text">
         Create your first workspace to start organising your knowledge bases.
@@ -20,14 +20,15 @@
     </div>
 
     <div v-else class="ws-grid">
-      <div
+      <button
         v-for="ws in workspaces"
         :key="ws.id"
+        type="button"
         class="ws-card"
         :class="{ 'ws-card--owner': ws.role_name === 'Owner' }"
         @click="$router.push(`/workspaces/${ws.id}/datasets`)"
       >
-        <div class="ws-card__icon">🏢</div>
+        <div class="ws-card__icon"><span aria-hidden="true">🏢</span></div>
         <div class="ws-card__name">{{ ws.name }}</div>
         <div class="ws-card__meta">
           {{ ws.member_count || 1 }} member{{ ws.member_count !== 1 ? "s" : "" }}
@@ -37,13 +38,13 @@
             {{ ws.role_name }}
           </span>
         </div>
-      </div>
+      </button>
 
       <!-- Create new card -->
-      <div class="ws-card ws-card--new" @click="openCreateModal">
+      <button type="button" class="ws-card ws-card--new" @click="openCreateModal">
         <div class="ws-card__new-icon">+</div>
         <div class="ws-card__name" style="color: var(--color-text-muted)">New workspace</div>
-      </div>
+      </button>
     </div>
 
     <WorkspaceFormModal
@@ -118,6 +119,11 @@ onMounted(fetchWorkspaces)
   gap: 16px;
 }
 .ws-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
   background: var(--color-surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);

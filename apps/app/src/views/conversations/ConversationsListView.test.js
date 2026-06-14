@@ -41,7 +41,7 @@ vi.mock("@/composables/useFormattedTime", () => ({
 
 import ConversationsListView from "@/views/conversations/ConversationsListView.vue"
 
-const STUBS = { "a-skeleton": true }
+const STUBS = { "a-skeleton": true, RouterLink: true }
 
 function mountView() {
   return mount(ConversationsListView, { global: { stubs: STUBS } })

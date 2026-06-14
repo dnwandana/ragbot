@@ -87,7 +87,7 @@ async function handleResend() {
         Verification links work for 24 hours. Enter your email below to get a new one.
       </p>
       <div class="verify-email-field">
-        <a-input v-model:value="email" placeholder="you@work.com" />
+        <a-input v-model:value="email" aria-label="Email address" placeholder="you@work.com" />
       </div>
       <button class="btn-primary" :disabled="loading || !email" @click="handleResend">
         {{ loading ? "Sending…" : "Send new link" }}

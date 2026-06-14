@@ -126,7 +126,7 @@ async function handleToggleDefault() {
 <template>
   <Teleport to="body">
     <Transition name="scrim">
-      <div v-if="open" class="scrim" @click="$emit('close')" />
+      <div v-if="open" class="scrim" @click="emit('close')" />
     </Transition>
     <Transition name="drawer">
       <div v-if="open" class="drawer" role="dialog" aria-modal="true" aria-label="Agent form">
@@ -149,7 +149,7 @@ async function handleToggleDefault() {
               }}
             </div>
           </div>
-          <button class="close-btn" @click="$emit('close')" aria-label="Close">✕</button>
+          <button class="close-btn" @click="emit('close')" aria-label="Close">✕</button>
         </div>
 
         <!-- Scrollable body -->
@@ -310,7 +310,7 @@ async function handleToggleDefault() {
             <!-- Sticky footer (inside form so submit button triggers @finish) -->
             <div class="drawer-foot">
               <button v-if="!agent?.is_system" type="submit" class="btn-save">Save changes</button>
-              <button type="button" class="btn-cancel" @click="$emit('close')">
+              <button type="button" class="btn-cancel" @click="emit('close')">
                 {{ agent?.is_system ? "Close" : "Cancel" }}
               </button>
             </div>

@@ -114,6 +114,7 @@ async function confirmDelete() {
         <input
           v-model="query"
           class="search-input"
+          aria-label="Search datasets"
           placeholder="Search datasets…"
           type="search"
           autocomplete="off"

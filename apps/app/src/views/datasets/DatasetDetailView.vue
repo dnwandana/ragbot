@@ -451,6 +451,7 @@ const visiblePages = computed(() => {
         <input
           v-model="searchQuery"
           class="search-input"
+          aria-label="Search files in this dataset"
           placeholder="Search files in this dataset…"
         />
       </div>
@@ -534,6 +535,7 @@ const visiblePages = computed(() => {
               ref="selectAllRef"
               type="checkbox"
               class="cb"
+              aria-label="Select all files"
               :checked="allSelected"
               @change="toggleAll($event.target.checked)"
             />
@@ -559,6 +561,7 @@ const visiblePages = computed(() => {
             <input
               type="checkbox"
               class="cb"
+              :aria-label="'Select ' + file.filename"
               :checked="selected.has(file.id)"
               @change="toggleOne(file.id)"
             />

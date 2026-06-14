@@ -76,7 +76,7 @@ const grouped = computed(() => {
 
     <!-- Empty state -->
     <div v-else-if="!conversations.length" class="empty-state">
-      <div class="empty-icon">💬</div>
+      <div class="empty-icon"><span aria-hidden="true">💬</span></div>
       <div class="empty-title">No conversations yet</div>
       <p class="empty-text">Start a conversation to chat with your knowledge base using AI.</p>
       <button class="btn-brand" @click="startNewConversation">Start conversation</button>
@@ -87,28 +87,32 @@ const grouped = computed(() => {
       <template v-for="group in grouped" :key="group.label">
         <div class="group-label">{{ group.label }}</div>
 
-        <div
-          v-for="conv in group.items"
-          :key="conv.id"
-          class="conv-row"
-          @click="$router.push(`/workspaces/${workspaceId}/conversations/${conv.id}`)"
-        >
-          <div class="conv-icon">
-            <MessageSquare :size="17" />
-          </div>
-          <div class="conv-body">
-            <div class="conv-title">{{ conv.title || "Untitled conversation" }}</div>
-            <div class="conv-meta">
-              <span class="conv-agent">{{ agentName(conv.agent_id) }}</span>
-              <span class="chip-sm"
-                >{{ (conv.dataset_ids || []).length }} dataset{{
-                  (conv.dataset_ids || []).length !== 1 ? "s" : ""
-                }}</span
-              >
+        <div v-for="conv in group.items" :key="conv.id" class="conv-row">
+          <RouterLink class="conv-link" :to="`/workspaces/${workspaceId}/conversations/${conv.id}`">
+            <div class="conv-icon">
+              <MessageSquare :size="17" />
             </div>
-          </div>
-          <span class="conv-time">{{ relativeTime(conv.last_message_at || conv.created_at) }}</span>
-          <button class="conv-more" @click.stop="handleDelete(conv.id)" title="Delete conversation">
+            <div class="conv-body">
+              <div class="conv-title">{{ conv.title || "Untitled conversation" }}</div>
+              <div class="conv-meta">
+                <span class="conv-agent">{{ agentName(conv.agent_id) }}</span>
+                <span class="chip-sm"
+                  >{{ (conv.dataset_ids || []).length }} dataset{{
+                    (conv.dataset_ids || []).length !== 1 ? "s" : ""
+                  }}</span
+                >
+              </div>
+            </div>
+            <span class="conv-time">{{
+              relativeTime(conv.last_message_at || conv.created_at)
+            }}</span>
+          </RouterLink>
+          <button
+            class="conv-more"
+            @click.stop="handleDelete(conv.id)"
+            title="Delete conversation"
+            aria-label="Delete conversation"
+          >
             <Trash2 :size="14" />
           </button>
         </div>
@@ -189,7 +193,6 @@ const grouped = computed(() => {
   border: 1px solid var(--line);
   border-radius: var(--r);
   box-shadow: var(--shadow-1);
-  cursor: pointer;
   transition:
     box-shadow var(--dur) var(--ease),
     border-color var(--dur) var(--ease);
@@ -197,6 +200,16 @@ const grouped = computed(() => {
 .conv-row:hover {
   box-shadow: var(--shadow-2);
   border-color: var(--line-2);
+}
+.conv-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+  color: inherit;
+  text-decoration: none;
 }
 
 .conv-icon {
