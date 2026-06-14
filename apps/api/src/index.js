@@ -9,6 +9,7 @@ const { default: app } = await import("./app.js")
 const { default: logger } = await import("./utils/logger.js")
 const { default: db } = await import("./config/database.js")
 const { startWorker } = await import("./workers/file-processing.js")
+const { fileProcessingQueue } = await import("./queues/file-processing.js")
 
 const PORT = process.env.PORT
 
@@ -29,6 +30,8 @@ const gracefulShutdown = async (signal) => {
   logger.info(`Received ${signal}, starting graceful shutdown`)
   await worker.close()
   logger.info("File processing worker closed")
+  await fileProcessingQueue.close()
+  logger.info("File processing queue closed")
   server.close(async () => {
     logger.info("HTTP server closed")
     try {
@@ -45,6 +48,17 @@ const gracefulShutdown = async (signal) => {
     process.exit(1)
   }, 10000)
 }
+
+process.on("unhandledRejection", (reason) => {
+  logger.error("Unhandled promise rejection", {
+    reason: reason instanceof Error ? reason.stack : reason,
+  })
+  setTimeout(() => process.exit(1), 1000).unref()
+})
+process.on("uncaughtException", (err) => {
+  logger.error("Uncaught exception", { error: err.stack })
+  setTimeout(() => process.exit(1), 1000).unref()
+})
 
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"))
 process.on("SIGINT", () => gracefulShutdown("SIGINT"))

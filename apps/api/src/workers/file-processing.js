@@ -115,6 +115,38 @@ const processJob = async (job) => {
 }
 
 /**
+ * Handles a BullMQ 'failed' event: logs it, and after the final retry marks the
+ * dataset file 'failed'. Wrapped so a transient DB error here can never become an
+ * unhandled rejection (BullMQ does not await event listeners).
+ *
+ * @param {import('bullmq').Job} job - The failed job (may be undefined on some errors)
+ * @param {Error} err - The failure error
+ * @returns {Promise<void>}
+ */
+export const handleFailedJob = async (job, err) => {
+  logger.error("File processing job failed", {
+    jobId: job?.id,
+    datasetFileId: job?.data?.datasetFileId,
+    attempt: job?.attemptsMade,
+    error: err.message,
+  })
+  if (job && job.attemptsMade >= (job.opts.attempts ?? 1)) {
+    try {
+      await datasetFileModel.update(job.data.datasetFileId, {
+        status: "failed",
+        error_message: err.message.slice(0, 500),
+        updated_at: new Date(),
+      })
+    } catch (updateErr) {
+      logger.error("Failed to mark dataset file as failed", {
+        datasetFileId: job.data.datasetFileId,
+        error: updateErr.message,
+      })
+    }
+  }
+}
+
+/**
  * Creates and starts the inline BullMQ worker for the file-processing queue.
  *
  * Registers completed and failed event handlers. The failed handler updates
@@ -136,20 +168,10 @@ export const startWorker = () => {
     })
   })
 
-  worker.on("failed", async (job, err) => {
-    logger.error("File processing job failed", {
-      jobId: job?.id,
-      datasetFileId: job?.data?.datasetFileId,
-      attempt: job?.attemptsMade,
-      error: err.message,
-    })
-    if (job && job.attemptsMade >= (job.opts.attempts ?? 1)) {
-      await datasetFileModel.update(job.data.datasetFileId, {
-        status: "failed",
-        error_message: err.message.slice(0, 500),
-        updated_at: new Date(),
-      })
-    }
+  worker.on("failed", handleFailedJob)
+
+  worker.on("error", (err) => {
+    logger.error("File processing worker error", { error: err.message })
   })
 
   return worker
