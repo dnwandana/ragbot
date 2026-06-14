@@ -88,11 +88,20 @@ export const useWorkspacesStore = defineStore("workspaces", () => {
     }
   }
 
+  /** Restore this store to its initial empty state (used on logout). */
+  function reset() {
+    workspaces.value = []
+    currentWorkspace.value = null
+    currentPermissions.value = []
+    loading.value = false
+  }
+
   return {
     workspaces,
     currentWorkspace,
     currentPermissions,
     loading,
+    reset,
     fetchWorkspaces,
     fetchWorkspaceById,
     createWorkspace,

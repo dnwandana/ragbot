@@ -143,11 +143,20 @@ export const useRolesStore = defineStore("roles", () => {
     currentRole.value = null
   }
 
+  /** Restore this store to its initial empty state (used on logout). */
+  function reset() {
+    roles.value = []
+    currentRole.value = null
+    allPermissions.value = []
+    loading.value = false
+  }
+
   return {
     roles,
     currentRole,
     allPermissions,
     loading,
+    reset,
     fetchRoles,
     fetchRoleById,
     createRole,

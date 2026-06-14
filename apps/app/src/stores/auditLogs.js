@@ -24,5 +24,12 @@ export const useAuditLogsStore = defineStore("auditLogs", () => {
     }
   }
 
-  return { auditLogs, pagination, loading, fetchAuditLogs }
+  /** Restore this store to its initial empty state (used on logout). */
+  function reset() {
+    auditLogs.value = []
+    pagination.value = null
+    loadingCount.value = 0
+  }
+
+  return { auditLogs, pagination, loading, reset, fetchAuditLogs }
 })

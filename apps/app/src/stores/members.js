@@ -70,9 +70,16 @@ export const useMembersStore = defineStore("members", () => {
     members.value = []
   }
 
+  /** Restore this store to its initial empty state (used on logout). */
+  function reset() {
+    members.value = []
+    loading.value = false
+  }
+
   return {
     members,
     loading,
+    reset,
     fetchMembers,
     inviteMember,
     changeMemberRole,

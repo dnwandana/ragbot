@@ -70,11 +70,20 @@ export const useDatasetsStore = defineStore("datasets", () => {
     if (currentDataset.value?.id === id) currentDataset.value = null
   }
 
+  /** Restore this store to its initial empty state (used on logout). */
+  function reset() {
+    datasets.value = []
+    currentDataset.value = null
+    pagination.value = null
+    loadingCount.value = 0
+  }
+
   return {
     datasets,
     currentDataset,
     pagination,
     loading,
+    reset,
     fetchDatasets,
     fetchDataset,
     createDataset,

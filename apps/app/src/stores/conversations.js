@@ -84,11 +84,20 @@ export const useConversationsStore = defineStore("conversations", () => {
     currentConversation.value = null
   }
 
+  /** Restore this store to its initial empty state (used on logout). */
+  function reset() {
+    conversations.value = []
+    currentConversation.value = null
+    pagination.value = null
+    loading.value = false
+  }
+
   return {
     conversations,
     currentConversation,
     pagination,
     loading,
+    reset,
     fetchConversations,
     fetchConversation,
     createConversation,

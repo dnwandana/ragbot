@@ -1,23 +1,13 @@
 import { defineStore } from "pinia"
-import { ref, computed } from "vue"
+import { ref } from "vue"
 import { message } from "ant-design-vue"
 import { acceptInvitation as apiAcceptInvitation } from "@/api/invitations"
 import { inviteMember as apiInviteMember } from "@/api/members"
 
 export const useInvitationsStore = defineStore("invitations", () => {
   // State
-  const workspaceInvitations = ref([])
   const myInvitations = ref([])
   const loading = ref(false)
-
-  /**
-   * Count of the current user's pending invitations.
-   * Used for badge/notification display in the UI.
-   * @returns {number} Number of invitations with "pending" status
-   */
-  const pendingCount = computed(() => {
-    return myInvitations.value.filter((i) => i.status === "pending").length
-  })
 
   /**
    * Fetch all pending invitations for the currently authenticated user.
@@ -67,14 +57,6 @@ export const useInvitationsStore = defineStore("invitations", () => {
   }
 
   /**
-   * Clear organization invitations state.
-   * Used when navigating away from a workspace context to avoid stale data.
-   */
-  function clearOrgInvitations() {
-    workspaceInvitations.value = []
-  }
-
-  /**
    * Clear the current user's invitations state.
    * Used when logging out to avoid stale data.
    */
@@ -82,18 +64,21 @@ export const useInvitationsStore = defineStore("invitations", () => {
     myInvitations.value = []
   }
 
+  /** Restore this store to its initial empty state (used on logout). */
+  function reset() {
+    myInvitations.value = []
+    loading.value = false
+  }
+
   return {
     // State
-    workspaceInvitations,
     myInvitations,
     loading,
-    // Getters
-    pendingCount,
+    reset,
     // Actions
     fetchMyInvitations,
     inviteToWorkspace,
     acceptInvitation,
-    clearOrgInvitations,
     clearMyInvitations,
   }
 })

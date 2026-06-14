@@ -61,10 +61,18 @@ export const useDatasetFilesStore = defineStore("datasetFiles", () => {
     return result
   }
 
+  /** Restore this store to its initial empty state (used on logout). */
+  function reset() {
+    files.value = []
+    pagination.value = null
+    loading.value = false
+  }
+
   return {
     files,
     pagination,
     loading,
+    reset,
     fetchFiles,
     uploadFile,
     scrapeUrl,

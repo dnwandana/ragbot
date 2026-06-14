@@ -55,15 +55,12 @@ export function useInvitations() {
 
   return {
     // Store state as computed
-    workspaceInvitations: computed(() => invitationsStore.workspaceInvitations),
     myInvitations: computed(() => invitationsStore.myInvitations),
     loading: computed(() => invitationsStore.loading),
-    pendingCount: computed(() => invitationsStore.pendingCount),
     // Local modal state
     isInviteModalVisible,
     // Delegated store actions
     fetchMyInvitations: invitationsStore.fetchMyInvitations,
-    clearOrgInvitations: invitationsStore.clearOrgInvitations,
     clearMyInvitations: invitationsStore.clearMyInvitations,
     // Composable actions
     openInviteModal,

@@ -74,10 +74,18 @@ export const useAgentsStore = defineStore("agents", () => {
     return updated
   }
 
+  /** Restore this store to its initial empty state (used on logout). */
+  function reset() {
+    agents.value = []
+    pagination.value = null
+    loadingCount.value = 0
+  }
+
   return {
     agents,
     pagination,
     loading,
+    reset,
     fetchAgents,
     createAgent,
     updateAgent,
