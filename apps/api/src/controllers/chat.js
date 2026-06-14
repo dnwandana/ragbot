@@ -3,6 +3,7 @@ import joi from "joi"
 import HttpError from "../utils/http-error.js"
 import apiResponse from "../utils/response.js"
 import { HTTP_STATUS_CODE } from "../utils/constant.js"
+import logger from "../utils/logger.js"
 import * as conversationModel from "../models/conversations.js"
 import * as conversationDatasetModel from "../models/conversation-datasets.js"
 import * as messageModel from "../models/conversation-messages.js"
@@ -37,9 +38,10 @@ const SEARCH_TOOL = {
  *
  * @param {ReadableStream} stream - The OpenRouter response body stream.
  * @param {(token: string) => void} onToken - Called with each text delta as it arrives.
+ * @param {AbortSignal} [signal] - Optional abort signal that stops the read loop when aborted.
  * @returns {Promise<{ finishReason: string|null, usage: Object|null, toolCall: { name: string, arguments: string }|null }>}
  */
-async function consumeStream(stream, onToken) {
+export async function consumeStream(stream, onToken, signal) {
   const reader = stream.getReader()
   const decoder = new TextDecoder()
   let buffer = ""
@@ -47,44 +49,49 @@ async function consumeStream(stream, onToken) {
   let finishReason = null
   let usage = null
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
-    const lines = buffer.split("\n")
-    buffer = lines.pop()
+  try {
+    while (true) {
+      if (signal?.aborted) break
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split("\n")
+      buffer = lines.pop()
 
-    for (const line of lines) {
-      if (!line.startsWith("data: ")) continue
-      const raw = line.slice(6).trim()
-      if (raw === "[DONE]") break
-      try {
-        const chunk = JSON.parse(raw)
-        if (chunk.usage) usage = chunk.usage
-        const choice = chunk.choices?.[0]
-        if (!choice) continue
-        if (choice.finish_reason) finishReason = choice.finish_reason
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue
+        const raw = line.slice(6).trim()
+        if (raw === "[DONE]") break
+        try {
+          const chunk = JSON.parse(raw)
+          if (chunk.usage) usage = chunk.usage
+          const choice = chunk.choices?.[0]
+          if (!choice) continue
+          if (choice.finish_reason) finishReason = choice.finish_reason
 
-        const delta = choice.delta || {}
+          const delta = choice.delta || {}
 
-        if (delta.content) {
-          onToken(delta.content)
-        }
-
-        if (delta.tool_calls?.length) {
-          const tc = delta.tool_calls[0]
-          if (tc.index === 0 && !accumulatedToolCall) {
-            accumulatedToolCall = { name: "", arguments: "" }
+          if (delta.content) {
+            onToken(delta.content)
           }
-          if (tc.function?.name) accumulatedToolCall.name += tc.function.name
-          if (tc.function?.arguments) accumulatedToolCall.arguments += tc.function.arguments
-        }
-      } catch (e) {
-        if (raw && raw !== "[DONE]") {
-          console.error(`SSE parse error: ${e.message}, raw: ${raw.slice(0, 100)}`)
+
+          if (delta.tool_calls?.length) {
+            const tc = delta.tool_calls[0]
+            if (tc.index === 0 && !accumulatedToolCall) {
+              accumulatedToolCall = { name: "", arguments: "" }
+            }
+            if (tc.function?.name) accumulatedToolCall.name += tc.function.name
+            if (tc.function?.arguments) accumulatedToolCall.arguments += tc.function.arguments
+          }
+        } catch (e) {
+          if (raw && raw !== "[DONE]") {
+            logger.warn("SSE parse error", { error: e.message, raw: raw.slice(0, 100) })
+          }
         }
       }
     }
+  } finally {
+    reader.cancel().catch(() => {})
   }
 
   return { finishReason, usage, toolCall: accumulatedToolCall }
@@ -103,6 +110,7 @@ async function consumeStream(stream, onToken) {
  * @param {string} params.userContent - The user's message text.
  * @param {string[]} params.datasetIds - Dataset UUIDs linked to the conversation.
  * @param {(event: string, data: Object) => void} params.sendEvent - Event sink (SSE write or array push).
+ * @param {AbortSignal} [params.signal] - Optional abort signal; when aborted, stops the loop and throws before persisting.
  * @returns {Promise<{ messageId: string, usage: Object|null, latencyMs: number }>}
  */
 async function runReActLoop({
@@ -112,6 +120,7 @@ async function runReActLoop({
   userContent,
   datasetIds,
   sendEvent,
+  signal,
 }) {
   const startTime = Date.now()
 
@@ -150,20 +159,28 @@ async function runReActLoop({
 
   const MAX_ITERATIONS = 3
   for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
+    if (signal?.aborted) throw new Error("client disconnected")
     const isLastIteration = iteration === MAX_ITERATIONS - 1
     const useTools = !isLastIteration && datasetIds.length
     const streamBody = await openrouterService.chatCompletionStream(openRouterMessages, {
       ...modelConfig,
       tools: useTools ? [SEARCH_TOOL] : undefined,
       tool_choice: useTools ? "auto" : undefined,
+      signal,
     })
 
     let iterTokens = ""
 
-    const { finishReason, usage, toolCall } = await consumeStream(streamBody, (token) => {
-      iterTokens += token
-      sendEvent("token", { content: token })
-    })
+    const { finishReason, usage, toolCall } = await consumeStream(
+      streamBody,
+      (token) => {
+        iterTokens += token
+        sendEvent("token", { content: token })
+      },
+      signal,
+    )
+
+    if (signal?.aborted) throw new Error("client disconnected")
 
     if (usage) finalUsage = usage
 
@@ -348,7 +365,11 @@ export const sendMessage = async (req, res, next) => {
       res.setHeader("X-Accel-Buffering", "no") // disable nginx buffering
       res.flushHeaders()
 
+      const controller = new AbortController()
+      req.on("close", () => controller.abort())
+
       const sendEvent = (event, data) => {
+        if (res.writableEnded) return
         res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
         if (typeof res.flush === "function") res.flush()
       }
@@ -361,11 +382,24 @@ export const sendMessage = async (req, res, next) => {
           userContent: value.content,
           datasetIds,
           sendEvent,
+          signal: controller.signal,
         })
 
         sendEvent("done", { message_id: messageId, usage, latency_ms: latencyMs })
       } catch (err) {
-        res.write(`event: error\ndata: ${JSON.stringify({ message: err.message })}\n\n`)
+        if (controller.signal.aborted) {
+          logger.info("Chat stream aborted by client disconnect", {
+            requestId: req.id,
+            conversationId: conversation.id,
+          })
+        } else {
+          logger.error("Chat stream failed", {
+            requestId: req.id,
+            conversationId: conversation.id,
+            error: err.stack,
+          })
+          sendEvent("error", { message: err.message })
+        }
       }
 
       return res.end()
