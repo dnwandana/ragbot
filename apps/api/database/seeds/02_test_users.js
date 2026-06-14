@@ -1,6 +1,11 @@
 import { hashPassword } from '../../src/utils/argon2.js'
 
 export async function seed(knex) {
+  if (process.env.NODE_ENV === 'production') {
+    console.info('Skipping 02_test_users seed in production')
+    return
+  }
+
   const password = await hashPassword('Password123!')
 
   await knex('users')
