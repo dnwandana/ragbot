@@ -31,6 +31,7 @@ export const submitParseJob = async (buffer, filename, mimeType) => {
     method: "POST",
     headers: headers(),
     body: form,
+    signal: AbortSignal.timeout(Number(process.env.LLAMAINDEX_TIMEOUT_MS)),
   })
   if (!res.ok) {
     const body = await res.text().catch(() => "")
@@ -57,7 +58,10 @@ export const submitParseJob = async (buffer, filename, mimeType) => {
 export const pollForMarkdown = async (jobId, { intervalMs = 5000, timeoutMs = 600000 } = {}) => {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
-    const res = await fetch(`${BASE}/${jobId}?expand=markdown`, { headers: headers() })
+    const res = await fetch(`${BASE}/${jobId}?expand=markdown`, {
+      headers: headers(),
+      signal: AbortSignal.timeout(Number(process.env.LLAMAINDEX_TIMEOUT_MS)),
+    })
     if (!res.ok) throw new Error(`LlamaIndex result error: ${res.status}`)
     const json = await res.json()
     const status = json.job?.status

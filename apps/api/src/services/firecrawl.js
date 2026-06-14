@@ -15,6 +15,7 @@ export const scrapeUrl = async (url) => {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ url, formats: ["markdown"] }),
+    signal: AbortSignal.timeout(Number(process.env.FIRECRAWL_TIMEOUT_MS)),
   })
   if (!res.ok) throw new Error(`Firecrawl scrape error: ${res.status}`)
   const json = await res.json()

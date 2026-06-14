@@ -13,6 +13,10 @@ const client = new S3Client({
     accessKeyId: process.env.S3_ACCESS_KEY,
     secretAccessKey: process.env.S3_SECRET_KEY,
   },
+  requestHandler: {
+    connectionTimeout: Number(process.env.S3_TIMEOUT_MS),
+    requestTimeout: Number(process.env.S3_TIMEOUT_MS),
+  },
 })
 
 const BUCKET = process.env.S3_BUCKET

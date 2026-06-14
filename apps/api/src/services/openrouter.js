@@ -18,6 +18,7 @@ export const embedText = async (text, model = process.env.DEFAULT_EMBEDDINGS_MOD
     method: "POST",
     headers: headers(),
     body: JSON.stringify({ model, input: text }),
+    signal: AbortSignal.timeout(Number(process.env.OPENROUTER_TIMEOUT_MS)),
   })
   if (!res.ok) {
     const errorText = await res.text()
@@ -43,6 +44,7 @@ export const embedBatch = async (texts, model = process.env.DEFAULT_EMBEDDINGS_M
       method: "POST",
       headers: headers(),
       body: JSON.stringify({ model, input: texts.slice(i, i + BATCH) }),
+      signal: AbortSignal.timeout(Number(process.env.OPENROUTER_TIMEOUT_MS)),
     })
     if (!res.ok) {
       const errorText = await res.text()
@@ -83,6 +85,7 @@ export const chatCompletion = async (messages, options = {}) => {
     method: "POST",
     headers: headers(),
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(Number(process.env.OPENROUTER_TIMEOUT_MS)),
   })
   if (!res.ok) {
     const errorText = await res.text()
@@ -102,6 +105,7 @@ export const chatCompletion = async (messages, options = {}) => {
  * @param {number} [options.max_tokens=4096] - Maximum tokens in the response.
  * @param {Object[]} [options.tools] - Tool definitions for function calling.
  * @param {string|Object} [options.tool_choice] - Tool choice strategy.
+ * @param {AbortSignal} [options.signal] - Optional caller signal; aborting it cancels the upstream fetch (combined with the stream timeout).
  * @returns {Promise<ReadableStream>} The response body stream of OpenRouter SSE chunks.
  * @throws {Error} If the OpenRouter API returns a non-2xx status.
  * @throws {DOMException} `TimeoutError` if no response/data arrives within OPENROUTER_STREAM_TIMEOUT_MS.
@@ -113,16 +117,20 @@ export const chatCompletionStream = async (messages, options = {}) => {
     max_tokens = 4096,
     tools,
     tool_choice,
+    signal: externalSignal,
   } = options
   const body = { model, messages, temperature, max_tokens, stream: true }
   if (tools) body.tools = tools
   if (tool_choice) body.tool_choice = tool_choice
 
+  const timeoutSignal = AbortSignal.timeout(Number(process.env.OPENROUTER_STREAM_TIMEOUT_MS))
+  const signal = externalSignal ? AbortSignal.any([timeoutSignal, externalSignal]) : timeoutSignal
+
   const res = await fetch(`${BASE}/chat/completions`, {
     method: "POST",
     headers: headers(),
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(Number(process.env.OPENROUTER_STREAM_TIMEOUT_MS)),
+    signal,
   })
   if (!res.ok) {
     const errorText = await res.text()

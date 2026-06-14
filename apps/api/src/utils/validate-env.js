@@ -22,7 +22,20 @@ const envSchema = joi
     LOG_LEVEL: joi.string().valid("error", "warn", "info", "debug").default("info"),
     LOG_TO_FILE: joi.boolean().default(true),
 
-    CORS_ALLOWED_ORIGINS: joi.string().default("http://localhost:8080"),
+    CORS_ALLOWED_ORIGINS: joi.string().when("NODE_ENV", {
+      is: "production",
+      // oxlint-disable-next-line no-thenable -- `then` is a Joi `.when()` option, not a Promise
+      then: joi
+        .string()
+        .required()
+        .custom((val, helpers) =>
+          /localhost|127\.0\.0\.1|0\.0\.0\.0|::1/.test(val) ? helpers.error("any.invalid") : val,
+        )
+        .messages({
+          "any.invalid": "CORS_ALLOWED_ORIGINS must not be localhost in production",
+        }),
+      otherwise: joi.string().default("http://localhost:8080"),
+    }),
     RATE_LIMIT_AUTH_MAX: joi.number().max(50).default(10),
     RATE_LIMIT_GENERAL_MAX: joi.number().default(100),
 
@@ -31,6 +44,10 @@ const envSchema = joi
     DEFAULT_EMBEDDINGS_MODEL: joi.string().default("openai/text-embedding-3-small"),
     DEFAULT_CHAT_MODEL: joi.string().default(DEFAULT_MODEL),
     OPENROUTER_STREAM_TIMEOUT_MS: joi.number().default(60000),
+    OPENROUTER_TIMEOUT_MS: joi.number().default(30000),
+    FIRECRAWL_TIMEOUT_MS: joi.number().default(60000),
+    LLAMAINDEX_TIMEOUT_MS: joi.number().default(30000),
+    S3_TIMEOUT_MS: joi.number().default(10000),
 
     // Email
     BREVO_API_KEY: joi.string().required(),

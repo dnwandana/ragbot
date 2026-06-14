@@ -1,3 +1,4 @@
+import { vi } from "vitest"
 import { validateEnv } from "../../src/utils/validate-env.js"
 
 // Minimum env required for the Joi schema to pass validation.
@@ -64,5 +65,92 @@ describe("validateEnv — default propagation", () => {
     validateEnv()
 
     expect(process.env.PORT).toBe("3000")
+  })
+
+  it("writes Joi default for OPENROUTER_TIMEOUT_MS when absent", () => {
+    delete process.env.OPENROUTER_TIMEOUT_MS
+    validateEnv()
+    expect(process.env.OPENROUTER_TIMEOUT_MS).toBe("30000")
+  })
+
+  it("writes Joi default for FIRECRAWL_TIMEOUT_MS when absent", () => {
+    delete process.env.FIRECRAWL_TIMEOUT_MS
+    validateEnv()
+    expect(process.env.FIRECRAWL_TIMEOUT_MS).toBe("60000")
+  })
+
+  it("writes Joi default for LLAMAINDEX_TIMEOUT_MS when absent", () => {
+    delete process.env.LLAMAINDEX_TIMEOUT_MS
+    validateEnv()
+    expect(process.env.LLAMAINDEX_TIMEOUT_MS).toBe("30000")
+  })
+
+  it("writes Joi default for S3_TIMEOUT_MS when absent", () => {
+    delete process.env.S3_TIMEOUT_MS
+    validateEnv()
+    expect(process.env.S3_TIMEOUT_MS).toBe("10000")
+  })
+
+  it("does not overwrite OPENROUTER_TIMEOUT_MS when it is explicitly set", () => {
+    process.env.OPENROUTER_TIMEOUT_MS = "5000"
+    validateEnv()
+    expect(process.env.OPENROUTER_TIMEOUT_MS).toBe("5000")
+  })
+
+  it("does not overwrite FIRECRAWL_TIMEOUT_MS when it is explicitly set", () => {
+    process.env.FIRECRAWL_TIMEOUT_MS = "12000"
+    validateEnv()
+    expect(process.env.FIRECRAWL_TIMEOUT_MS).toBe("12000")
+  })
+
+  it("does not overwrite LLAMAINDEX_TIMEOUT_MS when it is explicitly set", () => {
+    process.env.LLAMAINDEX_TIMEOUT_MS = "15000"
+    validateEnv()
+    expect(process.env.LLAMAINDEX_TIMEOUT_MS).toBe("15000")
+  })
+
+  it("does not overwrite S3_TIMEOUT_MS when it is explicitly set", () => {
+    process.env.S3_TIMEOUT_MS = "2000"
+    validateEnv()
+    expect(process.env.S3_TIMEOUT_MS).toBe("2000")
+  })
+})
+
+describe("validateEnv — CORS production guard", () => {
+  let snapshot, exitSpy, errSpy
+
+  beforeEach(() => {
+    snapshot = { ...process.env }
+    Object.assign(process.env, REQUIRED_ENV)
+    exitSpy = vi.spyOn(process, "exit").mockImplementation(() => {
+      throw new Error("process.exit called")
+    })
+    errSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    exitSpy.mockRestore()
+    errSpy.mockRestore()
+    for (const key of Object.keys(process.env)) delete process.env[key]
+    Object.assign(process.env, snapshot)
+  })
+
+  it("rejects a localhost CORS origin in production", () => {
+    process.env.NODE_ENV = "production"
+    process.env.CORS_ALLOWED_ORIGINS = "http://localhost:8080"
+    expect(() => validateEnv()).toThrow("process.exit called")
+  })
+
+  it("accepts an https CORS origin in production", () => {
+    process.env.NODE_ENV = "production"
+    process.env.CORS_ALLOWED_ORIGINS = "https://app.example.com"
+    expect(() => validateEnv()).not.toThrow()
+  })
+
+  it("keeps the localhost default in non-production", () => {
+    process.env.NODE_ENV = "development"
+    delete process.env.CORS_ALLOWED_ORIGINS
+    validateEnv()
+    expect(process.env.CORS_ALLOWED_ORIGINS).toBe("http://localhost:8080")
   })
 })
