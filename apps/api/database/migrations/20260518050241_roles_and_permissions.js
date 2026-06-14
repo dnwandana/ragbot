@@ -43,6 +43,7 @@ export async function up(knex) {
       role_id UUID NOT NULL,
       status membership_status NOT NULL DEFAULT 'invited',
       invited_by UUID REFERENCES users(id) ON DELETE SET NULL,
+      invited_email TEXT,
       joined_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),

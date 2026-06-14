@@ -123,6 +123,7 @@ export const inviteMember = async (req, res, next) => {
         role_id: value.role_id,
         status: "invited",
         invited_by: req.user.id,
+        invited_email: value.email,
         created_at: now,
         updated_at: now,
       })
@@ -336,10 +337,25 @@ export const acceptInvitation = async (req, res, next) => {
     const member = await memberModel.findOne({ id: memberId, status: "invited" })
     if (!member) throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "Invitation not found")
 
-    if (member.user_id && member.user_id !== req.user.id) {
+    if (member.user_id) {
+      if (member.user_id !== req.user.id) {
+        throw new HttpError(
+          HTTP_STATUS_CODE.FORBIDDEN,
+          "This invitation was issued to a different user",
+        )
+      }
+    } else if (member.invited_email) {
+      const acceptingUser = await userModel.findOne({ id: req.user.id })
+      if (acceptingUser.email.toLowerCase() !== member.invited_email.toLowerCase()) {
+        throw new HttpError(
+          HTTP_STATUS_CODE.FORBIDDEN,
+          "This invitation was issued to a different email",
+        )
+      }
+    } else {
       throw new HttpError(
         HTTP_STATUS_CODE.FORBIDDEN,
-        "This invitation was issued to a different user",
+        "This invitation cannot be accepted by your account",
       )
     }
 

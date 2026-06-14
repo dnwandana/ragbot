@@ -8,6 +8,7 @@ const COLUMNS = [
   "role_id",
   "status",
   "invited_by",
+  "invited_email",
   "joined_at",
   "created_at",
 ]

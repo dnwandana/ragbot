@@ -198,3 +198,64 @@ describe("POST /api/invitations/accept", () => {
     expect(res.status).toBe(403)
   })
 })
+
+describe("POST /api/invitations/accept — email binding for unregistered invites", () => {
+  it("activates when the accepting user's email matches the invited (previously unregistered) email", async () => {
+    const owner = await createTestUser()
+    const { id: workspaceId, roles } = await createTestWorkspace(owner.id)
+
+    const inviteRes = await (
+      await request()
+    )
+      .post(`/api/workspaces/${workspaceId}/members/invite`)
+      .set(await getAuthHeaders(owner.id))
+      .send({ email: "claimant@example.com", role_id: roles.viewer })
+    expect(inviteRes.status).toBe(201)
+
+    const token = new URL(
+      emailService.sendInvitationEmail.mock.calls[0][0].acceptUrl,
+    ).searchParams.get("token")
+
+    const claimant = await createTestUser({ email: "claimant@example.com" })
+    const res = await (
+      await request()
+    )
+      .post("/api/invitations/accept")
+      .set(await getAuthHeaders(claimant.id))
+      .send({ token })
+
+    expect(res.status).toBe(200)
+
+    const updatedMembership = await db("workspace_members")
+      .where({ workspace_id: workspaceId, user_id: claimant.id })
+      .first()
+    expect(updatedMembership.status).toBe("active")
+  })
+
+  it("returns 403 when a different-email user accepts an unregistered-email invite", async () => {
+    const owner = await createTestUser()
+    const { id: workspaceId, roles } = await createTestWorkspace(owner.id)
+
+    const inviteRes = await (
+      await request()
+    )
+      .post(`/api/workspaces/${workspaceId}/members/invite`)
+      .set(await getAuthHeaders(owner.id))
+      .send({ email: "claimant@example.com", role_id: roles.viewer })
+    expect(inviteRes.status).toBe(201)
+
+    const token = new URL(
+      emailService.sendInvitationEmail.mock.calls[0][0].acceptUrl,
+    ).searchParams.get("token")
+
+    const intruder = await createTestUser()
+    const res = await (
+      await request()
+    )
+      .post("/api/invitations/accept")
+      .set(await getAuthHeaders(intruder.id))
+      .send({ token })
+
+    expect(res.status).toBe(403)
+  })
+})
