@@ -3,6 +3,7 @@
 import { ref, computed } from "vue"
 import { useAuthStore } from "@/stores/auth"
 import { useAccount } from "@/composables/useAccount"
+import StrengthMeter from "@/components/StrengthMeter.vue"
 
 const authStore = useAuthStore()
 const { changingPassword, deletingAccount, submitChangePassword, submitDeleteAccount } =
@@ -14,17 +15,6 @@ const currentUser = computed(() => authStore.currentUser)
 const showPasswordForm = ref(false)
 const passwordForm = ref({ current_password: "", new_password: "", confirm_password: "" })
 
-const passwordStrength = computed(() => {
-  const len = passwordForm.value.new_password.length
-  if (len === 0) return 0
-  if (len < 8) return 1
-  if (len < 12) return 2
-  return 3
-})
-
-const strengthLabel = ["", "Weak", "Good", "Strong"]
-const strengthColor = ["var(--line-2)", "var(--err)", "var(--warn)", "var(--ok)"]
-
 const passwordsMatch = computed(
   () =>
     passwordForm.value.confirm_password.length > 0 &&
@@ -34,7 +24,7 @@ const passwordsMatch = computed(
 const passwordFormValid = computed(
   () =>
     passwordForm.value.current_password.length > 0 &&
-    passwordStrength.value >= 2 &&
+    passwordForm.value.new_password.length >= 8 &&
     passwordsMatch.value,
 )
 
@@ -119,24 +109,7 @@ async function handleDeleteAccount() {
                   v-model:value="passwordForm.new_password"
                   placeholder="••••••••"
                 />
-                <div v-if="passwordForm.new_password" class="strength-bar">
-                  <div
-                    v-for="i in 3"
-                    :key="i"
-                    class="strength-seg"
-                    :style="{
-                      background:
-                        i <= passwordStrength ? strengthColor[passwordStrength] : 'var(--line)',
-                    }"
-                  />
-                </div>
-                <div
-                  v-if="passwordForm.new_password"
-                  class="strength-label"
-                  :style="{ color: strengthColor[passwordStrength] }"
-                >
-                  {{ strengthLabel[passwordStrength] }}
-                </div>
+                <StrengthMeter :password="passwordForm.new_password" />
               </div>
               <div class="form-field">
                 <label class="form-label">Confirm new password</label>
@@ -195,6 +168,7 @@ async function handleDeleteAccount() {
       <a-input
         v-model:value="deleteConfirmText"
         placeholder="delete my account"
+        aria-label="Type delete my account to confirm"
         style="margin-bottom: 14px"
       />
       <div style="display: flex; justify-content: flex-end; gap: 8px">
@@ -319,22 +293,6 @@ async function handleDeleteAccount() {
 .field-error {
   font-size: var(--t-xs);
   color: var(--err);
-}
-
-.strength-bar {
-  display: flex;
-  gap: 4px;
-  margin-top: 6px;
-}
-.strength-seg {
-  flex: 1;
-  height: 3px;
-  border-radius: 2px;
-  transition: background 0.2s;
-}
-.strength-label {
-  font-size: var(--t-xs);
-  font-weight: 600;
 }
 
 .form-actions {
