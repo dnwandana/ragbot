@@ -64,8 +64,9 @@ export function useMarkdown() {
     try {
       const html = marked.parse(content)
       return DOMPurify.sanitize(html, { ADD_ATTR: ["target", "rel", "data-cite"] })
-    } catch {
-      return DOMPurify.sanitize(content)
+    } catch (err) {
+      console.error("[useMarkdown] markdown parse failed:", err)
+      return DOMPurify.sanitize(content, { ALLOWED_TAGS: [] })
     } finally {
       activeCitations = null
     }
@@ -85,8 +86,9 @@ export function useMarkdown() {
     try {
       const html = chunkMarked.parse(content)
       return DOMPurify.sanitize(html, { ADD_ATTR: ["target", "rel"] })
-    } catch {
-      return DOMPurify.sanitize(content)
+    } catch (err) {
+      console.error("[useMarkdown] chunk markdown parse failed:", err)
+      return DOMPurify.sanitize(content, { ALLOWED_TAGS: [] })
     }
   }
 
