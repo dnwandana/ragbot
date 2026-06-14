@@ -143,7 +143,7 @@ npm run test:coverage # Run tests with coverage report
 
 Tests require a PostgreSQL test database with pgvector. Copy `.env.example` to `.env.test` and configure a separate database.
 
-The suite contains 238 test cases (integration + unit). The live passing count comes from running `corepack pnpm test:api`.
+The suite contains 280 test cases (integration + unit). The live passing count comes from running `corepack pnpm test:api`.
 
 ### Linting & Formatting
 

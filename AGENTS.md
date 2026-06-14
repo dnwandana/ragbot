@@ -61,7 +61,7 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 - Auth views (Login, Signup, VerifyEmail, ForgotPassword, ResetPassword)
 - Workspaces views (WorkspacesListView, WorkspaceFormModal) + store/composable/API module
 - Workspace settings views (general, members, roles, profile, account) under `views/settings/`
-- Invitations view (MyInvitationsView)
+- Invitations view (MyInvitationsView) — partial: the sidebar pending-count badge was removed and `fetchMyInvitations` is a no-op stub (backend not yet wired), so the view currently renders empty
 - Onboarding flow (OnboardingView + step wizard under `views/onboarding/steps/`)
 - AppLayout, AppSidebar, AppUserMenu, RoleEditor, InviteFormModal, MembersTable, InvitationsTable
 - Auth, roles, invitations, members, permissions, workspaces stores and composables
@@ -85,7 +85,7 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 
 ### Tests
 
-**238 static test cases** (live passing count via `corepack pnpm test:api`). Integration: agents, agents-default-conflict, auth, chat, conversations, dataset-file-chunks, dataset-file-questions, dataset-questions, dataset-files, datasets, file-processing, health, members, permissions, roles, workspaces. Unit: allowed-models, email-render, http-error, llamaindex-poll, pagination, redis, request-id, sanitize, url-slug, validate-env.
+**280 static test cases** (live passing count via `corepack pnpm test:api`). Integration: agents, agents-default-conflict, auth, chat, conversations, dataset-file-chunks, dataset-file-questions, dataset-questions, dataset-files, datasets, file-processing, health, members, permissions, roles, workspaces. Unit: allowed-models, consume-stream, email-render, file-processing-worker, http-error, llamaindex-poll, pagination, redis, request-id, sanitize, ssrf, test-users-seed, url-slug, validate-env.
 **No Redis required locally:** queue module mocked via `tests/setup.js`
 
 ### Database schema

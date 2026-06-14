@@ -127,7 +127,7 @@ Requires PostgreSQL with the `pgvector` extension installed. Run migrations and 
 ```bash
 cd apps/api
 corepack pnpm migrate        # runs knex migrate:latest
-corepack pnpm seed           # seeds permissions + 2 test users
+corepack pnpm seed           # seeds permissions (+ 2 dev test users; skipped when NODE_ENV=production)
 ```
 
 ## Development
@@ -324,7 +324,7 @@ cp apps/api/.env.example apps/api/.env.test
 # Update PORT (e.g. 3001), LOG_LEVEL=error, LOG_TO_FILE=false
 ```
 
-The test suite uses real PostgreSQL (no mocks). Vitest runs migrations once before the session, and `cleanAllTables()` truncates between tests. Auth tests mock the Brevo email service; queue tests mock BullMQ so no Redis is required locally. 238 static test cases — run `corepack pnpm test:api` for the live passing count. Integration groups: agents, agents-default-conflict, auth, chat, conversations, dataset-file-chunks, dataset-file-questions, dataset-questions, dataset-files, datasets, file-processing, health, members, permissions, roles, workspaces. Unit groups: allowed-models, email-render, http-error, llamaindex-poll, pagination, redis, request-id, sanitize, url-slug, validate-env.
+The test suite uses real PostgreSQL (no mocks). Vitest runs migrations once before the session, and `cleanAllTables()` truncates between tests. Auth tests mock the Brevo email service; queue tests mock BullMQ so no Redis is required locally. 280 static test cases — run `corepack pnpm test:api` for the live passing count. Integration groups: agents, agents-default-conflict, auth, chat, conversations, dataset-file-chunks, dataset-file-questions, dataset-questions, dataset-files, datasets, file-processing, health, members, permissions, roles, workspaces. Unit groups: allowed-models, consume-stream, email-render, file-processing-worker, http-error, llamaindex-poll, pagination, redis, request-id, sanitize, ssrf, test-users-seed, url-slug, validate-env.
 
 The frontend app (`apps/app`) has its own Vitest suite (`corepack pnpm --filter app test`, jsdom environment): unit tests for API wrappers and composables, plus component-render tests via `@vue/test-utils`. No database or network is required — API modules and composables are mocked.
 
@@ -507,7 +507,7 @@ rag-chatbot/
 │   │       ├── global-setup.js
 │   │       ├── setup.js            # mocks the BullMQ queue (no Redis needed)
 │   │       ├── integration/        # 16 files (agents, auth, chat, conversations, datasets, …)
-│   │       └── unit/               # 10 files (allowed-models, pagination, validate-env, …)
+│   │       └── unit/               # 14 files (allowed-models, pagination, ssrf, validate-env, …)
 │   │
 │   └── app/
 │       └── src/

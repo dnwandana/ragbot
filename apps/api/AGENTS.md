@@ -321,7 +321,9 @@ Audit logging is implemented and wired (not planned). `src/utils/audit.js` expor
 
 Required: `DATABASE_URL`, `REDIS_URL` (Redis connection string — `redis://localhost:6379` locally, `rediss://` for TLS), `ACCESS_TOKEN_SECRET` (≥32 chars), `REFRESH_TOKEN_SECRET` (≥32 chars, must differ), `JWT_ISSUER`, `JWT_AUDIENCE`, `OPENROUTER_API_KEY`, `BREVO_API_KEY`, `EMAIL_FROM_ADDRESS`, `APP_URL`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_ENDPOINT`, `LLAMAINDEX_API_KEY`, `FIRECRAWL_API_KEY`
 
-Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_EXPIRES_IN` (15m), `REFRESH_TOKEN_EXPIRES_IN` (7d), `LOG_LEVEL` (info), `LOG_TO_FILE` (true), `CORS_ALLOWED_ORIGINS` (http://localhost:8080), `RATE_LIMIT_AUTH_MAX` (10, capped at 50), `RATE_LIMIT_GENERAL_MAX` (100), `DEFAULT_EMBEDDINGS_MODEL` (openai/text-embedding-3-small), `DEFAULT_CHAT_MODEL` (openai/gpt-5.4-mini), `S3_REGION` (auto), `EMAIL_FROM_NAME` ("RAG Chatbot"), `LLAMAINDEX_PARSE_TIER` (cost_effective), `OPENROUTER_STREAM_TIMEOUT_MS` (60000)
+Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_EXPIRES_IN` (15m), `REFRESH_TOKEN_EXPIRES_IN` (7d), `LOG_LEVEL` (info), `LOG_TO_FILE` (true), `CORS_ALLOWED_ORIGINS` (http://localhost:8080), `RATE_LIMIT_AUTH_MAX` (10, capped at 50), `RATE_LIMIT_GENERAL_MAX` (100), `DEFAULT_EMBEDDINGS_MODEL` (openai/text-embedding-3-small), `DEFAULT_CHAT_MODEL` (openai/gpt-5.4-mini), `S3_REGION` (auto), `EMAIL_FROM_NAME` ("RAG Chatbot"), `LLAMAINDEX_PARSE_TIER` (cost_effective), `OPENROUTER_STREAM_TIMEOUT_MS` (60000), `OPENROUTER_TIMEOUT_MS` (30000), `FIRECRAWL_TIMEOUT_MS` (60000), `LLAMAINDEX_TIMEOUT_MS` (30000), `S3_TIMEOUT_MS` (10000)
+
+> `CORS_ALLOWED_ORIGINS` is **required** when `NODE_ENV=production` and must not be a localhost/loopback origin (`validateEnv` exits otherwise); it defaults to `http://localhost:8080` only outside production.
 
 ## Database
 
@@ -329,7 +331,7 @@ Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_E
 - **Migrations**: `database/migrations/` — 9 migration files using raw SQL:
   - 001: Extensions (pgcrypto, vector) + 5 ENUM types
   - 002: Core tenancy (workspaces, users, email_tokens, refresh_tokens)
-  - 003: Roles & permissions (permissions, roles, role_permissions, workspace_members)
+  - 003: Roles & permissions (permissions, roles, role_permissions, workspace_members with `invited_email` for unregistered-invite binding)
   - 004: RAG pipeline (datasets, dataset_files, dataset_file_chunks with HNSW vector index, dataset_file_questions)
   - 005: Agents (configurable system prompt + model)
   - 006: Conversations & messages (conversations, conversation_datasets, conversation_messages, conversation_message_citations)
@@ -359,9 +361,9 @@ Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_E
   - `addWorkspaceMember(workspaceId, userId, roleId)` — adds member with active status
   - `cleanAllTables()` — truncates all 18 tables in dependency order
   - `seedPermissions()` — seeds 31 RAG permissions
-- **Current test status** — 238 test cases total (static count from the test files; live passing count comes from `corepack pnpm test:api`):
-  - Integration: agents (28), agents-default-conflict (2), auth (38), chat (8), conversations (11), dataset-file-chunks (2), dataset-file-questions (6), dataset-questions (5), dataset-files (20), datasets (14), file-processing (3), health (5), members (6), permissions (13), roles (15), workspaces (7)
-  - Unit: allowed-models (2), email-render (4), http-error (3), llamaindex-poll (6), pagination (12), redis (5), request-id (4), sanitize (6), url-slug (9), validate-env (4)
+- **Current test status** — 280 test cases total (static count from the test files; live passing count comes from `corepack pnpm test:api`):
+  - Integration: agents (28), agents-default-conflict (2), auth (38), chat (8), conversations (11), dataset-file-chunks (2), dataset-file-questions (6), dataset-questions (5), dataset-files (23), datasets (14), file-processing (3), health (5), members (8), permissions (13), roles (15), workspaces (7)
+  - Unit: allowed-models (2), consume-stream (3), email-render (4), file-processing-worker (3), http-error (3), llamaindex-poll (6), pagination (12), redis (5), request-id (4), sanitize (6), ssrf (18), test-users-seed (2), url-slug (9), validate-env (15)
   - Skipped (0)
   - No Redis required for local test runs (queue module mocked via `tests/setup.js`)
 
