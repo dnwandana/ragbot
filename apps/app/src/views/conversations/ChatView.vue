@@ -51,7 +51,11 @@
               {{ activeCitationCount === 1 ? "citation" : "citations" }}
             </span>
           </div>
-          <button class="chat-view__sources-close" @click="closePanel">
+          <button
+            class="chat-view__sources-close"
+            aria-label="Close sources panel"
+            @click="closePanel"
+          >
             <X :size="16" />
           </button>
         </div>
@@ -88,8 +92,8 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onMounted } from "vue"
-import { useRoute, useRouter } from "vue-router"
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue"
+import { useRoute, useRouter, onBeforeRouteLeave } from "vue-router"
 import { X } from "lucide-vue-next"
 import { useConversationsStore } from "@/stores/conversations"
 import { useChatStore } from "@/stores/chat"
@@ -113,6 +117,11 @@ const workspaceId = computed(() => route.params.workspaceId)
 const conversationId = computed(() => route.params.conversationId)
 const chat = useChat(workspaceId, conversationId)
 const chatActions = useChatActions()
+
+onUnmounted(() => chat.abort())
+onBeforeRouteLeave(() => {
+  chat.abort()
+})
 const { theme } = useTheme()
 const { clockTime, timeZone } = useFormattedTime()
 
@@ -256,6 +265,7 @@ const activeMsgId = ref(null)
 watch(
   conversationId,
   (id) => {
+    chat.abort()
     sourcesPanelOpen.value = false
     activeMsgId.value = null
     highlightedN.value = null

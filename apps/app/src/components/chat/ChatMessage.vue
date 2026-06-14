@@ -35,6 +35,8 @@
         "
         class="chat-message__react"
       >
+        <!-- Index key is safe: ReAct steps are append-only during streaming and never
+             reordered or filtered. Switch to a payload id if that ever changes. -->
         <details
           v-for="(thought, i) in reActSteps.thoughts"
           :key="'t' + i"
@@ -48,6 +50,8 @@
             {{ thought.tool_call }}
           </div>
         </details>
+        <!-- Index key is safe: ReAct steps are append-only during streaming and never
+             reordered or filtered. Switch to a payload id if that ever changes. -->
         <details
           v-for="(obs, i) in reActSteps.observations"
           :key="'o' + i"
@@ -97,7 +101,7 @@
 </template>
 
 <script setup>
-import { ref, onUnmounted } from "vue"
+import { ref, computed, onUnmounted } from "vue"
 import { Check, Copy, CircleAlert } from "lucide-vue-next"
 import MarkdownRenderer from "./MarkdownRenderer.vue"
 import SourceCitations from "./SourceCitations.vue"
@@ -113,7 +117,7 @@ const props = defineProps({
 
 const emit = defineEmits(["copy", "cite", "open-panel"])
 
-const isUser = props.msg.role === "user"
+const isUser = computed(() => props.msg.role === "user")
 
 const copyActive = ref(false)
 let copyTimer = null

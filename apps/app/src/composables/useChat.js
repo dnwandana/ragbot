@@ -77,10 +77,18 @@ export function useChat(workspaceId, conversationId) {
         buffer = lines.pop()
 
         for (const line of lines) {
+          if (line.startsWith(":")) continue
           if (line.startsWith("event: ")) {
             currentEvent = line.slice(7).trim()
           } else if (line.startsWith("data: ")) {
-            const data = JSON.parse(line.slice(6))
+            let data
+            try {
+              data = JSON.parse(line.slice(6))
+            } catch {
+              currentEvent = null
+              // Malformed, partial, or keepalive frame — skip it rather than aborting the stream.
+              continue
+            }
 
             if (currentEvent === "token") {
               chatStore.currentContent += data.content

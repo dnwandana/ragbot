@@ -1,5 +1,5 @@
 <template>
-  <div ref="scrollRef" class="chat-thread">
+  <div ref="scrollRef" class="chat-thread" @scroll="onScroll">
     <!-- Welcome state: empty conversation -->
     <div v-if="messages.length === 0 && !loading" class="chat-thread__welcome">
       <img
@@ -81,6 +81,15 @@ const emit = defineEmits(["send", "copy", "cite", "open-panel"])
 
 const scrollRef = ref(null)
 
+const NEAR_BOTTOM_PX = 120
+const nearBottom = ref(true)
+
+function onScroll() {
+  const el = scrollRef.value
+  if (!el) return
+  nearBottom.value = el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_PX
+}
+
 const emptyThreadLight = "/assets/empty-thread.svg"
 const emptyThreadDark = "/assets/empty-thread-dark.svg"
 
@@ -92,16 +101,11 @@ const greetingText = computed(() => {
 })
 
 watch(
-  () => [
-    props.messages.length,
-    props.loading,
-    props.messages.map((m) => (m.text || "").length).join(","),
-  ],
+  () => [props.messages.length, props.loading, props.streaming, props.messages.at(-1)?.text],
   async () => {
+    if (!nearBottom.value) return
     await nextTick()
-    if (scrollRef.value) {
-      scrollRef.value.scrollTop = scrollRef.value.scrollHeight
-    }
+    if (scrollRef.value) scrollRef.value.scrollTop = scrollRef.value.scrollHeight
   },
 )
 </script>

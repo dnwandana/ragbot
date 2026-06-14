@@ -74,4 +74,28 @@ describe("useChat", () => {
     expect(chatStore.currentContent).toBe("")
     expect(chatStore.error).toBeFalsy()
   })
+
+  it("skips malformed + stale-event frames without aborting the stream", async () => {
+    const chatStore = useChatStore()
+
+    chatApi.sendMessage.mockResolvedValue({
+      ok: true,
+      body: sseStream([
+        // Malformed data for a token event — must be skipped, and the event must
+        // not bleed into the following data-only (orphan) frame.
+        "event: token\ndata: NOT_JSON\n\n",
+        'data: {"content":"orphan"}\n\n',
+        // A well-formed token still applies after the skipped frames.
+        'event: token\ndata: {"content":"hi"}\n\n',
+      ]),
+    })
+
+    const { sendMessage } = useChat("ws1", "conv1")
+    await sendMessage("yo")
+    await flushPromises()
+
+    expect(chatStore.error).toBeFalsy()
+    expect(chatStore.currentContent).toContain("hi")
+    expect(chatStore.currentContent).not.toContain("orphan")
+  })
 })
