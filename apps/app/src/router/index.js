@@ -1,7 +1,5 @@
 import { createRouter, createWebHistory } from "vue-router"
 import { useAuthStore } from "@/stores/auth"
-import { useWorkspacesStore } from "@/stores/workspaces"
-import { shouldFetchWorkspace } from "@/router/workspaceGuard"
 
 /** @type {import('vue-router').RouteRecordRaw[]} */
 const routes = [
@@ -68,31 +66,26 @@ const routes = [
         path: "general",
         name: "SettingsGeneral",
         component: () => import("@/views/settings/SettingsGeneral.vue"),
-        meta: { requiresAuth: true },
       },
       {
         path: "members",
         name: "SettingsMembers",
         component: () => import("@/views/settings/SettingsMembers.vue"),
-        meta: { requiresAuth: true },
       },
       {
         path: "roles",
         name: "SettingsRoles",
         component: () => import("@/views/settings/SettingsRoles.vue"),
-        meta: { requiresAuth: true },
       },
       {
         path: "profile",
         name: "SettingsProfile",
         component: () => import("@/views/settings/SettingsProfile.vue"),
-        meta: { requiresAuth: true },
       },
       {
         path: "account",
         name: "SettingsAccount",
         component: () => import("@/views/settings/SettingsAccount.vue"),
-        meta: { requiresAuth: true },
       },
     ],
   },
@@ -154,8 +147,6 @@ const routes = [
   },
 ]
 
-let workspacesFetched = false
-
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes,
@@ -171,7 +162,6 @@ router.beforeEach(async (to, from, next) => {
   const isAuthenticated = authStore.isAuthenticated
 
   if (to.meta.requiresAuth && !isAuthenticated) {
-    workspacesFetched = false
     next({ path: "/login", query: { redirect: to.fullPath } })
     return
   }
@@ -179,31 +169,6 @@ router.beforeEach(async (to, from, next) => {
   if (to.meta.requiresGuest && isAuthenticated) {
     next({ path: "/workspaces" })
     return
-  }
-
-  // Workspace-existence guard (authenticated users on requiresAuth routes only)
-  if (isAuthenticated && to.meta.requiresAuth) {
-    const workspacesStore = useWorkspacesStore()
-    if (!workspacesFetched) {
-      await workspacesStore.fetchWorkspaces()
-      workspacesFetched = true
-    }
-    const hasWorkspaces = workspacesStore.workspaces.length > 0
-
-    if (to.name === "Onboarding" && hasWorkspaces) {
-      next({ path: "/workspaces" })
-      return
-    }
-
-    if (!hasWorkspaces && !to.meta.skipWorkspaceGuard) {
-      next({ path: "/onboarding" })
-      return
-    }
-
-    const targetWorkspaceId = to.params.workspaceId
-    if (shouldFetchWorkspace(workspacesStore.currentWorkspace?.id, targetWorkspaceId)) {
-      await workspacesStore.fetchWorkspaceById(targetWorkspaceId)
-    }
   }
 
   next()

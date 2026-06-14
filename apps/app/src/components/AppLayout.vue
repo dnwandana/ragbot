@@ -1,15 +1,63 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from "vue"
+import { ref, watch, onMounted, onUnmounted } from "vue"
+import { useRoute, useRouter } from "vue-router"
 import { Menu } from "lucide-vue-next"
 import { useAuthStore } from "@/stores/auth"
 import { useWorkspacesStore } from "@/stores/workspaces"
+import { shouldFetchWorkspace } from "@/router/workspaceGuard"
 import { useInvitations } from "@/composables/useInvitations"
 import AppSidebar from "@/components/AppSidebar.vue"
 
+const route = useRoute()
+const router = useRouter()
 const authStore = useAuthStore()
 const workspacesStore = useWorkspacesStore()
 const { fetchMyInvitations } = useInvitations()
 const isMobileDrawerOpen = ref(false)
+const hydrating = ref(true)
+const hydrateError = ref(false)
+
+/**
+ * Load the workspace list and the route-targeted workspace, applying the
+ * onboarding/workspace-existence redirects the router guard used to own.
+ * Runs in component scope so it is torn down per session (no cross-tenant leak).
+ * @returns {Promise<void>}
+ */
+let isHydrating = false
+async function hydrateWorkspaces() {
+  if (!authStore.isAuthenticated) {
+    hydrating.value = false
+    return
+  }
+  if (isHydrating) return
+  isHydrating = true
+  hydrating.value = true
+  hydrateError.value = false
+  try {
+    await workspacesStore.fetchWorkspaces()
+    const hasWorkspaces = workspacesStore.workspaces.length > 0
+
+    if (route.name === "Onboarding" && hasWorkspaces) {
+      router.replace({ path: "/workspaces" })
+      return
+    }
+
+    if (!hasWorkspaces && !route.meta.skipWorkspaceGuard) {
+      router.replace({ path: "/onboarding" })
+      return
+    }
+
+    const targetWorkspaceId = route.params.workspaceId
+    if (shouldFetchWorkspace(workspacesStore.currentWorkspace?.id, targetWorkspaceId)) {
+      await workspacesStore.fetchWorkspaceById(targetWorkspaceId)
+    }
+  } catch {
+    hydrateError.value = true
+  } finally {
+    isHydrating = false
+    hydrating.value = false
+  }
+}
 
 function onResize() {
   if (window.innerWidth >= 768) isMobileDrawerOpen.value = false
@@ -19,10 +67,11 @@ onMounted(() => {
   window.addEventListener("resize", onResize)
   if (authStore.isAuthenticated) {
     fetchMyInvitations()
-    workspacesStore.fetchWorkspaces()
   }
 })
 onUnmounted(() => window.removeEventListener("resize", onResize))
+
+watch([() => route.params.workspaceId, () => route.name], hydrateWorkspaces, { immediate: true })
 </script>
 
 <template>
@@ -61,7 +110,12 @@ onUnmounted(() => window.removeEventListener("resize", onResize))
 
     <!-- Page content -->
     <main class="app-main">
-      <slot />
+      <div v-if="hydrating" class="app-layout__loading">Loading workspace…</div>
+      <div v-else-if="hydrateError" class="app-layout__error">
+        <p>Couldn't load your workspaces.</p>
+        <button type="button" @click="hydrateWorkspaces">Retry</button>
+      </div>
+      <slot v-else />
     </main>
   </div>
 </template>
@@ -88,6 +142,29 @@ onUnmounted(() => window.removeEventListener("resize", onResize))
   flex-direction: column;
   overflow: hidden;
   background: var(--bg);
+}
+
+.app-layout__loading,
+.app-layout__error {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 32px;
+  color: var(--ink-3);
+}
+.app-layout__error button {
+  padding: 6px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+.app-layout__error button:hover {
+  background: var(--bg-2);
 }
 
 /* Mobile top bar */

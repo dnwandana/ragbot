@@ -25,7 +25,6 @@ import AppUserMenu from "@/components/AppUserMenu.vue"
 import { useAuthStore } from "@/stores/auth"
 import { useWorkspacesStore } from "@/stores/workspaces"
 import { useConversationsStore } from "@/stores/conversations"
-import { useInvitations } from "@/composables/useInvitations"
 import { useTheme } from "@/composables/useTheme"
 import { usePermissions } from "@/composables/usePermissions"
 import { useFormattedTime } from "@/composables/useFormattedTime"
@@ -34,7 +33,6 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const workspacesStore = useWorkspacesStore()
-const { pendingCount } = useInvitations()
 const { theme, toggleTheme } = useTheme()
 const { can } = usePermissions()
 const { relativeTime, calendarDaysAgo } = useFormattedTime()
@@ -57,8 +55,8 @@ function navigate(path) {
   emit("close")
 }
 
-function handleLogout() {
-  void authStore.logout()
+async function handleLogout() {
+  await authStore.logout()
   router.push("/login")
 }
 
@@ -363,7 +361,6 @@ onBeforeUnmount(() => {
       >
         <Mail class="nav-icon" :size="15" :stroke-width="1.7" />
         Invitations
-        <span v-if="pendingCount > 0" class="nav-badge">{{ pendingCount }}</span>
       </button>
     </nav>
 
@@ -571,15 +568,6 @@ onBeforeUnmount(() => {
 .nav-icon {
   flex-shrink: 0;
   color: inherit;
-}
-.nav-badge {
-  background: var(--brand);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  padding: 1px 6px;
-  border-radius: 10px;
-  margin-left: auto;
 }
 
 .rail-divider {

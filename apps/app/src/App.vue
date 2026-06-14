@@ -17,7 +17,7 @@ const isAuthPage = computed(() => {
   <ConfigProvider :theme="antTheme">
     <RouterView v-if="isAuthPage" />
     <AppLayout v-else>
-      <RouterView />
+      <RouterView :key="$route.fullPath" />
     </AppLayout>
   </ConfigProvider>
 </template>
