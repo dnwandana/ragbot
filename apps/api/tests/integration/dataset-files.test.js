@@ -24,6 +24,9 @@ vi.mock("../../src/services/storage.js", () => ({
   deleteFile: vi.fn().mockResolvedValue(undefined),
   getSignedDownloadUrl: vi.fn().mockResolvedValue("https://mock-signed-url.example.com/file"),
 }))
+vi.mock("node:dns/promises", () => ({
+  lookup: vi.fn().mockResolvedValue([{ address: "93.184.216.34", family: 4 }]),
+}))
 
 let user, ws, dsId
 
@@ -73,6 +76,17 @@ describe("POST .../files/upload", () => {
 
     expect(res.status).toBe(400)
   })
+
+  it("returns 400 for a disallowed file extension", async () => {
+    const res = await (
+      await request()
+    )
+      .post(`${baseUrl()}/upload`)
+      .set(await getAuthHeaders(user.id))
+      .attach("file", Buffer.from("MZ..."), "malware.exe")
+
+    expect(res.status).toBe(400)
+  })
 })
 
 describe("POST .../files/scrape-url", () => {
@@ -99,6 +113,28 @@ describe("POST .../files/scrape-url", () => {
       .post(`${baseUrl()}/scrape-url`)
       .set(await getAuthHeaders(user.id))
       .send({ url: "not-a-url" })
+
+    expect(res.status).toBe(400)
+  })
+
+  it("returns 400 for a cloud-metadata / link-local URL", async () => {
+    const res = await (
+      await request()
+    )
+      .post(`${baseUrl()}/scrape-url`)
+      .set(await getAuthHeaders(user.id))
+      .send({ url: "http://169.254.169.254/latest/meta-data" })
+
+    expect(res.status).toBe(400)
+  })
+
+  it("returns 400 for a localhost URL", async () => {
+    const res = await (
+      await request()
+    )
+      .post(`${baseUrl()}/scrape-url`)
+      .set(await getAuthHeaders(user.id))
+      .send({ url: "http://localhost:3000/admin" })
 
     expect(res.status).toBe(400)
   })

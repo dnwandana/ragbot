@@ -6,6 +6,7 @@ import apiResponse from "../utils/response.js"
 import { HTTP_STATUS_CODE } from "../utils/constant.js"
 import { logAuditEvent } from "../utils/audit.js"
 import { urlToFilename } from "../utils/url-slug.js"
+import { assertPublicHttpUrl } from "../utils/ssrf.js"
 import { validatePaginationQuery, executePaginatedQuery } from "../utils/pagination.js"
 import * as datasetFileModel from "../models/dataset-files.js"
 import * as datasetModel from "../models/datasets.js"
@@ -15,15 +16,46 @@ import * as storageService from "../services/storage.js"
 import * as llamaindexService from "../services/llamaindex.js"
 import { addProcessingJob } from "../queues/file-processing.js"
 
-/** Multer middleware configured for in-memory storage with a 50 MB file size limit. */
+/** Extensions LlamaIndex can parse; uploads outside this set are rejected. */
+const ALLOWED_UPLOAD_EXTENSIONS = new Set([
+  "pdf",
+  "doc",
+  "docx",
+  "ppt",
+  "pptx",
+  "xls",
+  "xlsx",
+  "csv",
+  "txt",
+  "md",
+  "html",
+  "htm",
+  "rtf",
+  "epub",
+])
+
+/** Multer middleware: in-memory storage, 50 MB cap, extension allowlist. */
 export const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB
+  fileFilter: (req, file, cb) => {
+    const ext = file.originalname.split(".").pop()?.toLowerCase()
+    if (!ext || !ALLOWED_UPLOAD_EXTENSIONS.has(ext)) {
+      cb(new HttpError(HTTP_STATUS_CODE.BAD_REQUEST, `Unsupported file type: .${ext ?? ""}`))
+      return
+    }
+    cb(null, true)
+  },
 })
 
 /** @type {import('joi').ObjectSchema} Validation schema for scrape-url requests. */
 const scrapeSchema = joi
-  .object({ url: joi.string().uri().required() })
+  .object({
+    url: joi
+      .string()
+      .uri({ scheme: ["http", "https"] })
+      .required(),
+  })
   .options({ stripUnknown: true })
 
 /** @type {import('joi').ObjectSchema} Validation schema for file update requests. */
@@ -54,7 +86,7 @@ export const uploadFile = async (req, res, next) => {
     if (!dataset) throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "Dataset not found")
 
     const fileId = crypto.randomUUID()
-    const ext = req.file.originalname.split(".").pop()
+    const ext = req.file.originalname.split(".").pop().toLowerCase()
     const storagePath = `workspaces/${req.workspace.id}/datasets/${dataset.id}/files/${fileId}.${ext}`
 
     await storageService.uploadFile(storagePath, req.file.buffer, req.file.mimetype)
@@ -121,6 +153,8 @@ export const scrapeUrl = async (req, res, next) => {
   try {
     const { error, value } = scrapeSchema.validate(req.body)
     if (error) throw new HttpError(HTTP_STATUS_CODE.BAD_REQUEST, error.details[0].message)
+
+    await assertPublicHttpUrl(value.url)
 
     const dataset = await datasetModel.findOne({
       id: req.params.dataset_id,
