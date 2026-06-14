@@ -363,8 +363,12 @@ function restoreState() {
   }
 }
 
+restoreState()
+// Persist wizard state on every change. Registered synchronously so it is
+// captured by the component's effect scope and auto-disposed on unmount.
+watchEffect(saveState)
+
 onMounted(async () => {
-  restoreState()
   if (createdWorkspaceId.value && !roles.value.length) {
     try {
       await rolesStore.fetchRoles(createdWorkspaceId.value)
@@ -373,7 +377,6 @@ onMounted(async () => {
       /* non-fatal — invite step remains skippable */
     }
   }
-  watchEffect(saveState)
 })
 
 onUnmounted(() => clearTimeout(toastTimer))
@@ -406,10 +409,36 @@ onUnmounted(() => clearTimeout(toastTimer))
         >
           <OnboardingWelcome v-if="view === 'welcome'" :ctx="ctx" />
           <template v-else-if="view === 'steps'">
-            <OnboardingWorkspace v-if="STEPS[stepIdx].key === 'workspace'" :ctx="ctx" />
-            <OnboardingInvite v-else-if="STEPS[stepIdx].key === 'invites'" :ctx="ctx" />
-            <OnboardingSource v-else-if="STEPS[stepIdx].key === 'source'" :ctx="ctx" />
-            <OnboardingAgent v-else-if="STEPS[stepIdx].key === 'agent'" :ctx="ctx" />
+            <OnboardingWorkspace
+              v-if="STEPS[stepIdx].key === 'workspace'"
+              :ctx="ctx"
+              :workspace-name="formData.workspaceName"
+              @update:workspace-name="formData.workspaceName = $event"
+            />
+            <OnboardingInvite
+              v-else-if="STEPS[stepIdx].key === 'invites'"
+              :ctx="ctx"
+              :invites="formData.invites"
+              @update:invites="formData.invites = $event"
+            />
+            <OnboardingSource
+              v-else-if="STEPS[stepIdx].key === 'source'"
+              :ctx="ctx"
+              :dataset-name="formData.datasetName"
+              :files="formData.files"
+              @update:dataset-name="formData.datasetName = $event"
+              @update:files="formData.files = $event"
+            />
+            <OnboardingAgent
+              v-else-if="STEPS[stepIdx].key === 'agent'"
+              :ctx="ctx"
+              :agent-name="formData.agentName"
+              :agent-template="formData.agentTemplate"
+              :agent-prompt="formData.agentPrompt"
+              @update:agent-name="formData.agentName = $event"
+              @update:agent-template="formData.agentTemplate = $event"
+              @update:agent-prompt="formData.agentPrompt = $event"
+            />
           </template>
           <OnboardingComplete v-else-if="view === 'complete'" :ctx="ctx" />
         </div>

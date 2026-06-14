@@ -13,7 +13,9 @@ import {
 
 const props = defineProps({
   ctx: { type: Object, required: true },
+  invites: { type: Array, default: () => [] },
 })
+const emit = defineEmits(["update:invites"])
 const ctx = props.ctx
 
 const draft = ref("")
@@ -67,14 +69,14 @@ function addInvite() {
     localErr.value = `"${bad}" doesn't look like an email.`
     return
   }
-  const existing = new Set(ctx.formData.invites.map((i) => i.email.toLowerCase()))
-  const next = [...ctx.formData.invites]
+  const existing = new Set(props.invites.map((i) => i.email.toLowerCase()))
+  const next = [...props.invites]
   parts.forEach((p) => {
     if (!existing.has(p.toLowerCase())) {
       next.push({ email: p, role_id: selectedRoleId.value })
     }
   })
-  ctx.formData.invites = next
+  emit("update:invites", next)
   draft.value = ""
   localErr.value = null
 }
@@ -83,7 +85,10 @@ function addInvite() {
  * @param {string} email
  */
 function removeInvite(email) {
-  ctx.formData.invites = ctx.formData.invites.filter((i) => i.email !== email)
+  emit(
+    "update:invites",
+    props.invites.filter((i) => i.email !== email),
+  )
 }
 
 /**
@@ -102,7 +107,7 @@ function roleName(roleId) {
   return ctx.roles.find((r) => r.id === roleId)?.name ?? "—"
 }
 
-const inviteCount = computed(() => ctx.formData.invites.length)
+const inviteCount = computed(() => props.invites.length)
 </script>
 
 <template>
@@ -168,9 +173,9 @@ const inviteCount = computed(() => ctx.formData.invites.length)
     <div v-if="inviteCount" class="ob-invite-list">
       <div class="ob-invite-listhead">
         <span>{{ inviteCount }} {{ inviteCount === 1 ? "person" : "people" }} to invite</span>
-        <button class="ob-link" @click="ctx.formData.invites = []">Clear all</button>
+        <button class="ob-link" @click="emit('update:invites', [])">Clear all</button>
       </div>
-      <div v-for="inv in ctx.formData.invites" :key="inv.email" class="ob-invite-item">
+      <div v-for="inv in props.invites" :key="inv.email" class="ob-invite-item">
         <span class="ob-avatar">{{ avatarInitials(inv.email) }}</span>
         <span class="ob-invite-email">{{ inv.email }}</span>
         <span style="font-size: var(--t-sm); color: var(--ink-3); flex-shrink: 0">

@@ -6,18 +6,36 @@ import OnboardingAgent from "@/views/onboarding/steps/OnboardingAgent.vue"
 
 /**
  * Build a reactive fake of the onboarding shell context.
- * @param {object} formOverrides - Fields merged over the default formData
- * @returns {object} Reactive ctx with formData and stubbed shell actions
+ * Only the non-data members the step still reads off ctx are stubbed —
+ * agent fields now flow through props/emits, not ctx.formData.
+ * @returns {object} Reactive ctx with stubbed shell actions and state
  */
-function makeCtx(formOverrides = {}) {
+function makeCtx() {
   return reactive({
-    formData: { agentName: "", agentTemplate: "blank", agentPrompt: "", ...formOverrides },
     errors: {},
     busy: null,
     setError: vi.fn(),
     back: vi.fn(),
     skip: vi.fn(),
     runAction: vi.fn(),
+  })
+}
+
+/**
+ * Mount OnboardingAgent with the new prop contract.
+ * @param {object} [agentProps] - Overrides for agentName/agentTemplate/agentPrompt
+ * @param {object} [ctx] - Shell ctx to inject (defaults to a fresh fake)
+ * @returns {import("@vue/test-utils").VueWrapper} The mounted wrapper
+ */
+function mountAgent(agentProps = {}, ctx = makeCtx()) {
+  return mount(OnboardingAgent, {
+    props: {
+      ctx,
+      agentName: "",
+      agentTemplate: "blank",
+      agentPrompt: "",
+      ...agentProps,
+    },
   })
 }
 
@@ -35,7 +53,7 @@ function tile(wrapper, label) {
 
 describe("OnboardingAgent", () => {
   it("renders the refreshed step copy", () => {
-    const wrapper = mount(OnboardingAgent, { props: { ctx: makeCtx() } })
+    const wrapper = mountAgent()
     expect(wrapper.find(".ob-title").text()).toBe("Meet your first agent")
     expect(wrapper.find(".ob-subtitle").text()).toContain("job and a personality")
     expect(wrapper.find("#ag-name").attributes("placeholder")).toBe("e.g. Support Sidekick")
@@ -43,38 +61,65 @@ describe("OnboardingAgent", () => {
   })
 
   it("renders all six template tiles", () => {
-    const wrapper = mount(OnboardingAgent, { props: { ctx: makeCtx() } })
+    const wrapper = mountAgent()
     expect(wrapper.findAll(".ob-tpl")).toHaveLength(6)
   })
 
-  it("fills name and prompt when picking a template with an empty name", async () => {
-    const ctx = makeCtx()
-    const wrapper = mount(OnboardingAgent, { props: { ctx } })
-    await tile(wrapper, "Research").trigger("click")
-    expect(ctx.formData.agentTemplate).toBe("research")
-    expect(ctx.formData.agentName).toBe("Research Scout")
-    expect(ctx.formData.agentPrompt).toContain("research analyst")
+  it("reflects the agentTemplate prop as the active tile", () => {
+    const wrapper = mountAgent({ agentTemplate: "research" })
+    expect(tile(wrapper, "Research").classes()).toContain("is-active")
+    expect(tile(wrapper, "Support").classes()).not.toContain("is-active")
   })
 
-  it("swaps a default name when switching templates", async () => {
-    const ctx = makeCtx({ agentName: "Support Sidekick", agentTemplate: "support" })
-    const wrapper = mount(OnboardingAgent, { props: { ctx } })
+  it("emits template, prompt, and name when picking a template with an empty name", async () => {
+    const wrapper = mountAgent()
+    await tile(wrapper, "Research").trigger("click")
+    expect(wrapper.emitted("update:agentTemplate")?.at(-1)).toEqual(["research"])
+    expect(wrapper.emitted("update:agentName")?.at(-1)).toEqual(["Research Scout"])
+    expect(wrapper.emitted("update:agentPrompt")?.at(-1)?.[0]).toContain("research analyst")
+  })
+
+  it("emits the new template's name when switching from a default name", async () => {
+    const wrapper = mountAgent({ agentName: "Support Sidekick", agentTemplate: "support" })
     await tile(wrapper, "Docs expert").trigger("click")
-    expect(ctx.formData.agentName).toBe("Docs Expert")
+    expect(wrapper.emitted("update:agentName")?.at(-1)).toEqual(["Docs Expert"])
   })
 
   it("preserves a user-typed name when switching templates", async () => {
-    const ctx = makeCtx({ agentName: "Ada", agentTemplate: "support" })
-    const wrapper = mount(OnboardingAgent, { props: { ctx } })
+    const wrapper = mountAgent({ agentName: "Ada", agentTemplate: "support" })
     await tile(wrapper, "Research").trigger("click")
-    expect(ctx.formData.agentName).toBe("Ada")
+    // nameForTemplate keeps the custom name, so the emitted value is unchanged.
+    expect(wrapper.emitted("update:agentName")?.at(-1)).toEqual(["Ada"])
   })
 
   it("clears the prompt but keeps the name when picking Blank", async () => {
-    const ctx = makeCtx({ agentName: "Support Sidekick", agentTemplate: "support" })
-    const wrapper = mount(OnboardingAgent, { props: { ctx } })
+    const wrapper = mountAgent({ agentName: "Support Sidekick", agentTemplate: "support" })
     await tile(wrapper, "Blank").trigger("click")
-    expect(ctx.formData.agentPrompt).toBe("")
-    expect(ctx.formData.agentName).toBe("Support Sidekick")
+    expect(wrapper.emitted("update:agentTemplate")?.at(-1)).toEqual(["blank"])
+    expect(wrapper.emitted("update:agentPrompt")?.at(-1)).toEqual([""])
+    expect(wrapper.emitted("update:agentName")?.at(-1)).toEqual(["Support Sidekick"])
+  })
+
+  it("emits update:agentName and clears the error on name input", async () => {
+    const ctx = makeCtx()
+    const wrapper = mountAgent({}, ctx)
+    const input = wrapper.find("#ag-name")
+    input.element.value = "My Helper"
+    await input.trigger("input")
+    expect(wrapper.emitted("update:agentName")?.at(-1)).toEqual(["My Helper"])
+    expect(ctx.setError).toHaveBeenCalledWith("agent", null)
+  })
+
+  it("emits update:agentPrompt on textarea input", async () => {
+    const wrapper = mountAgent()
+    const ta = wrapper.find(".ob-textarea")
+    ta.element.value = "Answer only from sources."
+    await ta.trigger("input")
+    expect(wrapper.emitted("update:agentPrompt")?.at(-1)).toEqual(["Answer only from sources."])
+  })
+
+  it("renders the agentName prop as the field value", () => {
+    const wrapper = mountAgent({ agentName: "Policy Pro" })
+    expect(wrapper.find("#ag-name").element.value).toBe("Policy Pro")
   })
 })

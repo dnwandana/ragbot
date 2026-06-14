@@ -3,8 +3,19 @@ import { LayoutGrid, ArrowLeft, LoaderCircle, CircleAlert } from "lucide-vue-nex
 
 const props = defineProps({
   ctx: { type: Object, required: true },
+  workspaceName: { type: String, default: "" },
 })
+const emit = defineEmits(["update:workspaceName"])
 const ctx = props.ctx
+
+/**
+ * Emit the new workspace name and clear any prior validation error.
+ * @param {Event} e - Input event from the workspace-name field
+ */
+function onName(e) {
+  emit("update:workspaceName", e.target.value)
+  ctx.setError("workspace", null)
+}
 </script>
 
 <template>
@@ -25,17 +36,12 @@ const ctx = props.ctx
           id="ws-name"
           class="ob-input"
           :class="{ 'is-error': ctx.errors.workspace }"
-          :value="ctx.formData.workspaceName"
+          :value="props.workspaceName"
           placeholder="Acme workspace"
           autocomplete="off"
           autofocus
-          @input="
-            (e) => {
-              ctx.formData.workspaceName = e.target.value
-              ctx.setError('workspace', null)
-            }
-          "
-          @keydown.enter="ctx.formData.workspaceName.trim() && ctx.runAction('workspace')"
+          @input="onName"
+          @keydown.enter="props.workspaceName.trim() && ctx.runAction('workspace')"
         />
       </div>
       <div v-if="ctx.errors.workspace" class="ob-error-text">
@@ -53,7 +59,7 @@ const ctx = props.ctx
     <div class="ob-actions-right">
       <button
         class="ob-btn ob-btn-primary"
-        :disabled="!ctx.formData.workspaceName.trim() || ctx.busy === 'workspace'"
+        :disabled="!props.workspaceName.trim() || ctx.busy === 'workspace'"
         @click="ctx.runAction('workspace')"
       >
         <LoaderCircle v-if="ctx.busy === 'workspace'" class="ob-spin" :size="16" />

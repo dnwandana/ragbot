@@ -4,18 +4,32 @@ import { AGENT_TEMPLATES, nameForTemplate } from "../agentTemplates.js"
 
 const props = defineProps({
   ctx: { type: Object, required: true },
+  agentName: { type: String, default: "" },
+  agentTemplate: { type: String, default: "" },
+  agentPrompt: { type: String, default: "" },
 })
+const emit = defineEmits(["update:agentName", "update:agentTemplate", "update:agentPrompt"])
 const ctx = props.ctx
 
 /**
  * Apply a template: select it, replace the prompt, and update the agent
- * name via the shared fill rule (user-typed names are preserved).
+ * name via the shared fill rule (user-typed names are preserved). The parent
+ * owns formData, so each field change is emitted rather than mutated.
  * @param {{ key: string, label: string, name: string, prompt: string }} tpl - Picked template
  */
 function pickTemplate(tpl) {
-  ctx.formData.agentTemplate = tpl.key
-  ctx.formData.agentPrompt = tpl.prompt
-  ctx.formData.agentName = nameForTemplate(ctx.formData.agentName, tpl)
+  emit("update:agentTemplate", tpl.key)
+  emit("update:agentPrompt", tpl.prompt)
+  emit("update:agentName", nameForTemplate(props.agentName, tpl))
+}
+
+/**
+ * Emit the new agent name and clear any prior validation error.
+ * @param {Event} e - Input event from the agent-name field
+ */
+function onName(e) {
+  emit("update:agentName", e.target.value)
+  ctx.setError("agent", null)
 }
 </script>
 
@@ -37,15 +51,10 @@ function pickTemplate(tpl) {
         id="ag-name"
         class="ob-input"
         :class="{ 'is-error': ctx.errors.agent }"
-        :value="ctx.formData.agentName"
+        :value="props.agentName"
         placeholder="e.g. Support Sidekick"
         autofocus
-        @input="
-          (e) => {
-            ctx.formData.agentName = e.target.value
-            ctx.setError('agent', null)
-          }
-        "
+        @input="onName"
       />
       <div v-if="ctx.errors.agent" class="ob-error-text">
         <CircleAlert :size="16" /> {{ ctx.errors.agent }}
@@ -59,12 +68,12 @@ function pickTemplate(tpl) {
           v-for="tpl in AGENT_TEMPLATES"
           :key="tpl.key"
           class="ob-tpl"
-          :class="{ 'is-active': ctx.formData.agentTemplate === tpl.key }"
+          :class="{ 'is-active': props.agentTemplate === tpl.key }"
           @click="pickTemplate(tpl)"
         >
           <span class="ob-tpl-label">{{ tpl.label }}</span>
           <span class="ob-tpl-desc">{{ tpl.desc }}</span>
-          <span v-if="ctx.formData.agentTemplate === tpl.key" class="ob-tpl-check">
+          <span v-if="props.agentTemplate === tpl.key" class="ob-tpl-check">
             <Check :size="16" />
           </span>
         </button>
@@ -75,10 +84,10 @@ function pickTemplate(tpl) {
       <label class="ob-label">System prompt</label>
       <textarea
         class="ob-textarea"
-        :value="ctx.formData.agentPrompt"
+        :value="props.agentPrompt"
         rows="5"
         placeholder="e.g. You are a knowledge assistant. Answer only from the indexed sources and cite the document for every claim…"
-        @input="(e) => (ctx.formData.agentPrompt = e.target.value)"
+        @input="(e) => emit('update:agentPrompt', e.target.value)"
       />
       <div class="ob-hint">
         This is your agent's job description. Edit freely — the template is just a head start.
@@ -94,7 +103,7 @@ function pickTemplate(tpl) {
       <button class="ob-btn ob-btn-secondary" @click="ctx.skip()">Skip for now</button>
       <button
         class="ob-btn ob-btn-primary"
-        :disabled="!ctx.formData.agentName.trim() || ctx.busy === 'agent'"
+        :disabled="!props.agentName.trim() || ctx.busy === 'agent'"
         @click="ctx.runAction('agent')"
       >
         <LoaderCircle v-if="ctx.busy === 'agent'" class="ob-spin" :size="16" />

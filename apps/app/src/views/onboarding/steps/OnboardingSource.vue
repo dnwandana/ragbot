@@ -14,10 +14,13 @@ import {
 
 const props = defineProps({
   ctx: { type: Object, required: true },
+  datasetName: { type: String, default: "" },
+  files: { type: Array, default: () => [] },
 })
+const emit = defineEmits(["update:datasetName", "update:files"])
 const ctx = props.ctx
 
-const phase = ref(ctx.formData.files.length > 0 ? "files" : "name")
+const phase = ref(props.files.length > 0 ? "files" : "name")
 const urlVal = ref("")
 const urlErr = ref(null)
 const dragging = ref(false)
@@ -76,7 +79,7 @@ function addFiles(list) {
     }
     return { id, name: f.name, size: f.size, status: "ready", type: "file", raw: f }
   })
-  ctx.formData.files = [...ctx.formData.files, ...entries]
+  emit("update:files", [...props.files, ...entries])
 }
 
 /**
@@ -102,7 +105,10 @@ function onPick(e) {
  * @param {string} id
  */
 function removeFile(id) {
-  ctx.formData.files = ctx.formData.files.filter((f) => f.id !== id)
+  emit(
+    "update:files",
+    props.files.filter((f) => f.id !== id),
+  )
 }
 
 function addUrl() {
@@ -114,16 +120,16 @@ function addUrl() {
     return
   }
   const url = v.startsWith("http") ? v : `https://${v}`
-  ctx.formData.files = [
-    ...ctx.formData.files,
+  emit("update:files", [
+    ...props.files,
     { id: `f${++fileSeq}`, name: url, status: "ready", type: "url", raw: null },
-  ]
+  ])
   urlVal.value = ""
   urlErr.value = null
 }
 
 const readyCount = computed(
-  () => ctx.formData.files.filter((f) => f.status === "ready" || f.status === "done").length,
+  () => props.files.filter((f) => f.status === "ready" || f.status === "done").length,
 )
 </script>
 
@@ -145,11 +151,11 @@ const readyCount = computed(
         <input
           id="ds-name"
           class="ob-input"
-          :value="ctx.formData.datasetName"
+          :value="props.datasetName"
           placeholder="Company knowledge"
           autofocus
-          @input="(e) => (ctx.formData.datasetName = e.target.value)"
-          @keydown.enter="ctx.formData.datasetName.trim() && (phase = 'files')"
+          @input="(e) => emit('update:datasetName', e.target.value)"
+          @keydown.enter="props.datasetName.trim() && (phase = 'files')"
         />
         <div class="ob-hint">A clear label you'll recognise later — e.g. "HR policies".</div>
       </div>
@@ -164,7 +170,7 @@ const readyCount = computed(
         <button class="ob-btn ob-btn-secondary" @click="ctx.skip()">Skip for now</button>
         <button
           class="ob-btn ob-btn-primary"
-          :disabled="!ctx.formData.datasetName.trim()"
+          :disabled="!props.datasetName.trim()"
           @click="phase = 'files'"
         >
           Continue <ArrowRight :size="16" />
@@ -182,7 +188,7 @@ const readyCount = computed(
       <p class="ob-subtitle">
         Uploading to
         <strong style="color: var(--ink); font-weight: 600">{{
-          ctx.formData.datasetName || "your dataset"
+          props.datasetName || "your dataset"
         }}</strong
         >. Drag files in, browse, or add a link.
       </p>
@@ -233,9 +239,9 @@ const readyCount = computed(
         </div>
       </div>
 
-      <div v-if="ctx.formData.files.length" class="ob-file-list">
+      <div v-if="props.files.length" class="ob-file-list">
         <div
-          v-for="f in ctx.formData.files"
+          v-for="f in props.files"
           :key="f.id"
           class="ob-file-item"
           :class="{ 'is-error': f.status === 'error' }"
