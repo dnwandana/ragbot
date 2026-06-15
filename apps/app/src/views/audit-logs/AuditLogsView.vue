@@ -138,9 +138,10 @@ const selectedActor = computed(() =>
 
 <style scoped>
 .page {
-  padding: 24px 28px 48px;
+  width: 100%;
   max-width: 1280px;
   margin: 0 auto;
+  padding: 24px 28px 48px;
 }
 .page-head {
   margin-bottom: 20px;

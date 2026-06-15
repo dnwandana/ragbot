@@ -14,8 +14,9 @@ const workspaceId = route.params.workspaceId
 
 <style scoped>
 .settings-canvas {
-  max-width: 900px;
+  width: 100%;
+  max-width: 1280px;
   margin: 0 auto;
-  padding: 28px 36px 60px;
+  padding: 24px 28px 48px;
 }
 </style>
