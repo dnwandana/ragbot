@@ -1,9 +1,9 @@
 <!-- apps/app/src/views/settings/SettingsRoles.vue -->
 <script setup>
-import { onMounted, computed } from "vue"
+import { onMounted, computed, ref, watch } from "vue"
 import { Button, Tooltip } from "ant-design-vue"
 import { Lock, ShieldCheck, Eye, Pencil, Trash2, Plus } from "lucide-vue-next"
-import RoleEditor from "@/components/roles/RoleEditor.vue"
+import RoleDrawer from "@/components/roles/RoleDrawer.vue"
 import DeleteRoleModal from "@/components/roles/DeleteRoleModal.vue"
 import { useRoles } from "@/composables/useRoles"
 import { usePermissions } from "@/composables/usePermissions"
@@ -44,6 +44,23 @@ const customRoles = computed(() => roles.value.filter((r) => !r.is_system))
 
 const editorRole = computed(() => (view.value.mode === "create" ? null : currentRole.value))
 
+// RoleDrawer's `mode` prop is required and only accepts create/edit/view. While the
+// list shows (drawer closed, view.mode === "list") we must still pass a valid mode.
+// Latch the last open mode (create/edit/view) so the panel keeps its appearance
+// through the slide-out leave animation instead of flipping to a fallback mid-close
+// (the flicker fix). The "view" default is safe because this view always mounts in
+// list mode, so the watch (without immediate) populates the latch before any open.
+const lastDrawerMode = ref("view")
+watch(
+  () => view.value.mode,
+  (m) => {
+    if (m !== "list") lastDrawerMode.value = m
+  },
+)
+const drawerMode = computed(() =>
+  view.value.mode === "list" ? lastDrawerMode.value : view.value.mode,
+)
+
 onMounted(async () => {
   await Promise.all([fetchRoles(props.workspaceId), fetchAllPermissions()])
 })
@@ -62,19 +79,8 @@ function deleteDisabledReason(role) {
 </script>
 
 <template>
-  <!-- Editor view -->
-  <RoleEditor
-    v-if="view.mode !== 'list' && allPermissions.length"
-    :mode="view.mode"
-    :role="editorRole"
-    :all-permissions="allPermissions"
-    :loading="loading"
-    @save="handleSubmit(workspaceId, $event)"
-    @cancel="backToList"
-  />
-
-  <!-- List view -->
-  <div v-else class="section-wrap">
+  <!-- List view (always rendered; the drawer overlays it) -->
+  <div class="section-wrap">
     <div class="section-hd">
       <div class="section-title">Roles</div>
       <div class="section-sub">Define what members with each role can do in this workspace.</div>
@@ -167,6 +173,17 @@ function deleteDisabledReason(role) {
       @cancel="closeDelete"
     />
   </div>
+
+  <!-- Slide-in editor drawer (overlays the list) -->
+  <RoleDrawer
+    :open="view.mode !== 'list'"
+    :mode="drawerMode"
+    :role="editorRole"
+    :all-permissions="allPermissions"
+    :loading="loading"
+    @save="handleSubmit(workspaceId, $event)"
+    @cancel="backToList"
+  />
 </template>
 
 <style scoped>

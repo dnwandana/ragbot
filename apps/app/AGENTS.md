@@ -172,7 +172,7 @@ Custom fetch-based client (NOT Axios). Key behaviors:
 | `OnboardingProgress`   | `components/onboarding/OnboardingProgress.vue` | Step-progress indicator for the onboarding flow                                                                                                                                                                                      |
 | `OnboardingToast`      | `components/onboarding/OnboardingToast.vue`    | Inline success/error toast used within onboarding                                                                                                                                                                                    |
 | `DeleteRoleModal`      | `components/roles/DeleteRoleModal.vue`         | Confirm deletion of a custom role, reassigning members to another role when needed                                                                                                                                                   |
-| `RoleEditor`           | `components/roles/RoleEditor.vue`              | Full-page create/edit/view editor for a workspace role                                                                                                                                                                               |
+| `RoleDrawer`           | `components/roles/RoleDrawer.vue`              | Slide-in create/edit/view drawer for a workspace role                                                                                                                                                                                |
 | `RolePermissionMatrix` | `components/roles/RolePermissionMatrix.vue`    | Permissions grouped by resource as rows with per-permission toggles                                                                                                                                                                  |
 
 ## API Service Catalog
@@ -223,7 +223,7 @@ Custom fetch-based client (NOT Axios). Key behaviors:
 ## File Naming
 
 - Views: `*View.vue` (e.g., `LoginView.vue`)
-- Components: PascalCase (e.g., `AppLayout.vue`, `RoleEditor.vue`)
+- Components: PascalCase (e.g., `AppLayout.vue`, `RoleDrawer.vue`)
 - Stores: camelCase with `use` prefix (e.g., `useAuthStore`)
 - Composables: camelCase with `use` prefix (e.g., `useAuth`, `useRoles`)
 - API modules: camelCase (e.g., `auth.js`, `invitations.js`)
