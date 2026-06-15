@@ -140,10 +140,7 @@ const columns = computed(() => {
               onConfirm: () => handleRemove(record.id),
             },
             () =>
-              h(Button, { danger: true, size: "small" }, () => [
-                h(Trash2, { size: 16 }),
-                " Remove",
-              ]),
+              h(Button, { danger: true, size: "small" }, () => [h(Trash2, { size: 16 }), "Remove"]),
           ),
         ])
       },

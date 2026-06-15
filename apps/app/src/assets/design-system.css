@@ -141,3 +141,12 @@ body {
   color: var(--ink);
   font-size: var(--t-base);
 }
+
+.ant-btn :where(svg.lucide) {
+  vertical-align: middle;
+}
+/* Gap only when a lucide icon has a text/sibling next to it (the broken case).
+   Icon-only buttons render the icon as :only-child, so this rule skips them. */
+.ant-btn :where(svg.lucide):first-child:not(:only-child) {
+  margin-inline-end: 6px;
+}
