@@ -85,6 +85,46 @@ describe("POST /api/workspaces", () => {
     expect(systemAgent.is_default).toBe(true)
   })
 
+  it("persists an optional description on create", async () => {
+    const user = await createTestUser()
+    const res = await (
+      await request()
+    )
+      .post("/api/workspaces")
+      .set(await getAuthHeaders(user.id))
+      .send({ name: "With Desc", description: "Customer support knowledge base" })
+
+    expect(res.status).toBe(201)
+    expect(res.body.data.name).toBe("With Desc")
+    expect(res.body.data.description).toBe("Customer support knowledge base")
+  })
+
+  it("creates a workspace when no description is provided", async () => {
+    const user = await createTestUser()
+    const res = await (
+      await request()
+    )
+      .post("/api/workspaces")
+      .set(await getAuthHeaders(user.id))
+      .send({ name: "No Desc" })
+
+    expect(res.status).toBe(201)
+    expect(res.body.data.description).toBeNull()
+  })
+
+  it("accepts an empty string description", async () => {
+    const user = await createTestUser()
+    const res = await (
+      await request()
+    )
+      .post("/api/workspaces")
+      .set(await getAuthHeaders(user.id))
+      .send({ name: "Empty Desc", description: "" })
+
+    expect(res.status).toBe(201)
+    expect(res.body.data.description).toBe("")
+  })
+
   it("allows two workspaces with the same name", async () => {
     const user = await createTestUser()
     const headers = await getAuthHeaders(user.id)

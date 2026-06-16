@@ -16,6 +16,7 @@ import {
 const bodySchema = joi
   .object({
     name: joi.string().min(1).max(100).required(),
+    description: joi.string().max(240).allow("").optional(),
     settings: joi.object().optional(),
   })
   .options({ stripUnknown: true })
@@ -118,7 +119,7 @@ const seedWorkspaceRoles = async (trx, workspaceId) => {
 /**
  * POST /api/workspaces — Create a new workspace.
  *
- * Runs a transaction that: creates the workspace record, seeds four system roles with
+ * Runs a transaction that: creates the workspace record (name + optional description + optional settings), seeds four system roles with
  * appropriate permission sets, adds the requesting user as an owner member, and
  * inserts a default system agent. Emits a workspace:create audit event.
  *
@@ -132,7 +133,7 @@ export const createWorkspace = async (req, res, next) => {
     const { error, value } = bodySchema.validate(req.body)
     if (error) throw new HttpError(HTTP_STATUS_CODE.BAD_REQUEST, error.details[0].message)
 
-    const { name, settings } = value
+    const { name, description, settings } = value
     const userId = req.user.id
     const workspaceId = crypto.randomUUID()
     const now = new Date()
@@ -142,11 +143,12 @@ export const createWorkspace = async (req, res, next) => {
         .insert({
           id: workspaceId,
           name,
+          ...(description !== undefined && { description }),
           ...(settings !== undefined && { settings: JSON.stringify(settings) }),
           created_at: now,
           updated_at: now,
         })
-        .returning(["id", "name", "settings", "created_at", "updated_at"])
+        .returning(["id", "name", "description", "settings", "created_at", "updated_at"])
 
       const roleIds = await seedWorkspaceRoles(trx, workspaceId)
 
@@ -188,7 +190,7 @@ export const createWorkspace = async (req, res, next) => {
         entity_type: "workspace",
         entity_id: workspaceId,
         action: "created",
-        changes: { name },
+        changes: { name, ...(description !== undefined && { description }) },
         context: { request_id: req.id },
       })
 
