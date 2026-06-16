@@ -9,6 +9,14 @@
       <a-form-item label="Name" name="name" :rules="[{ required: true, max: 100 }]">
         <a-input v-model:value="form.name" placeholder="My Workspace" />
       </a-form-item>
+      <a-form-item label="Description">
+        <a-textarea
+          v-model:value="form.description"
+          :rows="3"
+          :maxlength="240"
+          placeholder="What's this workspace for? (optional)"
+        />
+      </a-form-item>
       <a-button type="primary" html-type="submit" block>
         {{ workspace ? "Save Changes" : "Create Workspace" }}
       </a-button>
@@ -22,19 +30,23 @@ import { reactive, watch } from "vue"
 const props = defineProps({ visible: Boolean, workspace: Object })
 const emit = defineEmits(["close", "submit"])
 
-const form = reactive({ name: "" })
+const form = reactive({ name: "", description: "" })
 
 watch(
   () => props.workspace,
   (ws) => {
     form.name = ws?.name ?? ""
+    form.description = ws?.description ?? ""
   },
   { immediate: true },
 )
 
-/** Submit the form with the current name value. */
+/** Submit the form with the current name and description values. */
 function onFinish() {
-  emit("submit", { name: form.name })
+  emit("submit", {
+    name: form.name.trim(),
+    description: form.description.trim() || undefined,
+  })
 }
 </script>
 

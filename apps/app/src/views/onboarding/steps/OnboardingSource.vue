@@ -15,9 +15,10 @@ import {
 const props = defineProps({
   ctx: { type: Object, required: true },
   datasetName: { type: String, default: "" },
+  datasetDescription: { type: String, default: "" },
   files: { type: Array, default: () => [] },
 })
-const emit = defineEmits(["update:datasetName", "update:files"])
+const emit = defineEmits(["update:datasetName", "update:datasetDescription", "update:files"])
 const ctx = props.ctx
 
 const phase = ref(props.files.length > 0 ? "files" : "name")
@@ -158,6 +159,18 @@ const readyCount = computed(
           @keydown.enter="props.datasetName.trim() && (phase = 'files')"
         />
         <div class="ob-hint">A clear label you'll recognise later — e.g. "HR policies".</div>
+      </div>
+      <div class="ob-field">
+        <label class="ob-label" for="ds-desc">Description</label>
+        <textarea
+          id="ds-desc"
+          class="ob-input"
+          rows="3"
+          maxlength="1000"
+          :value="props.datasetDescription"
+          placeholder="What's in this dataset? (optional)"
+          @input="emit('update:datasetDescription', $event.target.value)"
+        />
       </div>
     </div>
     <div class="ob-actions">

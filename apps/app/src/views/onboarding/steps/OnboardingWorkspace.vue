@@ -4,8 +4,9 @@ import { LayoutGrid, ArrowLeft, LoaderCircle, CircleAlert } from "lucide-vue-nex
 const props = defineProps({
   ctx: { type: Object, required: true },
   workspaceName: { type: String, default: "" },
+  workspaceDescription: { type: String, default: "" },
 })
-const emit = defineEmits(["update:workspaceName"])
+const emit = defineEmits(["update:workspaceName", "update:workspaceDescription"])
 const ctx = props.ctx
 
 /**
@@ -49,6 +50,20 @@ function onName(e) {
         {{ ctx.errors.workspace }}
       </div>
       <div v-else class="ob-hint">Letters, numbers and spaces.</div>
+    </div>
+    <div class="ob-field">
+      <label class="ob-label" for="ws-desc">Description</label>
+      <div class="ob-input-wrap">
+        <textarea
+          id="ws-desc"
+          class="ob-input"
+          rows="3"
+          maxlength="240"
+          :value="props.workspaceDescription"
+          placeholder="A short line about your workspace (optional)"
+          @input="emit('update:workspaceDescription', $event.target.value)"
+        />
+      </div>
     </div>
   </div>
 

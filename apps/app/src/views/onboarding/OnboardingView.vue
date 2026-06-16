@@ -45,8 +45,10 @@ const view = ref("welcome")
 const stepIdx = ref(0)
 const formData = reactive({
   workspaceName: "",
+  workspaceDescription: "",
   invites: [],
   datasetName: "",
+  datasetDescription: "",
   files: [],
   agentName: DEFAULT_AGENT_NAME,
   agentTemplate: "support",
@@ -214,7 +216,10 @@ async function runAction(key) {
     }
     busy.value = "workspace"
     try {
-      const workspace = await workspacesStore.createWorkspace({ name })
+      const workspace = await workspacesStore.createWorkspace({
+        name,
+        description: formData.workspaceDescription.trim() || undefined,
+      })
       createdWorkspaceId.value = workspace.id
       await rolesStore.fetchRoles(workspace.id)
       roles.value = rolesStore.roles
@@ -259,6 +264,7 @@ async function runAction(key) {
     try {
       const dataset = await datasetsStore.createDataset(createdWorkspaceId.value, {
         name: formData.datasetName,
+        description: formData.datasetDescription.trim() || undefined,
       })
       createdDatasetId.value = dataset.id
       await Promise.allSettled([
@@ -413,7 +419,9 @@ onUnmounted(() => clearTimeout(toastTimer))
               v-if="STEPS[stepIdx].key === 'workspace'"
               :ctx="ctx"
               :workspace-name="formData.workspaceName"
+              :workspace-description="formData.workspaceDescription"
               @update:workspace-name="formData.workspaceName = $event"
+              @update:workspace-description="formData.workspaceDescription = $event"
             />
             <OnboardingInvite
               v-else-if="STEPS[stepIdx].key === 'invites'"
@@ -425,8 +433,10 @@ onUnmounted(() => clearTimeout(toastTimer))
               v-else-if="STEPS[stepIdx].key === 'source'"
               :ctx="ctx"
               :dataset-name="formData.datasetName"
+              :dataset-description="formData.datasetDescription"
               :files="formData.files"
               @update:dataset-name="formData.datasetName = $event"
+              @update:dataset-description="formData.datasetDescription = $event"
               @update:files="formData.files = $event"
             />
             <OnboardingAgent
