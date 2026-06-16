@@ -260,23 +260,40 @@ function initPendingConfig() {
 const sourcesPanelOpen = ref(false)
 const highlightedN = ref(null)
 const activeMsgId = ref(null)
+// One-shot signal: the id of the conversation onSend just created. The watcher
+// consumes it to skip its abort/reset/refetch exactly once, so the optimistic
+// first message survives — without suppressing refetch on later re-entry.
+const justCreatedId = ref(null)
 
 // Load conversation when route changes
 watch(
   conversationId,
   (id) => {
-    chat.abort()
     sourcesPanelOpen.value = false
     activeMsgId.value = null
     highlightedN.value = null
+    // onSend sets justCreatedId then seeds currentConversation before navigating
+    // here to start streaming. Skip the abort/reset/refetch exactly once for that
+    // just-created conversation: any of them would clobber the optimistic user
+    // message and the isStreaming flag sendMessage just set, leaving the first
+    // message stuck with no "Searching…" indicator. Every other navigation —
+    // including re-entering the same conversation later — falls through and
+    // refetches as before.
+    if (id && id === justCreatedId.value) {
+      justCreatedId.value = null
+      return
+    }
+    // Any other navigation expires a dangling one-shot flag so it can never
+    // suppress a later refetch of that id.
+    justCreatedId.value = null
+    chat.abort()
+    chatStore.reset()
     if (id && workspaceId.value) {
-      chatStore.reset()
       conversationsStore.fetchConversation(workspaceId.value, id)
     } else {
       // No conversation id → "new conversation" view. The component instance is
       // reused across the Chat/NewChat routes, so the previously loaded
       // conversation lingers in the store and would render here. Clear it.
-      chatStore.reset()
       conversationsStore.clearCurrentConversation()
     }
   },
@@ -346,8 +363,9 @@ const citationsByMsgId = computed(() => {
 const hasStreamingContent = computed(() => (chatStore.currentContent || "").length > 0)
 
 const loadingLabel = computed(() => {
-  const n = linkedDatasetIds.value.length || 3
-  return `Searching ${n} sources…`
+  const n = linkedDatasetIds.value.length
+  if (!n) return "Searching…"
+  return `Searching ${n} ${n === 1 ? "source" : "sources"}…`
 })
 
 // Build streaming message from chatStore state
@@ -425,6 +443,12 @@ async function onSend(text) {
       agent_id: pendingAgentId.value,
       dataset_ids: pendingDatasetIds.value,
     })
+    // Seed currentConversation before navigating so useChat.sendMessage can append
+    // the user's message optimistically — otherwise the first message stays hidden
+    // until the post-stream reload. justCreatedId tells the watcher (above) to skip
+    // its refetch for exactly this id, once.
+    justCreatedId.value = conv.id
+    conversationsStore.currentConversation = { ...conv, messages: [] }
     await router.replace({
       name: "Chat",
       params: { workspaceId: workspaceId.value, conversationId: conv.id },
