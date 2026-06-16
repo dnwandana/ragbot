@@ -57,13 +57,38 @@ describe("POST /api/workspaces/:id/agents", () => {
         model_config: {
           model: "openai/gpt-4.1",
           temperature: 0.3,
-          max_tokens: 2048,
         },
       })
 
     expect(res.status).toBe(201)
     expect(res.body.data.name).toBe("Legal Expert")
     expect(res.body.data.is_system).toBe(false)
+  })
+
+  it("ignores max_tokens in model_config (stripped, not persisted)", async () => {
+    const user = await createTestUser()
+    const ws = await createTestWorkspace(user.id)
+
+    const res = await (
+      await request()
+    )
+      .post(`/api/workspaces/${ws.id}/agents`)
+      .set(await getAuthHeaders(user.id))
+      .send({
+        name: "Capped Agent",
+        system_prompt: "You are a helpful assistant.",
+        model_config: {
+          model: "openai/gpt-4.1",
+          max_tokens: 2048,
+        },
+      })
+
+    expect(res.status).toBe(201)
+    const mc =
+      typeof res.body.data.model_config === "string"
+        ? JSON.parse(res.body.data.model_config)
+        : res.body.data.model_config
+    expect(mc).not.toHaveProperty("max_tokens")
   })
 
   it("returns 400 for missing system_prompt", async () => {
@@ -352,7 +377,6 @@ describe("agent model allowlist", () => {
           model: "anthropic/claude-sonnet-4-6",
           temperature: 0.7,
           top_p: 1,
-          max_tokens: 4096,
         }),
         is_system: false,
         created_by: userId,

@@ -4930,10 +4930,6 @@
             "minimum": 0,
             "maximum": 1,
             "default": 1
-          },
-          "max_tokens": {
-            "type": "integer",
-            "default": 4096
           }
         },
         "required": ["model"]

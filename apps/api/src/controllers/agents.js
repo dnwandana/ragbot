@@ -22,7 +22,6 @@ const modelConfigSchema = (extraModels = []) =>
       .required(),
     temperature: joi.number().min(0).max(2).default(0.7),
     top_p: joi.number().min(0).max(1).default(1),
-    max_tokens: joi.number().integer().min(1).max(32768).default(4096),
   })
 
 /** Joi schema for creating an agent. */

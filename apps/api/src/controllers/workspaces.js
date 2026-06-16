@@ -174,7 +174,6 @@ export const createWorkspace = async (req, res, next) => {
           model: process.env.DEFAULT_CHAT_MODEL,
           temperature: 0.7,
           top_p: 1,
-          max_tokens: 4096,
         }),
         is_system: true,
         is_default: true,

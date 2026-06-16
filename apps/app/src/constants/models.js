@@ -65,7 +65,6 @@ export const DEFAULT_MODEL_CONFIG = Object.freeze({
   model: "openai/gpt-5.4-mini",
   temperature: 0.7,
   top_p: 1,
-  max_tokens: 4096,
 })
 
 /**

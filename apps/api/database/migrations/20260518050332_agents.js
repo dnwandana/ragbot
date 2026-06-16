@@ -6,7 +6,7 @@ export async function up(knex) {
       name TEXT NOT NULL,
       description TEXT,
       system_prompt TEXT NOT NULL DEFAULT '',
-      model_config JSONB NOT NULL DEFAULT '{"model":"openai/gpt-5.4-mini","temperature":0.7,"top_p":1,"max_tokens":4096}',
+      model_config JSONB NOT NULL DEFAULT '{"model":"openai/gpt-5.4-mini","temperature":0.7,"top_p":1}',
       is_system BOOLEAN NOT NULL DEFAULT FALSE,
       is_default BOOLEAN NOT NULL DEFAULT FALSE,
       created_by UUID REFERENCES users(id) ON DELETE SET NULL,

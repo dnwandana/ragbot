@@ -63,7 +63,7 @@ export const embedBatch = async (texts, model = process.env.DEFAULT_EMBEDDINGS_M
  * @param {Object} [options]
  * @param {string} [options.model] - Chat model ID; defaults to DEFAULT_CHAT_MODEL env var
  * @param {number} [options.temperature=0.7] - Sampling temperature
- * @param {number} [options.max_tokens=4096] - Maximum tokens in the response
+ * @param {number} [options.max_tokens] - Optional cap on response tokens; omitted means uncapped (model/context-window limited)
  * @param {Object[]} [options.tools] - Tool definitions for function calling
  * @param {string|Object} [options.tool_choice] - Tool choice strategy
  * @returns {Promise<Object>} OpenAI-compatible chat completion response object
@@ -73,11 +73,12 @@ export const chatCompletion = async (messages, options = {}) => {
   const {
     model = process.env.DEFAULT_CHAT_MODEL,
     temperature = 0.7,
-    max_tokens = 4096,
+    max_tokens,
     tools,
     tool_choice,
   } = options
-  const body = { model, messages, temperature, max_tokens, stream: false }
+  const body = { model, messages, temperature, stream: false }
+  if (max_tokens != null) body.max_tokens = max_tokens
   if (tools) body.tools = tools
   if (tool_choice) body.tool_choice = tool_choice
 
@@ -102,7 +103,7 @@ export const chatCompletion = async (messages, options = {}) => {
  * @param {Object} [options]
  * @param {string} [options.model] - Chat model ID; defaults to DEFAULT_CHAT_MODEL env var.
  * @param {number} [options.temperature=0.7] - Sampling temperature.
- * @param {number} [options.max_tokens=4096] - Maximum tokens in the response.
+ * @param {number} [options.max_tokens] - Optional cap on response tokens; omitted means uncapped (model/context-window limited).
  * @param {Object[]} [options.tools] - Tool definitions for function calling.
  * @param {string|Object} [options.tool_choice] - Tool choice strategy.
  * @param {AbortSignal} [options.signal] - Optional caller signal; aborting it cancels the upstream fetch (combined with the stream timeout).
@@ -114,12 +115,13 @@ export const chatCompletionStream = async (messages, options = {}) => {
   const {
     model = process.env.DEFAULT_CHAT_MODEL,
     temperature = 0.7,
-    max_tokens = 4096,
+    max_tokens,
     tools,
     tool_choice,
     signal: externalSignal,
   } = options
-  const body = { model, messages, temperature, max_tokens, stream: true }
+  const body = { model, messages, temperature, stream: true }
+  if (max_tokens != null) body.max_tokens = max_tokens
   if (tools) body.tools = tools
   if (tool_choice) body.tool_choice = tool_choice
 

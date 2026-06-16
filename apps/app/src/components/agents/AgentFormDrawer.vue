@@ -78,7 +78,6 @@ watch(
         model: mc.model || DEFAULT_MODEL_CONFIG.model,
         temperature: mc.temperature ?? DEFAULT_MODEL_CONFIG.temperature,
         top_p: mc.top_p ?? DEFAULT_MODEL_CONFIG.top_p,
-        max_tokens: mc.max_tokens ?? DEFAULT_MODEL_CONFIG.max_tokens,
       }
       savedModel.value = mc.model || ""
     } else {
@@ -253,29 +252,17 @@ async function handleToggleDefault() {
               </template>
             </a-form-item>
 
-            <!-- Temperature + Max tokens side by side -->
-            <div class="two-col">
-              <a-form-item label="Temperature">
-                <a-slider
-                  v-model:value="form.model_config.temperature"
-                  :min="0"
-                  :max="2"
-                  :step="0.1"
-                  :marks="{ 0: '0', 1: '1', 2: '2' }"
-                  :disabled="agent?.is_system"
-                />
-              </a-form-item>
-              <a-form-item label="Max tokens">
-                <a-input-number
-                  v-model:value="form.model_config.max_tokens"
-                  :min="256"
-                  :max="32768"
-                  :step="256"
-                  :disabled="agent?.is_system"
-                  style="width: 100%"
-                />
-              </a-form-item>
-            </div>
+            <!-- Temperature -->
+            <a-form-item label="Temperature">
+              <a-slider
+                v-model:value="form.model_config.temperature"
+                :min="0"
+                :max="2"
+                :step="0.1"
+                :marks="{ 0: '0', 1: '1', 2: '2' }"
+                :disabled="agent?.is_system"
+              />
+            </a-form-item>
 
             <!-- Default agent toggle — only shown when editing an existing agent -->
             <template v-if="agent">
@@ -435,12 +422,6 @@ async function handleToggleDefault() {
   border: none;
   border-top: 1px solid var(--line);
   margin: 4px 0 16px;
-}
-
-.two-col {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0 16px;
 }
 
 .drawer-foot {
