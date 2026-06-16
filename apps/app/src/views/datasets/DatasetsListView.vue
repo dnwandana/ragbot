@@ -295,7 +295,7 @@ async function confirmDelete() {
     </div>
 
     <!-- Table view -->
-    <div v-else class="ds-table" :class="{ 'is-fetching': loading }">
+    <div v-else class="ds-table" :class="{ 'is-fetching': loading }" role="table">
       <div class="tbl-head tbl-cols">
         <div>Name</div>
         <div>Files</div>
@@ -307,7 +307,11 @@ async function confirmDelete() {
         v-for="ds in datasets"
         :key="ds.id"
         class="tbl-row tbl-cols"
+        role="row"
+        tabindex="0"
         @click="$router.push(`/workspaces/${workspaceId}/datasets/${ds.id}`)"
+        @keydown.enter.prevent="$router.push(`/workspaces/${workspaceId}/datasets/${ds.id}`)"
+        @keydown.space.prevent="$router.push(`/workspaces/${workspaceId}/datasets/${ds.id}`)"
       >
         <div>
           <div class="tbl-name">{{ ds.name }}</div>
@@ -318,7 +322,7 @@ async function confirmDelete() {
           {{ ds.total_size_mb ? `${Number(ds.total_size_mb).toFixed(0)} MB` : "—" }}
         </div>
         <div class="tbl-muted">{{ relativeTime(ds.updated_at) }}</div>
-        <div @click.stop>
+        <div @click.stop @keydown.stop>
           <div class="menu-wrap">
             <button
               class="menu-btn"
@@ -592,6 +596,11 @@ async function confirmDelete() {
 }
 .tbl-row:hover {
   background: var(--bg);
+}
+.tbl-row:focus-visible {
+  outline: none;
+  background: var(--bg-2);
+  box-shadow: inset 0 0 0 2px var(--brand-tint);
 }
 .tbl-row:last-child {
   border-radius: 0 0 var(--r-lg) var(--r-lg);
