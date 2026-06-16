@@ -87,7 +87,7 @@
       </div>
     </div>
 
-    <!-- Meta + copy (hover-revealed, not during streaming/error) -->
+    <!-- Meta + copy (static below the bubble, not during streaming/error) -->
     <div v-if="!msg.streaming && !msg.error" class="chat-message__actions">
       <span class="chat-message__role">RAGBot</span>
       <span class="chat-message__dot">·</span>
@@ -195,7 +195,7 @@ onUnmounted(() => clearTimeout(copyTimer))
   color: var(--ink-2);
 }
 
-/* ── Meta + actions row (hover-revealed) ── */
+/* ── Meta + actions row (static below the bubble) ── */
 .chat-message__actions {
   display: flex;
   align-items: center;
@@ -204,13 +204,6 @@ onUnmounted(() => clearTimeout(copyTimer))
   font-size: 11.5px;
   font-family: var(--font-mono);
   color: var(--ink-4);
-  opacity: 0;
-  transition: opacity var(--dur) var(--ease);
-}
-
-.chat-message:hover .chat-message__actions,
-.chat-message:has(:focus-visible) .chat-message__actions {
-  opacity: 1;
 }
 
 .chat-message--agent .chat-message__actions {
