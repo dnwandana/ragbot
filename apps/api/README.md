@@ -1,4 +1,4 @@
-# RAG Chatbot API
+# RAGBot API
 
 Workspace-based multi-tenant REST API for a RAG (Retrieval-Augmented Generation) chatbot platform. Express.js with PostgreSQL + pgvector, JWT authentication, RBAC, and async document processing pipeline.
 

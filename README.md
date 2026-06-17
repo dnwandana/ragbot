@@ -1,4 +1,4 @@
-# RAG Chatbot
+# RAGBot
 
 A workspace-based RAG (Retrieval-Augmented Generation) chatbot platform. Users upload documents into datasets, configure AI agents, and chat with their data — all isolated by workspace with role-based access control.
 
@@ -96,7 +96,7 @@ DEFAULT_EMBEDDINGS_MODEL=openai/text-embedding-3-small
 DEFAULT_CHAT_MODEL=openai/gpt-5.4-mini
 LLAMAINDEX_PARSE_TIER=cost_effective  # fast | cost_effective | agentic | agentic_plus
 S3_REGION=auto
-EMAIL_FROM_NAME=RAG Chatbot
+EMAIL_FROM_NAME=RAGBot
 ```
 
 ### App (`apps/app`)
@@ -467,7 +467,7 @@ See `apps/api/.env.example` for the full list with defaults.
 ## Project structure
 
 ```
-rag-chatbot/
+ragbot/
 ├── apps/
 │   ├── api/
 │   │   ├── src/

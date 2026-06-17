@@ -1,8 +1,8 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "RAG Chatbot API",
-    "description": "Workspace-scoped REST API for a RAG chatbot platform. Multi-tenant via workspace_id isolation. Auth uses httpOnly cookies (access_token, refresh_token). RBAC enforced via 31 permissions across 8 resources.\n\nEmail verification is required before signin. Account lockout applies after 5 consecutive failed signin attempts (15 minutes).\n\n**Auth convention**: Protected routes read `access_token` cookie. Workspace-scoped routes also require valid workspace membership; the permission required is noted in each endpoint description.",
+    "title": "RAGBot API",
+    "description": "Workspace-scoped REST API for the RAGBot platform. Multi-tenant via workspace_id isolation. Auth uses httpOnly cookies (access_token, refresh_token). RBAC enforced via 31 permissions across 8 resources.\n\nEmail verification is required before signin. Account lockout applies after 5 consecutive failed signin attempts (15 minutes).\n\n**Auth convention**: Protected routes read `access_token` cookie. Workspace-scoped routes also require valid workspace membership; the permission required is noted in each endpoint description.",
     "version": "3.0.0"
   },
   "servers": [

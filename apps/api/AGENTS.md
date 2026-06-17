@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-RAG Chatbot API — workspace-based multi-tenant Express.js REST API with PostgreSQL + pgvector, JWT authentication, RBAC, and a planned RAG pipeline. ES Modules (`"type": "module"`), Node.js v24+ (pinned in `.nvmrc`).
+RAGBot API — workspace-based multi-tenant Express.js REST API with PostgreSQL + pgvector, JWT authentication, RBAC, and a planned RAG pipeline. ES Modules (`"type": "module"`), Node.js v24+ (pinned in `.nvmrc`).
 
 ## Commands
 
@@ -321,7 +321,7 @@ Audit logging is implemented and wired (not planned). `src/utils/audit.js` expor
 
 Required: `DATABASE_URL`, `REDIS_URL` (Redis connection string — `redis://localhost:6379` locally, `rediss://` for TLS), `ACCESS_TOKEN_SECRET` (≥32 chars), `REFRESH_TOKEN_SECRET` (≥32 chars, must differ), `JWT_ISSUER`, `JWT_AUDIENCE`, `OPENROUTER_API_KEY`, `BREVO_API_KEY`, `EMAIL_FROM_ADDRESS`, `APP_URL`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_ENDPOINT`, `LLAMAINDEX_API_KEY`, `FIRECRAWL_API_KEY`
 
-Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_EXPIRES_IN` (15m), `REFRESH_TOKEN_EXPIRES_IN` (7d), `LOG_LEVEL` (info), `LOG_TO_FILE` (true), `CORS_ALLOWED_ORIGINS` (http://localhost:8080), `RATE_LIMIT_AUTH_MAX` (10, capped at 50), `RATE_LIMIT_GENERAL_MAX` (100), `DEFAULT_EMBEDDINGS_MODEL` (openai/text-embedding-3-small), `DEFAULT_CHAT_MODEL` (openai/gpt-5.4-mini), `S3_REGION` (auto), `EMAIL_FROM_NAME` ("RAG Chatbot"), `LLAMAINDEX_PARSE_TIER` (cost_effective), `OPENROUTER_STREAM_TIMEOUT_MS` (60000), `OPENROUTER_TIMEOUT_MS` (30000), `FIRECRAWL_TIMEOUT_MS` (60000), `LLAMAINDEX_TIMEOUT_MS` (30000), `S3_TIMEOUT_MS` (10000)
+Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_EXPIRES_IN` (15m), `REFRESH_TOKEN_EXPIRES_IN` (7d), `LOG_LEVEL` (info), `LOG_TO_FILE` (true), `CORS_ALLOWED_ORIGINS` (http://localhost:8080), `RATE_LIMIT_AUTH_MAX` (10, capped at 50), `RATE_LIMIT_GENERAL_MAX` (100), `DEFAULT_EMBEDDINGS_MODEL` (openai/text-embedding-3-small), `DEFAULT_CHAT_MODEL` (openai/gpt-5.4-mini), `S3_REGION` (auto), `EMAIL_FROM_NAME` ("RAGBot"), `LLAMAINDEX_PARSE_TIER` (cost_effective), `OPENROUTER_STREAM_TIMEOUT_MS` (60000), `OPENROUTER_TIMEOUT_MS` (30000), `FIRECRAWL_TIMEOUT_MS` (60000), `LLAMAINDEX_TIMEOUT_MS` (30000), `S3_TIMEOUT_MS` (10000)
 
 > `CORS_ALLOWED_ORIGINS` is **required** when `NODE_ENV=production` and must not be a localhost/loopback origin (`validateEnv` exits otherwise); it defaults to `http://localhost:8080` only outside production.
 

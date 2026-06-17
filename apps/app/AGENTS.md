@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Vue 3 SPA frontend for the RAG Chatbot platform. Cookie-based auth with automatic token refresh, Ant Design Vue UI, Pinia state management. No TypeScript.
+Vue 3 SPA frontend for the RAGBot platform. Cookie-based auth with automatic token refresh, Ant Design Vue UI, Pinia state management. No TypeScript.
 
 ## Development Commands
 

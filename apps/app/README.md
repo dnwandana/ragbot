@@ -1,6 +1,6 @@
-# RAG Chatbot Frontend
+# RAGBot Frontend
 
-Vue 3 SPA frontend for the RAG Chatbot platform. Features cookie-based JWT authentication with automatic token refresh, Ant Design Vue UI components, and a layered architecture built for scalability.
+Vue 3 SPA frontend for the RAGBot platform. Features cookie-based JWT authentication with automatic token refresh, Ant Design Vue UI components, and a layered architecture built for scalability.
 
 ## Monorepo Usage
 
