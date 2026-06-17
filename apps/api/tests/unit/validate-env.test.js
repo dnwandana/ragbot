@@ -114,6 +114,18 @@ describe("validateEnv — default propagation", () => {
     validateEnv()
     expect(process.env.S3_TIMEOUT_MS).toBe("2000")
   })
+
+  it("writes Joi default for EMAIL_FROM_NAME as 'RAGBot' when absent", () => {
+    delete process.env.EMAIL_FROM_NAME
+    validateEnv()
+    expect(process.env.EMAIL_FROM_NAME).toBe("RAGBot")
+  })
+
+  it("does not overwrite EMAIL_FROM_NAME when it is explicitly set", () => {
+    process.env.EMAIL_FROM_NAME = "Custom Sender"
+    validateEnv()
+    expect(process.env.EMAIL_FROM_NAME).toBe("Custom Sender")
+  })
 })
 
 describe("validateEnv — CORS production guard", () => {
