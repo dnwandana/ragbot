@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-RAGBot API — workspace-based multi-tenant Express.js REST API with PostgreSQL + pgvector, JWT authentication, RBAC, and a planned RAG pipeline. ES Modules (`"type": "module"`), Node.js v24+ (pinned in `.nvmrc`).
+RAGBot API — workspace-based multi-tenant Express.js REST API with PostgreSQL + pgvector, JWT authentication, RBAC, and a RAG pipeline. ES Modules (`"type": "module"`), Node.js v24+ (pinned in `.nvmrc`).
 
 ## Commands
 

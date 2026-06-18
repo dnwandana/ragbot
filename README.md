@@ -145,13 +145,13 @@ corepack pnpm dev:docs  # http://localhost:4173  (apps/docs VitePress dev server
 
 ## Scripts
 
-| Command       | Description                        |
-| ------------- | ---------------------------------- |
-| `pnpm dev`    | Start all apps in watch mode       |
-| `pnpm build`  | Build all apps                     |
-| `pnpm lint`   | Lint all apps                      |
+| Command       | Description                                          |
+| ------------- | ---------------------------------------------------- |
+| `pnpm dev`    | Start all apps in watch mode                         |
+| `pnpm build`  | Build all apps                                       |
+| `pnpm lint`   | Lint all apps                                        |
 | `pnpm test`   | Run all tests (API integration + app unit/component) |
-| `pnpm format` | Format all apps with Prettier      |
+| `pnpm format` | Format all apps with Prettier                        |
 
 Append `:api`, `:app`, `:web`, or `:docs` to target a single workspace (e.g. `pnpm build:web` for `apps/web` only).
 
@@ -426,7 +426,7 @@ docker compose up -d
 ### Useful commands
 
 ```bash
-docker compose logs -f              # tail logs from both containers
+docker compose logs -f              # tail logs from all containers
 docker compose logs -f api          # API logs only
 docker compose ps                   # container status
 

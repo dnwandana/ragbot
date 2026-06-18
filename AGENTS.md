@@ -32,7 +32,7 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 - **RBAC**: `requirePermission(name)` middleware, permissions resolved on `req.permissions`. 31 permissions across 8 resources (workspace, role, member, audit, dataset, file, agent, conversation)
 - **Request context**: `req.id` (request ID), `req.user` (from JWT). `req.workspace` and `req.permissions` are set by `resolveWorkspace` (`src/middlewares/resolve-workspace.js`), mounted via `router.use("/:workspace_id", resolveWorkspace)` in `routes/workspaces.js` — it loads the workspace and resolves the caller's permissions for RBAC
 - **Error handling**: Controllers throw `HttpError(status, msg)`, caught by centralized `errorHandler`
-- **Env validation**: API fails fast at startup if required vars are missing (expected behavior). The authoritative schema is `src/utils/validate-env.js` — 31 validated env vars (16 required; the rest have defaults), including `REDIS_URL`, scheme `redis://` or `rediss://`), covering OpenRouter, Brevo, S3/R2, LlamaIndex, Firecrawl, and Redis
+- **Env validation**: API fails fast at startup if required vars are missing (expected behavior). The authoritative schema is `src/utils/validate-env.js` — 35 validated env vars (16 required; the rest have defaults), including `REDIS_URL`, scheme `redis://` or `rediss://`, covering OpenRouter, Brevo, S3/R2, LlamaIndex, Firecrawl, and Redis
 - **Async processing**: BullMQ job queue backed by Redis — dataset file processing (upload, scrape, reprocess) runs in an inline worker started alongside Express
 
 ## Current implementation state
@@ -123,13 +123,13 @@ Two compose files. Production runs **five** containers (nginx edge + `web` + `ap
 ### Production (`docker-compose.yml`)
 
 ```bash
-docker compose build          # build both images
+docker compose build          # build all images
 docker compose up -d          # start detached
 docker compose logs -f        # tail logs
 docker compose ps             # check status
 ```
 
-- **Name-based virtual hosts** — one nginx edge container (built from `nginx/Dockerfile`) is a pure reverse proxy for three hostnames, each backed by its own container:
+- **Name-based virtual hosts** — one nginx edge container (built from `nginx/Dockerfile`) is a pure reverse proxy for four hostnames, each backed by its own container:
   - `${DOMAIN}` → proxies to the `web` container (Astro static site, `apps/web/Dockerfile`)
   - `app.${DOMAIN}` → proxies to the `app` container (Vue SPA, `apps/app/Dockerfile`)
   - `api.${DOMAIN}` → proxies to the `api` container (`http://api:3000`)

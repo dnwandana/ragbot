@@ -98,7 +98,7 @@ Each mock wraps `MockFrame` and recreates a real `apps/app` screen in HTML/CSS (
 
 ## Screenshots & the `Shot` workflow
 
-`public/screenshots/` holds real-app captures (34 images across 8 categories) surfaced in markdown via the `<Shot>` primitive:
+`public/screenshots/` holds real-app captures (26 images across 8 categories) surfaced in markdown via the `<Shot>` primitive:
 
 ```md
 <Shot src="/screenshots/auth/login.png" label="Sign in" caption="The sign-in screen." />
@@ -106,10 +106,10 @@ Each mock wraps `MockFrame` and recreates a real `apps/app` screen in HTML/CSS (
 
 | Category      | Count | Category      | Count |
 | ------------- | ----- | ------------- | ----- |
-| `auth/`       | 3     | `chat/`       | 7     |
+| `auth/`       | 3     | `chat/`       | 5     |
 | `workspaces/` | 3     | `settings/`   | 6     |
 | `datasets/`   | 5     | `audit/`      | 1     |
-| `agents/`     | 2     | `onboarding/` | 7     |
+| `agents/`     | 2     | `onboarding/` | 1     |
 
 `reference/tour.md` and `concepts/account.md` are the heaviest `Shot` consumers; the concept pages mostly use mockups instead. Screenshots are **captured manually** (headed Playwright while running `apps/app` locally) — there is no automated capture script. The capture/authoring workflow is documented in `vitepress-doc-prompt.md` at the repo root.
 

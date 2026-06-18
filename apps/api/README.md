@@ -229,8 +229,9 @@ Authentication uses **httpOnly cookies** set by the server. Tokens are never exp
 | Method | Endpoint                                | Description   | Permission         |
 | ------ | --------------------------------------- | ------------- | ------------------ |
 | GET    | `/api/workspaces/:id/members`           | List members  | member:read        |
+| GET    | `/api/workspaces/:id/members/:mid`      | Get member    | member:read        |
 | POST   | `/api/workspaces/:id/members/invite`    | Invite member | member:invite      |
-| PATCH  | `/api/workspaces/:id/members/:mid/role` | Change role   | member:manage_role |
+| PUT    | `/api/workspaces/:id/members/:mid/role` | Change role   | member:manage_role |
 | DELETE | `/api/workspaces/:id/members/:mid`      | Remove member | member:remove      |
 
 ### Datasets

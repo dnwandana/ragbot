@@ -20,7 +20,7 @@ You can still run package-local commands from `apps/app` with `pnpm`.
 
 - **Cookie-Based Auth**: JWT tokens in httpOnly cookies set by the server, automatic refresh on 401, request queuing during refresh
 - **RBAC-Aware UI**: Permission-gated components via `can()` / `canAny()` composables
-- **Workspaces & Members**: Workspace CRUD, member management, role editor with a permission matrix, and invitations
+- **Workspaces & Members**: Workspace CRUD, member management, role editor with a permission matrix, and invitations (send/accept; the "My Invitations" list is a frontend stub — `fetchMyInvitations` is a no-op until the backend list endpoint is wired)
 - **Onboarding**: Guided multi-step wizard (workspace → source → agent → invite) for new users
 - **Datasets**: Dataset list and detail views with file upload and URL-scrape sources
 - **Agents**: Agent CRUD via a side drawer with model configuration
@@ -132,6 +132,7 @@ src/
 │   ├── useProfile.js
 │   ├── useAccount.js
 │   ├── usePaginationUI.js
+│   ├── useSuggestedPrompts.js
 │   └── useTheme.js
 ├── views/         # Page components - *View.vue naming
 │   ├── auth/            # LoginView, SignupView, VerifyEmailView, ForgotPasswordView, ResetPasswordView
