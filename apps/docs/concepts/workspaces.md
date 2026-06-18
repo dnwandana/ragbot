@@ -18,7 +18,7 @@ Datasets, agents, chat history, and members all live **inside one workspace**. M
 
 ## Creating a workspace
 
-Open the workspace menu at the top of the sidebar and choose **Create workspace**. Give it a clear, specific name — usually a client, team, or project. You become its **Owner**, which means you can invite people and manage its settings. From there you can add your first dataset right away.
+Open the workspace menu at the top of the sidebar and choose **New workspace**. Give it a clear, specific name — usually a client, team, or project. You become its **Owner**, which means you can invite people and manage its settings. From there you can add your first dataset right away.
 
 ## Switching between workspaces
 

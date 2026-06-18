@@ -8,7 +8,9 @@ title: Members & Roles
 
 ## Inviting members
 
-If you're an Owner or Admin, open **Workspace settings › Members** and choose **Invite**. Enter the person's email and pick the role they should start with. They'll get an invitation; once they accept, they appear in your members list and can work in the workspace.
+If you're an Owner or Admin, open **Workspace settings › Members** and choose **Invite people**. Enter the person's email and pick the role they should start with. They'll get an invitation; once they accept, they appear in your members list and can work in the workspace. Until then, they show in a **pending invitations** section below the member list.
+
+<MembersTableMock />
 
 You can change someone's role or remove them at any time from the same list. A member only ever has access to **this** workspace — inviting someone here never touches your other workspaces.
 

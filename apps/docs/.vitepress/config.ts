@@ -17,6 +17,8 @@ export default defineConfig({
     outline: { label: "On this page", level: [2, 3] },
     nav: [
       { text: "Quick Start", link: "/getting-started/quick-start" },
+      { text: "Product Tour", link: "/reference/tour" },
+      { text: "Developers", link: "/developer/architecture" },
       { text: "FAQ", link: "/help/faq" },
     ],
     sidebar: [
@@ -24,6 +26,8 @@ export default defineConfig({
         text: "Getting Started",
         items: [
           { text: "Overview", link: "/" },
+          { text: "Accounts & Signing In", link: "/getting-started/signing-in" },
+          { text: "Onboarding", link: "/getting-started/onboarding" },
           { text: "Quick Start", link: "/getting-started/quick-start" },
         ],
       },
@@ -35,11 +39,28 @@ export default defineConfig({
           { text: "Datasets", link: "/concepts/datasets" },
           { text: "Agents", link: "/concepts/agents" },
           { text: "Chatting with your data", link: "/concepts/chatting" },
+          { text: "Audit logs", link: "/concepts/audit-logs" },
+          { text: "Your profile & account", link: "/concepts/account" },
+        ],
+      },
+      {
+        text: "Reference",
+        items: [{ text: "Product tour", link: "/reference/tour" }],
+      },
+      {
+        text: "For developers",
+        items: [
+          { text: "Architecture", link: "/developer/architecture" },
+          { text: "Running locally", link: "/developer/running-locally" },
+          { text: "Deployment", link: "/developer/deployment" },
         ],
       },
       {
         text: "Help",
-        items: [{ text: "FAQ", link: "/help/faq" }],
+        items: [
+          { text: "FAQ", link: "/help/faq" },
+          { text: "Troubleshooting", link: "/help/troubleshooting" },
+        ],
       },
     ],
   },

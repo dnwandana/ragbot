@@ -19,15 +19,15 @@ Everything in RAGBot is made of four simple pieces. Once these click, the rest o
 <Cards>
   <Card to="/concepts/workspaces" icon="layers" title="Workspaces" desc="A sealed space that holds all your datasets, agents, chats, and people. Nothing is shared between workspaces." />
   <Card to="/concepts/datasets" icon="database" title="Datasets" desc="Collections of uploaded documents — PDFs, Word files, text. RAGBot indexes them so agents can search inside." />
-  <Card to="/concepts/agents" icon="bot" title="Agents" desc="Assistants you configure and connect to datasets. Each has a model, a persona, and answers from its sources." />
-  <Card to="/concepts/chatting" icon="chat" title="Chat" desc="The conversation view. Pick an agent, ask a question, and read answers with cited sources. History is saved." />
+  <Card to="/concepts/agents" icon="bot" title="Agents" desc="Assistants you configure with a model and a persona. The workspace ships a ready-to-use default agent." />
+  <Card to="/concepts/chatting" icon="chat" title="Chat" desc="Pick an agent, choose which sources to search, ask a question, and read answers with cited sources. History is saved." />
 </Cards>
 
 ## How it fits together
 
-The pieces stack in one direction. A **workspace** contains everything. Inside it, you gather documents into **datasets**. You then create an **agent** and point it at one or more of those datasets. Finally, you open a **chat** with that agent and start asking.
+The pieces stack in one direction. A **workspace** contains everything. Inside it, you gather documents into **datasets**. To get answers, you open a **chat**: pick an **agent** (its persona and model) and choose which datasets it should search. The agent decides _how_ to answer; the chat decides _what_ it reads.
 
-Put simply: `workspace › datasets › agent › chat`. If you can remember that order, you can find your way around the whole product.
+Put simply: `workspace › datasets`, then `chat = agent + sources`. If you can remember that, you can find your way around the whole product.
 
 ::: tip New here?
 The fastest way to understand RAGBot is to build a tiny example yourself. The [Quick Start](/getting-started/quick-start) walks you from an empty workspace to your first answered question in five short steps.
