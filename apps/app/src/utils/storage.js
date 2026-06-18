@@ -23,3 +23,14 @@ export function setUserData(user) {
 export function clearUserData() {
   localStorage.removeItem(USER_DATA_KEY)
 }
+
+/** localStorage key holding the onboarding wizard's in-progress state. */
+export const ONBOARDING_KEY = "ragbot-onboarding-v1"
+
+/**
+ * Remove the onboarding wizard state so it never leaks across accounts.
+ * @returns {void}
+ */
+export function clearOnboardingData() {
+  localStorage.removeItem(ONBOARDING_KEY)
+}

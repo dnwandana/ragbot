@@ -14,6 +14,7 @@ import {
   descriptionForTemplate,
 } from "./agentTemplates.js"
 import { DEFAULT_MODEL_CONFIG } from "@/constants/models"
+import { ONBOARDING_KEY } from "@/utils/storage"
 import OnboardingProgress from "@/components/onboarding/OnboardingProgress.vue"
 import OnboardingToast from "@/components/onboarding/OnboardingToast.vue"
 import OnboardingWelcome from "./steps/OnboardingWelcome.vue"
@@ -31,7 +32,7 @@ const datasetsStore = useDatasetsStore()
 const filesStore = useDatasetFilesStore()
 const agentsStore = useAgentsStore()
 
-const LS_KEY = "ragbot-onboarding-v1"
+const LS_KEY = ONBOARDING_KEY
 const RESERVED = ["admin", "test", "ragbot", "demo", "www", "api"]
 
 const STEPS = [
@@ -43,17 +44,25 @@ const STEPS = [
 
 const view = ref("welcome")
 const stepIdx = ref(0)
-const formData = reactive({
-  workspaceName: "",
-  workspaceDescription: "",
-  invites: [],
-  datasetName: "",
-  datasetDescription: "",
-  files: [],
-  agentName: DEFAULT_AGENT_NAME,
-  agentTemplate: "support",
-  agentPrompt: DEFAULT_AGENT_PROMPT,
-})
+/**
+ * The wizard's pristine form state. Used to initialize `formData` and to reset
+ * it when stale state from another account is discarded.
+ * @returns {Object} a fresh copy of the default form fields
+ */
+function initialFormData() {
+  return {
+    workspaceName: "",
+    workspaceDescription: "",
+    invites: [],
+    datasetName: "",
+    datasetDescription: "",
+    files: [],
+    agentName: DEFAULT_AGENT_NAME,
+    agentTemplate: "support",
+    agentPrompt: DEFAULT_AGENT_PROMPT,
+  }
+}
+const formData = reactive(initialFormData())
 const completed = ref(new Set())
 const busy = ref(null)
 const errors = ref({})
@@ -375,7 +384,33 @@ restoreState()
 watchEffect(saveState)
 
 onMounted(async () => {
-  if (createdWorkspaceId.value && !roles.value.length) {
+  if (!createdWorkspaceId.value) return
+
+  // Validate the restored workspace against the signed-in user's real
+  // memberships. Onboarding state is persisted in localStorage and can be
+  // left behind by a previous account, so a restored id may point at a
+  // workspace the current user does not belong to.
+  // Only the workspaces store knows whether the fetch genuinely succeeded —
+  // it swallows errors into an empty list, so a discard must require a
+  // *confirmed* fetch, never the mere absence of a workspace.
+  if (!workspacesStore.workspaces.length) {
+    const verified = await workspacesStore.fetchWorkspaces()
+    if (!verified) return // couldn't verify membership — preserve restored state
+  }
+
+  const isMember = workspacesStore.workspaces.some((w) => w.id === createdWorkspaceId.value)
+  if (!isMember) {
+    // Stale state from another account/session — discard it and restart the wizard.
+    createdWorkspaceId.value = null
+    createdDatasetId.value = null
+    Object.assign(formData, initialFormData())
+    completed.value = new Set()
+    view.value = "steps"
+    stepIdx.value = 0
+    return
+  }
+
+  if (!roles.value.length) {
     try {
       await rolesStore.fetchRoles(createdWorkspaceId.value)
       roles.value = [...rolesStore.roles]

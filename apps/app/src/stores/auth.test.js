@@ -3,10 +3,12 @@ import { describe, it, expect, beforeEach, vi } from "vitest"
 import { setActivePinia, createPinia } from "pinia"
 
 vi.mock("../api/auth.js", () => ({ logout: vi.fn().mockResolvedValue({}), getMe: vi.fn() }))
+const { clearOnboardingData } = vi.hoisted(() => ({ clearOnboardingData: vi.fn() }))
 vi.mock("../utils/storage.js", () => ({
   getUserData: () => null,
   setUserData: vi.fn(),
   clearUserData: vi.fn(),
+  clearOnboardingData,
 }))
 
 import { useAuthStore } from "./auth.js"
@@ -50,5 +52,11 @@ describe("logout teardown", () => {
     await auth.logout()
     expect(chat.currentContent).toBe("")
     expect(chat.thoughts).toEqual([])
+  })
+
+  it("clears onboarding wizard state on logout", async () => {
+    const auth = useAuthStore()
+    await auth.logout()
+    expect(clearOnboardingData).toHaveBeenCalled()
   })
 })

@@ -2,11 +2,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { mount, flushPromises } from "@vue/test-utils"
 
-const { createAgent, createWorkspace, createDataset } = vi.hoisted(() => ({
-  createAgent: vi.fn().mockResolvedValue({}),
-  createWorkspace: vi.fn().mockResolvedValue({ id: "ws1" }),
-  createDataset: vi.fn().mockResolvedValue({ id: "ds1" }),
-}))
+const { createAgent, createWorkspace, createDataset, fetchRoles, fetchWorkspaces, wsState } =
+  vi.hoisted(() => ({
+    createAgent: vi.fn().mockResolvedValue({}),
+    createWorkspace: vi.fn().mockResolvedValue({ id: "ws1" }),
+    createDataset: vi.fn().mockResolvedValue({ id: "ds1" }),
+    fetchRoles: vi.fn().mockResolvedValue(undefined),
+    fetchWorkspaces: vi.fn().mockResolvedValue(undefined),
+    wsState: { workspaces: [] },
+  }))
 
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal()),
@@ -14,10 +18,16 @@ vi.mock("vue-router", async (importOriginal) => ({
 }))
 
 vi.mock("@/stores/workspaces", () => ({
-  useWorkspacesStore: () => ({ createWorkspace }),
+  useWorkspacesStore: () => ({
+    createWorkspace,
+    fetchWorkspaces,
+    get workspaces() {
+      return wsState.workspaces
+    },
+  }),
 }))
 vi.mock("@/stores/roles", () => ({
-  useRolesStore: () => ({ fetchRoles: vi.fn().mockResolvedValue(undefined), roles: [] }),
+  useRolesStore: () => ({ fetchRoles, roles: [] }),
 }))
 vi.mock("@/stores/datasets", () => ({
   useDatasetsStore: () => ({ createDataset }),
@@ -32,7 +42,11 @@ vi.mock("@/api/members", () => ({ inviteMember: vi.fn() }))
 
 import OnboardingView from "@/views/onboarding/OnboardingView.vue"
 import { DEFAULT_MODEL_CONFIG } from "@/constants/models"
-import { descriptionForTemplate } from "@/views/onboarding/agentTemplates.js"
+import {
+  descriptionForTemplate,
+  DEFAULT_AGENT_NAME,
+  DEFAULT_AGENT_PROMPT,
+} from "@/views/onboarding/agentTemplates.js"
 
 const AgentStepStub = {
   props: ["ctx"],
@@ -133,6 +147,7 @@ const SourceStepStub = {
 
 describe("OnboardingView source step", () => {
   beforeEach(() => {
+    wsState.workspaces = [{ id: "ws1" }]
     vi.clearAllMocks()
     localStorage.setItem(
       "ragbot-onboarding-v1",
@@ -158,6 +173,7 @@ describe("OnboardingView source step", () => {
 
   afterEach(() => {
     localStorage.removeItem("ragbot-onboarding-v1")
+    wsState.workspaces = []
   })
 
   it("creates the dataset with name and description", async () => {
@@ -206,6 +222,7 @@ describe("OnboardingView source step", () => {
 
 describe("OnboardingView agent step", () => {
   beforeEach(() => {
+    wsState.workspaces = [{ id: "ws1" }]
     vi.clearAllMocks()
     // Land directly on the agent step with a workspace already created —
     // the view restores this state from localStorage in onMounted.
@@ -231,6 +248,7 @@ describe("OnboardingView agent step", () => {
 
   afterEach(() => {
     localStorage.removeItem("ragbot-onboarding-v1")
+    wsState.workspaces = []
   })
 
   it("creates the agent with the catalog default model_config", async () => {
@@ -245,5 +263,109 @@ describe("OnboardingView agent step", () => {
       model_config: { ...DEFAULT_MODEL_CONFIG },
       is_default: true,
     })
+  })
+})
+
+describe("OnboardingView stale workspace guard", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    localStorage.removeItem("ragbot-onboarding-v1")
+    wsState.workspaces = []
+  })
+
+  const seed = (createdWorkspaceId) =>
+    localStorage.setItem(
+      "ragbot-onboarding-v1",
+      JSON.stringify({
+        view: "steps",
+        stepIdx: 3,
+        completed: ["workspace"],
+        createdWorkspaceId,
+        formData: {
+          workspaceName: "Acme",
+          invites: [],
+          datasetName: "",
+          files: [],
+          agentName: "Helper",
+          agentTemplate: "support",
+          agentPrompt: "You are helpful.",
+        },
+      }),
+    )
+
+  it("discards a createdWorkspaceId the current user no longer belongs to", async () => {
+    wsState.workspaces = [{ id: "ws1" }] // current user's real workspaces
+    seed("stale-ws") // not in the list
+    mount(OnboardingView, { global: { stubs: STUBS } })
+    await flushPromises()
+
+    expect(fetchRoles).not.toHaveBeenCalled()
+    const saved = JSON.parse(localStorage.getItem("ragbot-onboarding-v1"))
+    expect(saved.createdWorkspaceId).toBeNull()
+    expect(saved.stepIdx).toBe(0)
+    expect(saved.view).toBe("steps")
+    expect(saved.completed).not.toContain("workspace")
+    // Form fields from the previous account must not bleed through.
+    expect(saved.formData.workspaceName).toBe("")
+    expect(saved.formData.datasetName).toBe("")
+    expect(saved.formData.agentName).toBe(DEFAULT_AGENT_NAME)
+    expect(saved.formData.agentPrompt).toBe(DEFAULT_AGENT_PROMPT)
+  })
+
+  it("keeps a createdWorkspaceId the current user still belongs to and loads its roles", async () => {
+    wsState.workspaces = [{ id: "ws1" }]
+    seed("ws1")
+    mount(OnboardingView, { global: { stubs: STUBS } })
+    await flushPromises()
+
+    expect(fetchRoles).toHaveBeenCalledWith("ws1")
+    const saved = JSON.parse(localStorage.getItem("ragbot-onboarding-v1"))
+    expect(saved.createdWorkspaceId).toBe("ws1")
+  })
+
+  it("preserves restored state when membership cannot be verified (fetch fails)", async () => {
+    wsState.workspaces = [] // store empty -> guard must fetch to verify
+    fetchWorkspaces.mockResolvedValueOnce(false) // verification failed
+    seed("real-ws") // a workspace that IS the user's, but we can't confirm right now
+    mount(OnboardingView, { global: { stubs: STUBS } })
+    await flushPromises()
+
+    expect(fetchWorkspaces).toHaveBeenCalled()
+    // Must NOT discard: no roles fetched, state left intact.
+    expect(fetchRoles).not.toHaveBeenCalled()
+    const saved = JSON.parse(localStorage.getItem("ragbot-onboarding-v1"))
+    expect(saved.createdWorkspaceId).toBe("real-ws")
+    expect(saved.stepIdx).toBe(3)
+    expect(saved.formData.workspaceName).toBe("Acme")
+  })
+
+  it("clears all completed step markers when discarding stale state", async () => {
+    wsState.workspaces = [{ id: "ws1" }] // populated -> guard skips fetch, deterministic
+    localStorage.setItem(
+      "ragbot-onboarding-v1",
+      JSON.stringify({
+        view: "steps",
+        stepIdx: 3,
+        completed: ["workspace", "invites"], // later step also marked done
+        createdWorkspaceId: "stale-ws", // not in the user's list
+        formData: {
+          workspaceName: "Acme",
+          invites: [],
+          datasetName: "",
+          files: [],
+          agentName: "Helper",
+          agentTemplate: "support",
+          agentPrompt: "You are helpful.",
+        },
+      }),
+    )
+    mount(OnboardingView, { global: { stubs: STUBS } })
+    await flushPromises()
+
+    const saved = JSON.parse(localStorage.getItem("ragbot-onboarding-v1"))
+    expect(saved.completed).toEqual([])
   })
 })

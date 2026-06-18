@@ -1,7 +1,7 @@
 import { ref, computed } from "vue"
 import { defineStore } from "pinia"
 import * as authApi from "../api/auth.js"
-import { getUserData, setUserData, clearUserData } from "../utils/storage.js"
+import { getUserData, setUserData, clearUserData, clearOnboardingData } from "../utils/storage.js"
 import { resetAllStores } from "./reset.js"
 
 export const useAuthStore = defineStore("auth", () => {
@@ -66,6 +66,7 @@ export const useAuthStore = defineStore("auth", () => {
   async function logout() {
     user.value = null
     clearUserData()
+    clearOnboardingData()
     resetAllStores()
     try {
       await authApi.logout()

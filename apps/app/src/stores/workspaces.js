@@ -16,15 +16,17 @@ export const useWorkspacesStore = defineStore("workspaces", () => {
 
   /**
    * Fetch all workspaces the authenticated user belongs to.
-   * @returns {Promise<void>}
+   * @returns {Promise<boolean>} true if the fetch succeeded, false if it failed
    */
   async function fetchWorkspaces() {
     loading.value = true
     try {
       const res = await apiGetWorkspaces()
       workspaces.value = res.data.data
+      return true
     } catch {
       workspaces.value = []
+      return false
     } finally {
       loading.value = false
     }
