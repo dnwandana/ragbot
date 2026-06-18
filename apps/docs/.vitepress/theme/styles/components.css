@@ -3,7 +3,7 @@
   font-size: 17px;
   line-height: 1.6;
   color: var(--ink-3);
-  margin: 0 0 8px;
+  margin: 12px 0 8px;
   max-width: 62ch;
 }
 .inl,
@@ -68,6 +68,10 @@ code.inl {
 .card:hover {
   border-color: var(--line-2);
   box-shadow: var(--shadow-2);
+}
+.vp-doc a.card,
+.vp-doc a.card:hover {
+  text-decoration: none;
 }
 .card__icon {
   width: 38px;
@@ -200,48 +204,7 @@ code.inl {
   margin: -14px 0 26px;
 }
 
-/* ── file rows / chips ── */
-.filelist {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.filerow {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: 11px 13px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-}
-.filerow__ic {
-  width: 30px;
-  height: 30px;
-  border-radius: 6px;
-  background: var(--bg-2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--ink-3);
-  flex: none;
-}
-.filerow__meta {
-  min-width: 0;
-  flex: 1;
-}
-.filerow__name {
-  font: 500 var(--t-base)/1.3 var(--font-mono);
-  color: var(--ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.filerow__sub {
-  font-size: var(--t-xs);
-  color: var(--ink-4);
-  margin-top: 2px;
-}
+/* ── chips ── */
 .chip {
   display: inline-flex;
   align-items: center;
@@ -649,4 +612,202 @@ table.roles tbody tr:hover td {
   .fade-key {
     animation: none;
   }
+}
+
+/* ── shared mock primitives (auth, drawers, tables, wizard) ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font: 600 var(--t-sm)/1 var(--font-sans);
+  padding: 8px 14px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+.btn--primary {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+.btn--block {
+  width: 100%;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.field__label {
+  font-size: var(--t-sm);
+  color: var(--ink-3);
+}
+.field__input {
+  font: 500 var(--t-base)/1.3 var(--font-sans);
+  color: var(--ink-4);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 9px 11px;
+}
+.avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--brand-tint);
+  color: var(--brand-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 700 11.5px/1 var(--font-mono);
+  flex: none;
+}
+.dark .avatar {
+  color: var(--brand);
+}
+.spill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: 500 var(--t-xs)/1 var(--font-sans);
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: var(--bg-2);
+  color: var(--ink-2);
+  border: 1px solid var(--line);
+  white-space: nowrap;
+}
+.spill--ok {
+  background: var(--ok-bg);
+  color: var(--ok);
+  border-color: var(--ok-border);
+}
+.spill--warn {
+  background: var(--warn-bg);
+  color: var(--warn);
+  border-color: var(--warn-border);
+}
+.dark .spill--ok,
+.dark .spill--warn {
+  background: var(--bg);
+}
+/* left-aligned variant of the shared roles table */
+table.roles.ltable th:not(:first-child),
+table.roles.ltable td:not(:first-child) {
+  text-align: left;
+}
+
+/* ── new-chat mockup ── */
+.newchat {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.newchat__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 22px 0 8px;
+}
+.newchat__ava {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--ink);
+  color: var(--brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dark .newchat__ava {
+  background: var(--surface);
+}
+.newchat__hint {
+  font-size: var(--t-sm);
+  color: var(--ink-4);
+}
+.newchat__bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.composer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+.composer__ph {
+  flex: 1;
+  font-size: var(--t-base);
+  color: var(--ink-4);
+}
+.composer__send {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  background: var(--brand);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+/* ── citations panel mockup ── */
+.cites {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cite-src {
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+  padding: 12px 13px;
+}
+.cite-src__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cite-src__file {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 500 var(--t-base)/1 var(--font-mono);
+  color: var(--ink);
+}
+.cite-src__file svg {
+  color: var(--ink-3);
+}
+.cite-src__loc {
+  font: 500 var(--t-xs)/1 var(--font-mono);
+  color: var(--ink-4);
+}
+.cite-src__head .spill {
+  margin-left: auto;
+}
+.cite-src__quote {
+  margin: 9px 0 0;
+  font-size: var(--t-base);
+  line-height: 1.55;
+  color: var(--ink-2);
+  border-left: 2px solid var(--brand);
+  padding-left: 10px;
+}
+
+/* ── agent drawer footer ── */
+.drawer__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
 }

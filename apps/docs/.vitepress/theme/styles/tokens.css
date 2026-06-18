@@ -20,9 +20,11 @@
   --warn: #c47b00;
   --warn-bg: #fffbeb;
   --warn-border: rgba(196, 123, 0, 0.2);
+  --amber: #d97726;
   --err: #c0291f;
   --err-bg: #fef2f2;
   --err-border: rgba(192, 41, 31, 0.2);
+  --err-2: #a01f17;
   --line: rgba(24, 18, 12, 0.1);
   --line-2: rgba(24, 18, 12, 0.16);
   --shadow-1: 0 1px 2px rgba(24, 18, 12, 0.05);
@@ -42,6 +44,48 @@
   --font-sans: "Geist", "Inter", system-ui, sans-serif;
   --font-mono: "Geist Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --color-accent-border: rgba(255, 107, 53, 0.25);
+  /* ── Semantic aliases for mock components ──
+     Intentional, stable token API the product mockups style against
+     (e.g. WorkspaceMock). These map the prototype primitives above onto
+     app-style names (--color-*, --radius*, --shadow-*, --text-*) plus a
+     few layout dimensions, so mocks can be ported from apps/app with
+     minimal edits. Not all are consumed yet — they are a deliberate
+     contract for current and future mocks, not dead code; keep in sync
+     with the primitives above rather than pruning. */
+  --sidebar-width: 240px;
+  --topbar-height: 48px;
+  --composer-max: 760px;
+  --thread-max: 760px;
+  --color-accent-hover: var(--brand-2);
+  --color-accent-light: var(--brand-tint);
+  --color-accent-text: var(--brand);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-border-light: var(--line);
+  --color-text-secondary: var(--ink-3);
+  --color-text-muted: var(--ink-4);
+  --color-success: var(--ok);
+  --color-success-bg: var(--ok-bg);
+  --color-success-border: var(--ok-border);
+  --color-warning: var(--warn);
+  --color-warning-bg: var(--warn-bg);
+  --color-warning-border: var(--warn-border);
+  --color-error: var(--err);
+  --color-error-bg: var(--err-bg);
+  --color-error-border: var(--err-border);
+  --radius: var(--r);
+  --radius-sm: var(--r-sm);
+  --radius-lg: var(--r-lg);
+  --shadow-sm: var(--shadow-1);
+  --shadow-md: var(--shadow-2);
+  --shadow-lg: var(--shadow-3);
+  --font-family: "Geist", "Inter", system-ui, sans-serif;
+  --text-xs: var(--t-xs);
+  --text-sm: var(--t-sm);
+  --text-base: var(--t-base);
+  --text-md: var(--t-md);
+  --text-lg: var(--t-lg);
+  --text-xl: var(--t-xl);
 }
 
 /* Dark tokens — moved from [data-theme="dark"] to VitePress's .dark selector */
