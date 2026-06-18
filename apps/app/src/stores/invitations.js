@@ -57,6 +57,17 @@ export const useInvitationsStore = defineStore("invitations", () => {
   }
 
   /**
+   * Decline a pending workspace invitation.
+   * Not yet supported by the backend — no-op placeholder kept symmetric with
+   * acceptInvitation so the invitations view wires up without a missing handler.
+   * @param {string} invitationId - Invitation UUID to decline
+   * @returns {Promise<void>}
+   */
+  async function declineInvitation(invitationId) {
+    void invitationId
+  }
+
+  /**
    * Clear the current user's invitations state.
    * Used when logging out to avoid stale data.
    */
@@ -79,6 +90,7 @@ export const useInvitationsStore = defineStore("invitations", () => {
     fetchMyInvitations,
     inviteToWorkspace,
     acceptInvitation,
+    declineInvitation,
     clearMyInvitations,
   }
 })

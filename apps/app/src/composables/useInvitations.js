@@ -53,6 +53,15 @@ export function useInvitations() {
     await invitationsStore.acceptInvitation(invitationId)
   }
 
+  /**
+   * Handle declining a pending invitation
+   * @param {string} invitationId - Invitation UUID to decline
+   * @returns {Promise<void>}
+   */
+  async function handleDecline(invitationId) {
+    await invitationsStore.declineInvitation(invitationId)
+  }
+
   return {
     // Store state as computed
     myInvitations: computed(() => invitationsStore.myInvitations),
@@ -67,5 +76,6 @@ export function useInvitations() {
     closeInviteModal,
     handleInvite,
     handleAccept,
+    handleDecline,
   }
 }
