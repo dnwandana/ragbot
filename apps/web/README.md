@@ -18,6 +18,9 @@ Build-time public vars (Astro exposes `PUBLIC_`-prefixed vars via `import.meta.e
 
 - `PUBLIC_SITE_URL` — this site's canonical/SEO base; feeds `<link rel="canonical">`, Open Graph `og:url`, the sitemap, and `robots.txt`.
 - `PUBLIC_APP_URL` — the product app's URL; the deep-link target for CTAs (`${PUBLIC_APP_URL}/signup`).
+- `PUBLIC_DOCS_URL` — the docs site URL; the nav "Docs" and footer "Documentation" links point to `${PUBLIC_DOCS_URL}/`.
+
+All three are required and validated at build time (`astro.config.mjs` → `src/utils/validate-env.js`); there are no fallbacks.
 
 ## Directory map
 

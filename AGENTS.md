@@ -81,6 +81,7 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 - `BaseLayout` with SEO meta (canonical, Open Graph, Twitter), `@astrojs/sitemap`, prerendered `robots.txt`
 - Anti-flash dark-mode toggle (CSS-driven icon swap), scroll-reveal, animated hero chat demo (`public/scripts/app.js`)
 - CTAs deep-link to `${PUBLIC_APP_URL}/signup`
+- Nav and footer link to the docs site via `${PUBLIC_DOCS_URL}/` (build-time-validated public env var)
 - Runs as its own `web` container from `apps/web/Dockerfile` in **both** stacks. Production: no published ports, reverse-proxied at `${DOMAIN}` by the nginx edge. Local: published on host port 4321 via `docker-compose.local.yml`
 
 ### Tests

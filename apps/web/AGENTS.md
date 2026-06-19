@@ -26,8 +26,11 @@ From the repo root, the shortcuts `dev:web` / `build:web` / `lint:web` / `format
 
 Build-time public vars (Astro exposes `PUBLIC_`-prefixed vars via `import.meta.env`). Copy `.env.example` to `.env`:
 
-- `PUBLIC_SITE_URL` — canonical domain; feeds `<link rel="canonical">`, Open Graph `og:url`, the sitemap, and `robots.txt`. Defaults to `http://localhost:4321`.
-- `PUBLIC_APP_URL` — the product domain; CTAs link to `${PUBLIC_APP_URL}/signup`. Defaults to `http://localhost:8080`.
+- `PUBLIC_SITE_URL` — canonical domain; feeds `<link rel="canonical">`, Open Graph `og:url`, the sitemap, and `robots.txt`.
+- `PUBLIC_APP_URL` — the product domain; CTAs link to `${PUBLIC_APP_URL}/signup`.
+- `PUBLIC_DOCS_URL` — the docs site domain; the nav "Docs" and footer "Documentation" links point to `${PUBLIC_DOCS_URL}/`.
+
+All three are **required** and validated at build/dev-server startup by `src/utils/validate-env.js` (called from `astro.config.mjs`) — there are no in-code fallbacks; a missing value fails the build. Example values live in `.env.example`.
 
 ## Structure
 
@@ -43,7 +46,9 @@ apps/web/
 │   │   └── BaseLayout.astro    # <head> meta/OG/Twitter, anti-flash theme script, loads app.js
 │   ├── components/             # Nav, Hero, HowItWorks, Benefits, Reassurance, FinalCta, Footer, NotFound
 │   ├── icons/                  # static .astro SVG icon components (Logo, Mark)
-│   └── styles/                 # colors_and_type.css, marketing.css
+│   ├── styles/                 # colors_and_type.css, marketing.css
+│   └── utils/
+│       └── validate-env.js    # Joi validation of PUBLIC_* env, run from astro.config.mjs
 └── public/
     ├── assets/                 # logo/mark SVGs
     ├── favicon.svg             # site favicon
@@ -69,4 +74,4 @@ A single IIFE handling all client interactions, loaded via `<script src="/script
 
 - **Local** — runs as its own container via `apps/web/Dockerfile` (multi-stage: Astro build → nginx serves the static `dist/`). Wired into `docker-compose.local.yml` as the `web` service on host port **4321** (`http://localhost:4321`). nginx serves the static files with a baked-in `apps/web/nginx.conf` (security headers re-asserted on assets, `try_files $uri $uri/ =404` + `error_page 404 /404.html`, asset caching).
 - **Production** — runs as its own `web` container from the **same** `apps/web/Dockerfile`, with no published ports; the nginx edge reverse-proxies the apex domain (`${DOMAIN}`) to it via `nginx/templates/web.conf.template`. The edge no longer bakes the static `dist/`.
-- **Build args** — `PUBLIC_SITE_URL` (default `http://localhost:4321`) and `PUBLIC_APP_URL` (default `http://localhost:8080`); production passes `https://${DOMAIN}` and `https://app.${DOMAIN}`.
+- **Build args** — `PUBLIC_SITE_URL`, `PUBLIC_APP_URL`, and `PUBLIC_DOCS_URL` (no defaults — a build without them fails env validation). Production passes `https://${DOMAIN}`, `https://app.${DOMAIN}`, and `https://docs.${DOMAIN}`.

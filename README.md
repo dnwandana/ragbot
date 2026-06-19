@@ -115,9 +115,10 @@ VITE_API_BASE_URL=http://localhost:3000/api
 cp apps/web/.env.example apps/web/.env
 ```
 
-```bash
+```sh
 PUBLIC_SITE_URL=http://localhost:4321   # canonical/OG/sitemap/robots base URL
 PUBLIC_APP_URL=http://localhost:8080    # CTA "Sign up free" → ${PUBLIC_APP_URL}/signup
+PUBLIC_DOCS_URL=http://localhost:4173   # nav/footer docs links → ${PUBLIC_DOCS_URL}/
 ```
 
 ## Database setup
