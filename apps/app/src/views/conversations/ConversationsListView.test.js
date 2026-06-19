@@ -4,6 +4,7 @@ import { ref } from "vue"
 import { mount, flushPromises } from "@vue/test-utils"
 
 const { fetchAgents } = vi.hoisted(() => ({ fetchAgents: vi.fn() }))
+const { handleDelete } = vi.hoisted(() => ({ handleDelete: vi.fn() }))
 
 // Plain ref (not vi.hoisted, which runs before imports): the mock factory below
 // closes over it lazily, so it's initialized by the time the mock is consumed.
@@ -19,7 +20,7 @@ vi.mock("@/composables/useConversations", () => ({
   useConversations: () => ({
     conversations,
     loading: ref(false),
-    handleDelete: vi.fn(),
+    handleDelete,
     fetchConversations: vi.fn().mockResolvedValue(undefined),
   }),
 }))
@@ -41,11 +42,71 @@ vi.mock("@/composables/useFormattedTime", () => ({
 
 import ConversationsListView from "@/views/conversations/ConversationsListView.vue"
 
-const STUBS = { "a-skeleton": true, RouterLink: true }
+// Functional a-modal stub: always rendered (so findComponent resolves), exposes
+// the `open` prop and re-emits ok/cancel. This lets the tests assert the real
+// template wiring (`:open="!!deleteTarget"` and `@ok="confirmDelete"`) instead of
+// reaching into the component instance.
+const AModalStub = {
+  name: "AModal",
+  props: ["open"],
+  emits: ["ok", "cancel"],
+  template: '<div class="a-modal-stub"><slot /></div>',
+}
+
+const STUBS = { "a-skeleton": true, RouterLink: true, "a-modal": AModalStub }
 
 function mountView() {
   return mount(ConversationsListView, { global: { stubs: STUBS } })
 }
+
+describe("ConversationsListView delete confirmation", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    fetchAgents.mockResolvedValue([])
+  })
+
+  it("opens the confirm modal instead of deleting when the trash icon is clicked", async () => {
+    conversations.value = [{ id: "c1", created_at: 0, title: "Chat" }]
+    const wrapper = mountView()
+    await flushPromises()
+
+    const modal = wrapper.findComponent(AModalStub)
+    expect(modal.props("open")).toBe(false)
+
+    await wrapper.find(".conv-more").trigger("click")
+    expect(handleDelete).not.toHaveBeenCalled()
+    expect(modal.props("open")).toBe(true)
+  })
+
+  it("deletes only after the modal's confirm (ok) fires", async () => {
+    conversations.value = [{ id: "c1", created_at: 0, title: "Chat" }]
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.find(".conv-more").trigger("click")
+    const modal = wrapper.findComponent(AModalStub)
+    modal.vm.$emit("ok")
+    await flushPromises()
+
+    expect(handleDelete).toHaveBeenCalledWith("c1")
+    // The modal closes again once the deletion resolves.
+    expect(modal.props("open")).toBe(false)
+  })
+
+  it("cancel closes the modal without deleting", async () => {
+    conversations.value = [{ id: "c1", created_at: 0, title: "Chat" }]
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.find(".conv-more").trigger("click")
+    const modal = wrapper.findComponent(AModalStub)
+    modal.vm.$emit("cancel")
+    await flushPromises()
+
+    expect(handleDelete).not.toHaveBeenCalled()
+    expect(modal.props("open")).toBe(false)
+  })
+})
 
 describe("ConversationsListView calendar-day grouping", () => {
   beforeEach(() => {

@@ -34,6 +34,20 @@ function startNewConversation() {
   router.push({ name: "NewChat", params: { workspaceId } })
 }
 
+const deleteTarget = ref(null)
+
+/** @param {object} conv */
+function openDelete(conv) {
+  deleteTarget.value = conv
+}
+
+/** @returns {Promise<void>} */
+async function confirmDelete() {
+  if (!deleteTarget.value) return
+  await handleDelete(deleteTarget.value.id)
+  deleteTarget.value = null
+}
+
 const grouped = computed(() => {
   const today = [],
     thisWeek = [],
@@ -109,7 +123,7 @@ const grouped = computed(() => {
           </RouterLink>
           <button
             class="conv-more"
-            @click.stop="handleDelete(conv.id)"
+            @click.stop="openDelete(conv)"
             title="Delete conversation"
             aria-label="Delete conversation"
           >
@@ -124,6 +138,22 @@ const grouped = computed(() => {
         Start a new conversation…
       </button>
     </div>
+
+    <!-- Delete confirm modal -->
+    <a-modal
+      :open="!!deleteTarget"
+      title="Delete conversation?"
+      ok-text="Delete"
+      ok-type="danger"
+      cancel-text="Cancel"
+      @ok="confirmDelete"
+      @cancel="deleteTarget = null"
+    >
+      <p style="margin: 8px 0">
+        <strong>{{ deleteTarget?.title || "This conversation" }}</strong> and its messages will be
+        permanently removed.
+      </p>
+    </a-modal>
   </div>
 </template>
 
