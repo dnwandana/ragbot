@@ -24,13 +24,13 @@ const formState = reactive({
   role_id: undefined,
 })
 
-const rules = {
+const rules = reactive({
   email: [
     { required: true, message: "Please enter an email address" },
     { type: "email", message: "Please enter a valid email address" },
   ],
   role_id: [{ required: true, message: "Please select a role" }],
-}
+})
 
 const { validate, resetFields } = Form.useForm(formState, rules)
 
