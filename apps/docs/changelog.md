@@ -7,6 +7,18 @@ description: What's new in RAGBot — new features and improvements by version.
 
 What's new in RAGBot. The newest release is listed first.
 
+## 1.1.0 — 20 June 2026
+
+A small update to the RAGBot website. The documentation site is now linked
+directly from the homepage, so these guides are easier to find.
+
+### Improvements
+
+**Find the docs from the homepage**
+
+- The RAGBot homepage now links straight to this documentation site, from both
+  the top navigation and the footer.
+
 ## 1.0.0 — 19 June 2026
 
 The first public release of RAGBot. Create a workspace, add your documents, and
