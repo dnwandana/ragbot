@@ -113,7 +113,8 @@ src/
 │   ├── members.js
 │   ├── invitations.js
 │   ├── roles.js
-│   └── auditLogs.js
+│   ├── auditLogs.js
+│   └── reset.js          # resetAllStores() coordinator (called on logout)
 ├── composables/   # Composables - form handling, UI state
 │   ├── useAuth.js
 │   ├── useChat.js       # Chat sendMessage + abort
@@ -122,6 +123,7 @@ src/
 │   ├── useConversations.js
 │   ├── useDatasets.js
 │   ├── useDatasetFiles.js
+│   ├── useFileDetail.js
 │   ├── useAgents.js
 │   ├── useWorkspaces.js
 │   ├── useMembers.js
@@ -133,6 +135,7 @@ src/
 │   ├── useAccount.js
 │   ├── usePaginationUI.js
 │   ├── useSuggestedPrompts.js
+│   ├── useFormattedTime.js
 │   └── useTheme.js
 ├── views/         # Page components - *View.vue naming
 │   ├── auth/            # LoginView, SignupView, VerifyEmailView, ForgotPasswordView, ResetPasswordView
@@ -153,12 +156,15 @@ src/
 │   ├── InviteFormModal.vue
 │   ├── InvitationsTable.vue
 │   ├── MembersTable.vue
+│   ├── MarkdownMessage.vue
+│   ├── StrengthMeter.vue
+│   ├── VariationsToggle.vue
 │   ├── agents/          # AgentFormDrawer
 │   ├── audit/           # AuditTable, AuditFilterBar, AuditDetailDrawer, auditIcons, auditMaps
-│   ├── chat/            # ChatComposer, ChatMessage, ChatThread, ChatTopBar, CiteRef, DatasetDrawer, MarkdownRenderer, SourceCitations
+│   ├── chat/            # AgentDrawer, ChatComposer, ChatMessage, ChatThread, CiteRef, DatasetDrawer, MarkdownRenderer, SourceCitations, promptIcons
 │   ├── datasets/        # AddSourceDrawer, FileDetailPanel
 │   ├── onboarding/      # OnboardingProgress, OnboardingToast
-│   └── roles/           # RoleEditor, DeleteRoleModal, RolePermissionMatrix
+│   └── roles/           # RoleDrawer, DeleteRoleModal, RolePermissionMatrix, permissionGroupIcons
 ├── router/        # Vue Router configuration with auth guards
 ├── config/        # App config (antd-theme.js — Ant Design theme tokens)
 ├── constants/     # Shared constants (models.js — agent model picker catalog)
