@@ -1,5 +1,6 @@
 <script setup>
 import { onMounted } from "vue"
+import { Mail } from "lucide-vue-next"
 import { useInvitations } from "@/composables/useInvitations"
 import { useFormattedTime } from "@/composables/useFormattedTime"
 
@@ -34,7 +35,7 @@ const otherInvitations = (invs) => invs.filter((i) => i.status !== "pending")
 
     <!-- Empty state -->
     <div v-else-if="!myInvitations.length" class="empty-state">
-      <div class="empty-icon"><span aria-hidden="true">✉️</span></div>
+      <div class="empty-icon"><Mail :size="40" aria-hidden="true" /></div>
       <div class="empty-title">No pending invitations</div>
       <p class="empty-text">When someone invites you to a workspace, it will appear here.</p>
     </div>
