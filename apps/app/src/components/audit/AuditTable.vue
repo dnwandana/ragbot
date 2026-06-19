@@ -1,129 +1,176 @@
 <script setup>
+/**
+ * AuditTable — Displays audit-log events in an Ant Design table.
+ *
+ * Features:
+ *   - Actor column with avatar, name, and email
+ *   - Action column with verb label and resource pill (icon + label)
+ *   - Category column with soft-color badge and category icon
+ *   - Timestamp column with relative and absolute time
+ *   - Row click and keyboard activation (Enter / Space) emit "open"
+ *   - Selected row highlighted via at-row--sel class
+ *
+ * Props:
+ *   - events: array of raw audit-log objects from the API
+ *   - actorFor: function(userId) → { name, email, initials, color }
+ *   - selectedId: id of the currently open event (or null)
+ *
+ * Emits:
+ *   - open(event) — when a row is clicked or keyboard-activated
+ */
+
+import { Table } from "ant-design-vue"
 import { ChevronRight } from "lucide-vue-next"
 import { category, entityIcon, verb, resourceLabel } from "@/components/audit/auditMaps"
 import { auditIcon } from "@/components/audit/auditIcons"
 import { useFormattedTime } from "@/composables/useFormattedTime"
 
-defineProps({
+const props = defineProps({
   events: { type: Array, default: () => [] },
   actorFor: { type: Function, required: true },
   selectedId: { type: String, default: null },
 })
+
 const emit = defineEmits(["open"])
 
 const { relativeTime, timeOfDay } = useFormattedTime()
+
+/**
+ * Table column definitions — matches the original five columns.
+ * Cell content is rendered via the #bodyCell slot.
+ */
+const columns = [
+  { title: "Actor", key: "actor" },
+  { title: "Action", key: "action" },
+  { title: "Category", key: "category" },
+  { title: "Timestamp", key: "timestamp" },
+  { title: "", key: "caret" },
+]
+
+/**
+ * Build Ant Design customRow attributes for a row, attaching click and
+ * keyboard handlers that emit "open" — preserving the original a11y semantics
+ * (focusable row, Enter and Space both activate).
+ * @param {Object} record - Audit-log event row
+ * @returns {Object} Attribute/event object spread onto the <tr>
+ */
+function customRow(record) {
+  return {
+    tabindex: 0,
+    class: props.selectedId === record.id ? "at-row--sel" : "",
+    onClick: () => emit("open", record),
+    onKeydown: (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault()
+        emit("open", record)
+      }
+    },
+  }
+}
 </script>
 
 <template>
-  <div class="at" role="table">
-    <div class="at-head at-cols" role="row">
-      <div>Actor</div>
-      <div>Action</div>
-      <div>Category</div>
-      <div>Timestamp</div>
-      <div />
-    </div>
-
-    <div
-      v-for="e in events"
-      :key="e.id"
-      class="at-row at-cols"
-      :class="{ 'at-row--sel': selectedId === e.id }"
-      role="row"
-      tabindex="0"
-      @click="emit('open', e)"
-      @keydown.enter.prevent="emit('open', e)"
-      @keydown.space.prevent="emit('open', e)"
-    >
+  <Table
+    :columns="columns"
+    :data-source="events"
+    :row-key="(record) => record.id"
+    :pagination="false"
+    :custom-row="customRow"
+  >
+    <template #bodyCell="{ column, record }">
       <!-- Actor -->
-      <div class="at-actor">
-        <span class="at-avatar" :style="{ background: actorFor(e.user_id).color }">{{
-          actorFor(e.user_id).initials
-        }}</span>
-        <div class="at-actor-text">
-          <div class="at-actor-name">{{ actorFor(e.user_id).name }}</div>
-          <div class="at-actor-email">{{ actorFor(e.user_id).email }}</div>
+      <template v-if="column.key === 'actor'">
+        <div class="at-actor">
+          <span class="at-avatar" :style="{ background: actorFor(record.user_id).color }">{{
+            actorFor(record.user_id).initials
+          }}</span>
+          <div class="at-actor-text">
+            <div class="at-actor-name">{{ actorFor(record.user_id).name }}</div>
+            <div class="at-actor-email">{{ actorFor(record.user_id).email }}</div>
+          </div>
         </div>
-      </div>
+      </template>
 
       <!-- Action -->
-      <div class="at-action">
-        <span class="at-verb">{{ verb(e.action, e.entity_type) }}</span>
-        <span class="at-respill">
-          <component :is="auditIcon(entityIcon(e.entity_type))" :size="16" />
-          <span class="at-res-text">{{ resourceLabel(e) }}</span>
-        </span>
-      </div>
+      <template v-else-if="column.key === 'action'">
+        <div class="at-action">
+          <span class="at-verb">{{ verb(record.action, record.entity_type) }}</span>
+          <span class="at-respill">
+            <component :is="auditIcon(entityIcon(record.entity_type))" :size="16" />
+            <span class="at-res-text">{{ resourceLabel(record) }}</span>
+          </span>
+        </div>
+      </template>
 
       <!-- Category -->
-      <div>
+      <template v-else-if="column.key === 'category'">
         <span
           class="at-badge"
           :style="{
-            background: category(e.entity_type).softBg,
-            color: category(e.entity_type).text,
+            background: category(record.entity_type).softBg,
+            color: category(record.entity_type).text,
           }"
         >
-          <component :is="auditIcon(category(e.entity_type).icon)" :size="16" />
-          {{ category(e.entity_type).label }}
+          <component :is="auditIcon(category(record.entity_type).icon)" :size="16" />
+          {{ category(record.entity_type).label }}
         </span>
-      </div>
+      </template>
 
       <!-- Timestamp -->
-      <div class="at-ts">
-        <div class="at-rel">{{ relativeTime(e.created_at) }}</div>
-        <div class="at-abs">{{ timeOfDay(e.created_at) }}</div>
-      </div>
+      <template v-else-if="column.key === 'timestamp'">
+        <div class="at-ts">
+          <div class="at-rel">{{ relativeTime(record.created_at) }}</div>
+          <div class="at-abs">{{ timeOfDay(record.created_at) }}</div>
+        </div>
+      </template>
 
       <!-- Caret -->
-      <div class="at-caret"><ChevronRight :size="16" /></div>
-    </div>
-  </div>
+      <template v-else-if="column.key === 'caret'">
+        <div class="at-caret"><ChevronRight :size="16" /></div>
+      </template>
+    </template>
+  </Table>
 </template>
 
 <style scoped>
-.at {
-  display: flex;
-  flex-direction: column;
+:deep(.ant-table) {
+  border-radius: var(--r-lg);
+  overflow: hidden;
 }
-.at-cols {
-  display: grid;
-  grid-template-columns: minmax(220px, 1.2fr) minmax(280px, 1.9fr) 190px 180px 34px;
-  align-items: center;
-  column-gap: 14px;
-  padding: 13px 18px;
-}
-.at-head {
-  padding: 10px 18px;
+:deep(.ant-table-thead > tr > th) {
   background: var(--bg-2);
-  border-bottom: 1px solid var(--line-2);
-  position: sticky;
-  top: 0;
-  z-index: 2;
   font-size: var(--t-xs);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--ink-3);
-  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  border-bottom: 1px solid var(--line-2);
 }
-.at-row {
+:deep(.ant-table-tbody > tr > td) {
   border-bottom: 1px solid var(--line);
+  padding: 13px 18px;
   cursor: pointer;
-  outline: none;
-  transition: background var(--dur) var(--ease);
 }
-.at-row:hover {
-  background: var(--bg-2);
+:deep(.ant-table-tbody > tr:hover > td) {
+  background: var(--bg-2) !important;
 }
-.at-row:focus-visible {
-  background: var(--bg-2);
-  box-shadow: inset 0 0 0 2px var(--brand-tint);
-}
-.at-row--sel {
+:deep(.ant-table-tbody > tr.at-row--sel > td) {
   background: var(--brand-tint);
   box-shadow: inset 2px 0 0 var(--brand);
 }
+:deep(.ant-table-tbody > tr:focus-visible > td) {
+  background: var(--bg-2);
+  box-shadow: inset 0 0 0 2px var(--brand-tint);
+}
+:deep(.ant-table-tbody > tr) {
+  outline: none;
+  transition: background var(--dur) var(--ease);
+}
+:deep(.ant-table-tbody > tr:hover .at-caret),
+:deep(.ant-table-tbody > tr.at-row--sel .at-caret) {
+  color: var(--brand);
+}
+
 .at-actor {
   display: flex;
   align-items: center;
@@ -226,9 +273,5 @@ const { relativeTime, timeOfDay } = useFormattedTime()
   display: flex;
   justify-content: flex-end;
   color: var(--ink-4);
-}
-.at-row:hover .at-caret,
-.at-row--sel .at-caret {
-  color: var(--brand);
 }
 </style>

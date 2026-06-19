@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from "vue"
-import { Funnel, Zap, Users, ChevronDown, Check, X } from "lucide-vue-next"
+import { Funnel, Zap, Users, X } from "lucide-vue-next"
 import {
   ENTITY_TYPE_OPTIONS,
   ACTION_OPTIONS,
@@ -24,9 +24,14 @@ const actorLabel = computed(
   () => memberOptions.value.find((o) => o.value === props.userId)?.label || props.userId,
 )
 
-/** @param {string} field @param {string} value */
-function toggle(field, value) {
-  emit(`update:${field}`, props[field] === value ? null : value)
+/**
+ * Handle a-select change for a given filter field. Emits null when the selection
+ * is cleared (allowClear fires with undefined).
+ * @param {string} field - The prop/emit field name (entityType | action | userId)
+ * @param {string|null|undefined} value - New value from a-select onChange
+ */
+function onChange(field, value) {
+  emit(`update:${field}`, value ?? null)
 }
 
 const popupContainer = (trigger) => trigger.parentElement
@@ -36,74 +41,46 @@ const popupContainer = (trigger) => trigger.parentElement
   <div class="afb">
     <div class="afb-row">
       <!-- Event type -->
-      <a-dropdown :trigger="['click']" :get-popup-container="popupContainer">
-        <button class="afb-btn" :class="{ active: entityType }">
-          <Funnel :size="16" />
-          {{ entityType ? entityTypeLabel(entityType) : "Event type" }}
-          <ChevronDown :size="16" class="afb-caret" />
-        </button>
-        <template #overlay>
-          <div class="afb-menu">
-            <button
-              v-for="o in ENTITY_TYPE_OPTIONS"
-              :key="o.value"
-              class="afb-item"
-              :class="{ on: entityType === o.value }"
-              @click="toggle('entityType', o.value)"
-            >
-              <span class="afb-item-label">{{ o.label }}</span>
-              <Check v-if="entityType === o.value" :size="16" class="afb-check" />
-            </button>
-          </div>
-        </template>
-      </a-dropdown>
+      <div class="afb-select-wrap" :class="{ active: entityType }">
+        <span class="afb-select-icon"><Funnel :size="14" /></span>
+        <a-select
+          :value="entityType"
+          :options="ENTITY_TYPE_OPTIONS"
+          :allow-clear="true"
+          :get-popup-container="popupContainer"
+          placeholder="Event type"
+          class="afb-select"
+          @change="(v) => onChange('entityType', v)"
+        />
+      </div>
 
       <!-- Action -->
-      <a-dropdown :trigger="['click']" :get-popup-container="popupContainer">
-        <button class="afb-btn" :class="{ active: action }">
-          <Zap :size="16" />
-          {{ action ? actionLabel(action) : "Action" }}
-          <ChevronDown :size="16" class="afb-caret" />
-        </button>
-        <template #overlay>
-          <div class="afb-menu">
-            <button
-              v-for="o in ACTION_OPTIONS"
-              :key="o.value"
-              class="afb-item"
-              :class="{ on: action === o.value }"
-              @click="toggle('action', o.value)"
-            >
-              <span class="afb-item-label">{{ o.label }}</span>
-              <Check v-if="action === o.value" :size="16" class="afb-check" />
-            </button>
-          </div>
-        </template>
-      </a-dropdown>
+      <div class="afb-select-wrap" :class="{ active: action }">
+        <span class="afb-select-icon"><Zap :size="14" /></span>
+        <a-select
+          :value="action"
+          :options="ACTION_OPTIONS"
+          :allow-clear="true"
+          :get-popup-container="popupContainer"
+          placeholder="Action"
+          class="afb-select"
+          @change="(v) => onChange('action', v)"
+        />
+      </div>
 
       <!-- Actor -->
-      <a-dropdown :trigger="['click']" :get-popup-container="popupContainer">
-        <button class="afb-btn" :class="{ active: userId }">
-          <Users :size="16" />
-          {{ userId ? actorLabel : "Actor" }}
-          <ChevronDown :size="16" class="afb-caret" />
-        </button>
-        <template #overlay>
-          <div class="afb-menu afb-menu--scroll">
-            <button
-              v-for="o in memberOptions"
-              :key="o.value"
-              class="afb-item"
-              :class="{ on: userId === o.value }"
-              @click="toggle('userId', o.value)"
-            >
-              <span class="afb-item-label">{{ o.label }}</span>
-              <Check v-if="userId === o.value" :size="16" class="afb-check" />
-            </button>
-            <div v-if="!memberOptions.length" class="afb-empty">No members</div>
-          </div>
-        </template>
-      </a-dropdown>
+      <div class="afb-select-wrap" :class="{ active: userId }">
+        <span class="afb-select-icon"><Users :size="14" /></span>
+        <a-select
+          :value="userId"
+          :options="memberOptions"
+          :allow-clear="true"
+          :get-popup-container="popupContainer"
+          placeholder="Actor"
+          class="afb-select"
+          @change="(v) => onChange('userId', v)"
+        />
+      </div>
     </div>
 
     <!-- Active filters row -->
@@ -148,79 +125,90 @@ const popupContainer = (trigger) => trigger.parentElement
   align-items: center;
   gap: 8px;
 }
-.afb-btn {
+
+/* Select wrapper: positions the leading icon beside the a-select */
+.afb-select-wrap {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  height: 34px;
-  padding: 0 11px;
-  background: var(--surface);
-  border: 1px solid var(--line-2);
-  border-radius: var(--r-sm);
-  font-size: var(--t-base);
-  font-weight: 500;
-  color: var(--ink-2);
-  cursor: pointer;
-  white-space: nowrap;
 }
-.afb-btn:hover {
-  background: var(--bg-2);
+.afb-select-icon {
+  position: absolute;
+  left: 9px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  color: var(--ink-3);
+  pointer-events: none;
 }
-.afb-btn.active {
-  background: var(--brand-tint);
-  border-color: rgba(255, 107, 53, 0.25);
+.afb-select-wrap.active .afb-select-icon {
   color: var(--brand-3);
 }
-.afb-caret {
+
+/* a-select override: match the original afb-btn look */
+.afb-select-wrap :deep(.ant-select) {
+  min-width: 130px;
+}
+.afb-select-wrap :deep(.ant-select-selector) {
+  height: 34px !important;
+  padding: 0 28px 0 30px !important;
+  background: var(--surface) !important;
+  border: 1px solid var(--line-2) !important;
+  border-radius: var(--r-sm) !important;
+  font-size: var(--t-base) !important;
+  font-weight: 500 !important;
+  color: var(--ink-2) !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+}
+.afb-select-wrap :deep(.ant-select-selector:hover),
+.afb-select-wrap :deep(.ant-select:hover .ant-select-selector) {
+  background: var(--bg-2) !important;
+  border-color: var(--line-2) !important;
+}
+.afb-select-wrap :deep(.ant-select-focused .ant-select-selector),
+.afb-select-wrap :deep(.ant-select-selector:focus) {
+  box-shadow: none !important;
+  border-color: var(--brand) !important;
+}
+.afb-select-wrap :deep(.ant-select-selection-placeholder) {
+  color: var(--ink-2) !important;
+  font-weight: 500 !important;
+  line-height: 34px !important;
+}
+.afb-select-wrap :deep(.ant-select-selection-item) {
+  line-height: 34px !important;
+  font-weight: 500 !important;
+}
+.afb-select-wrap :deep(.ant-select-arrow) {
+  color: var(--ink-3);
   opacity: 0.6;
   font-size: 10px;
 }
-.afb-menu {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-  box-shadow: var(--shadow-2);
-  padding: 6px;
-  min-width: 200px;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
+.afb-select-wrap :deep(.ant-select-clear) {
+  color: var(--ink-3);
 }
-.afb-menu--scroll {
-  max-height: 300px;
-  overflow-y: auto;
+
+/* Active state: mirrors original .afb-btn.active */
+.afb-select-wrap.active :deep(.ant-select-selector) {
+  background: var(--brand-tint) !important;
+  border-color: rgba(255, 107, 53, 0.25) !important;
+  color: var(--brand-3) !important;
 }
-.afb-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 9px;
-  width: 100%;
-  padding: 7px 8px;
-  border: none;
-  background: transparent;
-  border-radius: var(--r-sm);
-  font-size: var(--t-base);
-  color: var(--ink);
-  cursor: pointer;
-  text-align: left;
+.afb-select-wrap.active :deep(.ant-select-selection-placeholder) {
+  color: var(--brand-3) !important;
 }
-.afb-item:hover {
-  background: var(--bg-2);
+.afb-select-wrap.active :deep(.ant-select-selection-item) {
+  color: var(--brand-3) !important;
 }
-.afb-item.on {
-  background: var(--brand-tint);
+.afb-select-wrap.active :deep(.ant-select-arrow) {
+  color: var(--brand-3);
+  opacity: 1;
 }
-.afb-check {
-  color: var(--brand);
-  font-size: 12px;
-}
-.afb-empty {
-  padding: 8px;
-  font-size: var(--t-sm);
-  color: var(--ink-4);
-  text-align: center;
-}
+
+/* Chips row */
 .afb-count {
   font-size: var(--t-sm);
   color: var(--ink-3);
