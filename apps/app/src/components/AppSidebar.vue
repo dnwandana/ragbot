@@ -1,5 +1,6 @@
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue"
+import { ref, computed, watch, reactive } from "vue"
+import { Form } from "ant-design-vue"
 import { useRoute, useRouter } from "vue-router"
 import {
   ChevronDown,
@@ -63,10 +64,18 @@ async function handleLogout() {
 const conversationsStore = useConversationsStore()
 
 const conversationSearch = ref("")
-const menuConvoId = ref(null)
-const menuAnchor = ref(null)
 const modalState = ref(null)
-const renameValue = ref("")
+const openMenuId = ref(null)
+
+// Form validation for the rename modal — rules must be reactive (repo gotcha)
+const renameFormState = reactive({ title: "" })
+const renameRules = reactive({
+  title: [{ required: true, message: "Name cannot be empty", whitespace: true }],
+})
+const { validate: validateRename, resetFields: resetRenameFields } = Form.useForm(
+  renameFormState,
+  renameRules,
+)
 
 const filteredConversations = computed(() => {
   const q = conversationSearch.value.toLowerCase().trim()
@@ -117,38 +126,28 @@ async function onRenameConversation(id, title) {
   await conversationsStore.updateConversation(workspaceId.value, id, { title })
 }
 
-function openKebabMenu(e, convoId) {
-  e.stopPropagation()
-  const rect = e.currentTarget.getBoundingClientRect()
-  menuConvoId.value = menuConvoId.value === convoId ? null : convoId
-  menuAnchor.value = {
-    top: Math.min(rect.bottom + 4, window.innerHeight - 96),
-    left: Math.min(rect.right - 168, window.innerWidth - 176),
-  }
-}
-
 function openRenameModal(convo) {
-  if (!convo) {
-    menuConvoId.value = null
-    return
-  }
-  renameValue.value = convo.title
+  if (!convo) return
+  resetRenameFields()
+  renameFormState.title = convo.title
   modalState.value = { type: "rename", convo }
-  menuConvoId.value = null
 }
 
 function openDeleteModal(convo) {
-  if (!convo) {
-    menuConvoId.value = null
-    return
-  }
+  if (!convo) return
   modalState.value = { type: "delete", convo }
-  menuConvoId.value = null
 }
 
 async function confirmRename() {
-  if (modalState.value?.convo && renameValue.value.trim()) {
-    await onRenameConversation(modalState.value.convo.id, renameValue.value.trim())
+  try {
+    await validateRename()
+  } catch {
+    // Validation failed — field-level errors shown by ant-design-vue
+    return
+  }
+  const title = renameFormState.title.trim()
+  if (modalState.value?.convo && title) {
+    await onRenameConversation(modalState.value.convo.id, title)
   }
   modalState.value = null
 }
@@ -160,8 +159,14 @@ async function confirmDelete() {
   modalState.value = null
 }
 
-function onDocumentClick() {
-  menuConvoId.value = null
+/** Close the rename modal without saving. */
+function cancelRename() {
+  modalState.value = null
+}
+
+/** Close the delete modal without deleting. */
+function cancelDelete() {
+  modalState.value = null
 }
 
 watch(
@@ -171,16 +176,6 @@ watch(
   },
   { immediate: true },
 )
-
-onMounted(() => {
-  document.addEventListener("click", onDocumentClick)
-  window.addEventListener("resize", onDocumentClick)
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener("click", onDocumentClick)
-  window.removeEventListener("resize", onDocumentClick)
-})
 </script>
 
 <template>
@@ -253,8 +248,8 @@ onBeforeUnmount(() => {
 
       <div class="sidebar-search">
         <Search class="sidebar-search__icon" :size="14" />
-        <input
-          v-model="conversationSearch"
+        <a-input
+          v-model:value="conversationSearch"
           class="sidebar-search__input"
           placeholder="Search conversations"
         />
@@ -275,7 +270,7 @@ onBeforeUnmount(() => {
             class="sidebar-convo-item"
             :class="{
               'sidebar-convo-item--active': route.params.conversationId === c.id,
-              'sidebar-convo-item--menu-open': menuConvoId === c.id,
+              'sidebar-convo-item--menu-open': openMenuId === c.id,
             }"
             @click="onSelectConversation(c.id)"
           >
@@ -283,13 +278,36 @@ onBeforeUnmount(() => {
             <span class="sidebar-convo-item__title">{{ c.title }}</span>
             <div class="sidebar-convo-item__trail">
               <span class="sidebar-convo-item__time">{{ relativeTime(c.created_at) }}</span>
-              <button
-                class="sidebar-convo-item__kebab"
-                aria-label="Conversation options"
-                @click.stop="openKebabMenu($event, c.id)"
+              <a-dropdown
+                :trigger="['click']"
+                :overlay-class-name="'sidebar-menu-overlay'"
+                placement="bottomRight"
+                @click.stop
+                @open-change="(vis) => (openMenuId = vis ? c.id : null)"
               >
-                <Ellipsis :size="16" />
-              </button>
+                <button
+                  class="sidebar-convo-item__kebab"
+                  aria-label="Conversation options"
+                  aria-haspopup="menu"
+                  @click.stop
+                >
+                  <Ellipsis :size="16" />
+                </button>
+                <template #overlay>
+                  <a-menu>
+                    <a-menu-item key="rename" @click="openRenameModal(c)">
+                      <Pencil :size="16" class="sidebar-menu-icon" /> Rename
+                    </a-menu-item>
+                    <a-menu-item
+                      key="delete"
+                      class="sidebar-menu__item--danger"
+                      @click="openDeleteModal(c)"
+                    >
+                      <Trash2 :size="16" class="sidebar-menu-icon" /> Delete
+                    </a-menu-item>
+                  </a-menu>
+                </template>
+              </a-dropdown>
             </div>
           </div>
         </div>
@@ -379,91 +397,45 @@ onBeforeUnmount(() => {
         <LogOut :size="14" :stroke-width="1.7" />
       </button>
     </div>
-    <!-- Kebab dropdown -->
-    <Teleport to="body">
-      <div
-        v-if="menuConvoId && menuAnchor"
-        class="sidebar-menu"
-        :style="{ top: menuAnchor.top + 'px', left: menuAnchor.left + 'px' }"
-      >
-        <div
-          class="sidebar-menu__item"
-          @click.stop="
-            openRenameModal(conversationsStore.conversations.find((c) => c.id === menuConvoId))
-          "
-        >
-          <Pencil :size="16" /> Rename
-        </div>
-        <div
-          class="sidebar-menu__item sidebar-menu__item--danger"
-          @click.stop="
-            openDeleteModal(conversationsStore.conversations.find((c) => c.id === menuConvoId))
-          "
-        >
-          <Trash2 :size="16" /> Delete
-        </div>
-      </div>
-    </Teleport>
-
     <!-- Rename modal -->
-    <Teleport to="body">
-      <div
-        v-if="modalState?.type === 'rename'"
-        class="sidebar-scrim"
-        @mousedown.self="modalState = null"
-      >
-        <div class="sidebar-modal">
-          <div class="sidebar-modal__title">Rename conversation</div>
-          <div class="sidebar-modal__body">
-            Give this conversation a clear name so it's easy to find later.
-          </div>
-          <input
-            v-model="renameValue"
-            class="sidebar-modal__input"
-            maxlength="80"
+    <a-modal
+      :open="modalState?.type === 'rename'"
+      title="Rename conversation"
+      ok-text="Save"
+      :wrap-class-name="'convo-rename-wrap'"
+      @ok="confirmRename"
+      @cancel="cancelRename"
+    >
+      <a-form :model="renameFormState" :rules="renameRules" layout="vertical">
+        <a-form-item name="title">
+          <a-input
+            v-model:value="renameFormState.title"
+            :maxlength="80"
+            placeholder="Conversation name"
             autofocus
-            @keydown.enter="confirmRename"
-            @keydown.escape="modalState = null"
           />
-          <div class="sidebar-modal__actions">
-            <button class="sidebar-modal__btn-ghost" @click="modalState = null">Cancel</button>
-            <button
-              class="sidebar-modal__btn-primary"
-              :disabled="!renameValue.trim()"
-              @click="confirmRename"
-            >
-              Save
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+        </a-form-item>
+      </a-form>
+    </a-modal>
 
     <!-- Delete modal -->
-    <Teleport to="body">
-      <div
-        v-if="modalState?.type === 'delete'"
-        class="sidebar-scrim"
-        @mousedown.self="modalState = null"
-      >
-        <div class="sidebar-modal">
-          <div style="display: flex; gap: 13px; align-items: flex-start">
-            <span class="sidebar-modal__error-icon"><Trash2 :size="16" /></span>
-            <div>
-              <div class="sidebar-modal__title">Delete conversation?</div>
-              <div class="sidebar-modal__body">
-                This permanently removes "{{ modalState.convo?.title }}" and all of its messages.
-                This can't be undone.
-              </div>
-            </div>
-          </div>
-          <div class="sidebar-modal__actions">
-            <button class="sidebar-modal__btn-ghost" @click="modalState = null">Cancel</button>
-            <button class="sidebar-modal__btn-danger" @click="confirmDelete">Delete</button>
-          </div>
-        </div>
+    <a-modal
+      :open="modalState?.type === 'delete'"
+      title="Delete conversation?"
+      ok-text="Delete"
+      :ok-button-props="{ danger: true }"
+      :wrap-class-name="'convo-delete-wrap'"
+      @ok="confirmDelete"
+      @cancel="cancelDelete"
+    >
+      <div class="convo-delete-body">
+        <span class="convo-delete-icon"><Trash2 :size="16" /></span>
+        <p class="convo-delete-text">
+          This permanently removes "{{ modalState?.convo?.title }}" and all of its messages. This
+          can't be undone.
+        </p>
       </div>
-    </Teleport>
+    </a-modal>
   </div>
 </template>
 
@@ -643,6 +615,9 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
+/* a-input renders <input class="ant-input sidebar-search__input">; combine
+   classes to outrank Ant's .ant-input defaults and keep the exact look. */
+.sidebar-search__input.ant-input,
 .sidebar-search__input {
   width: 100%;
   padding: 7px 10px 7px 30px;
@@ -650,10 +625,13 @@ onBeforeUnmount(() => {
   border: 1px solid var(--line);
   background: var(--surface);
   outline: none;
+  box-shadow: none;
   font: 400 12.5px var(--font-sans);
   color: var(--ink);
 }
 
+.sidebar-search__input.ant-input:focus,
+.sidebar-search__input.ant-input-focused,
 .sidebar-search__input:focus {
   border-color: var(--brand);
   box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.14);
@@ -796,19 +774,20 @@ onBeforeUnmount(() => {
     pointer-events: auto;
   }
 }
+</style>
 
-.sidebar-menu {
-  position: fixed;
+<!-- Non-scoped: styles for the portaled kebab overlay (under .sidebar-menu-overlay class) -->
+<style>
+.sidebar-menu-overlay .ant-dropdown-menu {
   min-width: 168px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r);
   box-shadow: var(--shadow-3);
   padding: 6px;
-  z-index: 120;
 }
 
-.sidebar-menu__item {
+.sidebar-menu-overlay .ant-dropdown-menu-item {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -821,108 +800,113 @@ onBeforeUnmount(() => {
   transition: background var(--dur) var(--ease);
 }
 
-.sidebar-menu__item:hover {
+.sidebar-menu-overlay .ant-dropdown-menu-item:hover {
   background: var(--bg-2);
 }
 
-.sidebar-menu__item--danger {
+.sidebar-menu-overlay .ant-dropdown-menu-item.sidebar-menu__item--danger {
   color: var(--err);
 }
 
-.sidebar-menu__item--danger:hover {
+.sidebar-menu-overlay .ant-dropdown-menu-item.sidebar-menu__item--danger:hover {
   background: var(--err-bg);
 }
 
-.sidebar-scrim {
-  position: fixed;
-  inset: 0;
-  background: rgba(24, 18, 12, 0.45);
+.sidebar-menu-overlay .sidebar-menu-icon {
+  flex-shrink: 0;
+  color: inherit;
+}
+.sidebar-menu-overlay .ant-dropdown-menu-title-content {
   display: flex;
   align-items: center;
-  justify-content: center;
-  z-index: 200;
+  gap: 10px;
 }
+</style>
 
-.sidebar-modal {
-  width: 420px;
-  max-width: calc(100vw - 32px);
+<!-- Non-scoped: styles for the rename modal portal (under .convo-rename-wrap) -->
+<style>
+.convo-rename-wrap .ant-modal-content {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-3);
-  padding: 22px;
 }
 
-.sidebar-modal__title {
+.convo-rename-wrap .ant-modal-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.convo-rename-wrap .ant-modal-title {
   font-size: var(--t-lg);
   font-weight: 600;
   color: var(--ink);
 }
 
-.sidebar-modal__body {
-  font-size: var(--t-base);
-  color: var(--ink-3);
-  line-height: 1.55;
-  margin-top: 8px;
+.convo-rename-wrap .ant-modal-body {
+  padding: 16px 24px;
 }
 
-.sidebar-modal__input {
+.convo-rename-wrap .ant-input {
   width: 100%;
-  margin-top: 16px;
   padding: 10px 12px;
   border-radius: var(--r);
   border: 1px solid var(--brand);
-  outline: none;
   background: var(--surface);
   font: 400 14px var(--font-sans);
   color: var(--ink);
   box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.16);
 }
 
-.sidebar-modal__actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 20px;
+.convo-rename-wrap .ant-input:focus,
+.convo-rename-wrap .ant-input-focused {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.16);
 }
 
-.sidebar-modal__btn-ghost {
-  padding: 8px 14px;
-  border-radius: var(--r-sm);
-  background: transparent;
-  border: 1px solid var(--line-2);
-  color: var(--ink-2);
-  font: 500 13px var(--font-sans);
-  cursor: pointer;
-}
-
-.sidebar-modal__btn-primary {
-  padding: 8px 14px;
-  border-radius: var(--r-sm);
+.convo-rename-wrap .ant-btn-primary {
   background: var(--brand);
-  border: none;
-  color: #fff;
-  font: 600 13px var(--font-sans);
-  cursor: pointer;
+  border-color: var(--brand);
+  font-weight: 600;
 }
 
-.sidebar-modal__btn-primary:disabled {
-  background: var(--bg-2);
-  color: var(--ink-4);
-  cursor: not-allowed;
+.convo-rename-wrap .ant-btn-primary:hover {
+  background: var(--brand-2);
+  border-color: var(--brand-2);
+}
+</style>
+
+<!-- Non-scoped: styles for the delete modal portal (under .convo-delete-wrap) -->
+<style>
+.convo-delete-wrap .ant-modal-content {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-3);
 }
 
-.sidebar-modal__btn-danger {
-  padding: 8px 14px;
-  border-radius: var(--r-sm);
-  background: var(--err);
-  border: none;
-  color: #fff;
-  font: 600 13px var(--font-sans);
-  cursor: pointer;
+.convo-delete-wrap .ant-modal-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
 }
 
-.sidebar-modal__error-icon {
+.convo-delete-wrap .ant-modal-title {
+  font-size: var(--t-lg);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.convo-delete-wrap .ant-modal-body {
+  padding: 16px 24px;
+}
+
+.convo-delete-wrap .convo-delete-body {
+  display: flex;
+  gap: 13px;
+  align-items: flex-start;
+}
+
+.convo-delete-wrap .convo-delete-icon {
   width: 34px;
   height: 34px;
   border-radius: var(--r);
@@ -933,5 +917,25 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+.convo-delete-wrap .convo-delete-text {
+  font-size: var(--t-base);
+  color: var(--ink-3);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.convo-delete-wrap .ant-btn-dangerous {
+  background: var(--err);
+  border-color: var(--err);
+  color: #fff;
+  font-weight: 600;
+}
+
+.convo-delete-wrap .ant-btn-dangerous:hover {
+  background: var(--err);
+  border-color: var(--err);
+  opacity: 0.85;
 }
 </style>

@@ -1,51 +1,47 @@
 <script setup>
-defineProps({
+import { computed } from "vue"
+
+const props = defineProps({
   /** @type {Array<{ label: string, value: string }>} */
   options: { type: Array, required: true },
   modelValue: { type: String, required: true },
 })
 const emit = defineEmits(["update:modelValue"])
+
+/** a-segmented expects { label, value } — already our shape. */
+const segOptions = computed(() => props.options)
+
+/**
+ * Relay segmented selection as the v-model update event.
+ * @param {string} value - newly selected option value
+ */
+function onChange(value) {
+  emit("update:modelValue", value)
+}
 </script>
 
 <template>
-  <div class="vt" role="group">
-    <button
-      v-for="opt in options"
-      :key="opt.value"
-      class="vt-btn"
-      :class="{ 'vt-btn--active': modelValue === opt.value }"
-      :aria-pressed="modelValue === opt.value"
-      @click="emit('update:modelValue', opt.value)"
-    >
-      {{ opt.label }}
-    </button>
-  </div>
+  <a-segmented class="vt" :value="modelValue" :options="segOptions" @change="onChange" />
 </template>
 
 <style scoped>
-.vt {
-  display: inline-flex;
+.vt :deep(.ant-segmented) {
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: var(--r-sm);
   padding: 3px;
-  gap: 2px;
 }
-.vt-btn {
-  padding: 5px 12px;
+.vt :deep(.ant-segmented-item) {
+  color: var(--ink-3);
   font-size: 12.5px;
   font-weight: 500;
-  color: var(--ink-3);
-  background: transparent;
-  border: none;
   border-radius: 4px;
-  cursor: pointer;
   transition: color var(--dur) var(--ease);
 }
-.vt-btn:hover {
+.vt :deep(.ant-segmented-item:hover) {
   color: var(--ink);
 }
-.vt-btn--active {
+.vt :deep(.ant-segmented-item-selected) {
   background: var(--surface);
   color: var(--ink);
   font-weight: 600;

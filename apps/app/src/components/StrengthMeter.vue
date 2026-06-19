@@ -22,13 +22,31 @@ const strength = computed(() => {
   const labels = ["", "Weak", "Fair", "Good", "Strong"]
   return { score, label: labels[score] }
 })
+
+/** Percent width per score, matching the previous bar widths. */
+const PERCENT = { 1: 18, 2: 42, 3: 68, 4: 100 }
+/** Design-system token color per score (var() resolves at render). */
+const COLOR = {
+  1: "var(--err)",
+  2: "var(--amber)",
+  3: "var(--warn)",
+  4: "var(--ok)",
+}
+
+const percent = computed(() => PERCENT[strength.value.score] ?? 0)
+const strokeColor = computed(() => COLOR[strength.value.score] ?? "var(--line)")
 </script>
 
 <template>
   <div v-if="password" class="strength-meter" aria-live="polite">
-    <div class="strength-meter__track">
-      <div class="strength-meter__bar" :data-score="strength.score"></div>
-    </div>
+    <a-progress
+      class="strength-meter__bar"
+      :percent="percent"
+      :stroke-color="strokeColor"
+      :show-info="false"
+      :stroke-linecap="'round'"
+      size="small"
+    />
     <div class="strength-meter__label">
       <span>Password strength</span>
       <strong>{{ strength.label }}</strong>
@@ -44,50 +62,21 @@ const strength = computed(() => {
   margin-top: 4px;
   margin-bottom: 4px;
 }
-
-.strength-meter__track {
-  height: 3px;
+.strength-meter__bar :deep(.ant-progress-inner) {
   background: var(--line);
-  border-radius: 999px;
-  overflow: hidden;
 }
-
-.strength-meter__bar {
-  height: 100%;
-  border-radius: 999px;
-  width: 0%;
+.strength-meter__bar :deep(.ant-progress-bg) {
+  height: 3px !important;
   transition:
     width var(--dur) var(--ease),
     background var(--dur) var(--ease);
 }
-
-.strength-meter__bar[data-score="1"] {
-  background: var(--err);
-  width: 18%;
-}
-
-.strength-meter__bar[data-score="2"] {
-  background: var(--amber);
-  width: 42%;
-}
-
-.strength-meter__bar[data-score="3"] {
-  background: var(--warn);
-  width: 68%;
-}
-
-.strength-meter__bar[data-score="4"] {
-  background: var(--ok);
-  width: 100%;
-}
-
 .strength-meter__label {
   display: flex;
   justify-content: space-between;
   font-size: var(--t-xs);
   color: var(--ink-3);
 }
-
 .strength-meter__label strong {
   color: var(--ink-2);
   font-weight: 500;
