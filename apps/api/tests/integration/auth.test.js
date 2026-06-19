@@ -537,6 +537,39 @@ describe("PUT /api/auth/password", () => {
 
     expect(res.status).toBe(401)
   })
+
+  it("issues fresh auth cookies so the current session survives", async () => {
+    const user = await createTestUser({ email_verified: true, password: "OldPass123!" })
+    const headers = await getAuthHeaders(user.id)
+
+    const res = await (await request())
+      .put("/api/auth/password")
+      .set("Cookie", headers.Cookie)
+      .send({ current_password: "OldPass123!", new_password: "NewPass456!" })
+
+    expect(res.status).toBe(200)
+    const cookies = res.headers["set-cookie"]
+    expect(cookies.some((c) => c.startsWith("access_token="))).toBe(true)
+    expect(cookies.some((c) => c.startsWith("refresh_token="))).toBe(true)
+  })
+
+  it("lets the refreshed session keep calling protected routes after a password change", async () => {
+    const user = await createTestUser({ email_verified: true, password: "OldPass123!" })
+    const headers = await getAuthHeaders(user.id)
+
+    const changeRes = await (await request())
+      .put("/api/auth/password")
+      .set("Cookie", headers.Cookie)
+      .send({ current_password: "OldPass123!", new_password: "NewPass456!" })
+
+    expect(changeRes.status).toBe(200)
+    const newCookies = changeRes.headers["set-cookie"]
+
+    // The newly-issued refresh cookie must be accepted by /auth/refresh (the old
+    // one was revoked). This is exactly what broke the live session before the fix.
+    const refreshRes = await (await request()).post("/api/auth/refresh").set("Cookie", newCookies)
+    expect(refreshRes.status).toBe(200)
+  })
 })
 
 describe("signin token — downstream compatibility", () => {

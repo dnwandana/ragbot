@@ -493,8 +493,9 @@ export const deleteProfile = async (req, res, next) => {
 /**
  * PUT /api/auth/password — Change the current user's password.
  *
- * Verifies the current password, updates the hash, and revokes all other
- * refresh tokens so existing sessions on other devices are signed out.
+ * Verifies the current password, updates the hash, revokes all existing
+ * refresh tokens (signing out other devices), then re-issues a fresh token
+ * pair so the current session stays valid.
  *
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
@@ -516,7 +517,11 @@ export const changePassword = async (req, res, next) => {
 
     const newHash = await hashPassword(value.new_password)
     await userModel.update({ id: req.user.id }, { password_hash: newHash, updated_at: new Date() })
+    // Revoke every refresh token (signs out other devices), then re-issue a fresh
+    // pair for THIS session so the active session isn't half-invalidated. Mirrors
+    // refreshAccessToken's revoke-then-issue flow.
     await refreshTokenModel.revokeAllForUser(req.user.id)
+    await issueTokenPair(res, req.user.id)
 
     return res.json(apiResponse({ message: "Password updated", data: null }))
   } catch (error) {

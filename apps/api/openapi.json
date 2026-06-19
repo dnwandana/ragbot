@@ -637,7 +637,7 @@
       "put": {
         "tags": ["Authentication"],
         "summary": "Change password",
-        "description": "Change the authenticated user's password. Requires the current password for verification; revokes all refresh tokens so other sessions are signed out.",
+        "description": "Change the authenticated user's password. Requires the current password for verification; revokes all existing refresh tokens (signing out other devices), then re-issues a fresh token pair so the current session stays valid.",
         "operationId": "changePassword",
         "security": [
           {

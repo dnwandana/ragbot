@@ -106,7 +106,7 @@ req.permissions // [] of permission names (populated by resolveWorkspace)
 - POST `/api/auth/logout` → revokes the refresh token in DB, clears cookies. Idempotent (succeeds even if token already revoked).
 - PUT `/api/auth/profile` → updates the authenticated user's `full_name` and `timezone` (must be a valid IANA zone), returns the updated user
 - DELETE `/api/auth/profile` → soft-deletes the account, revokes all refresh tokens, clears cookies. Rejects with 409 if the user is the sole owner of any workspace
-- PUT `/api/auth/password` → verifies `current_password`, sets `new_password` (8–72 chars), then revokes all refresh tokens so other sessions are signed out
+- PUT `/api/auth/password` → verifies `current_password`, sets `new_password` (8–72 chars), revokes all existing refresh tokens (signing out other devices), then re-issues a fresh token pair so the current session stays valid
 
 Token cookies: `access_token` and `refresh_token` (httpOnly cookies set by server). JWT algorithm pinned to HS256 with explicit verification.
 
