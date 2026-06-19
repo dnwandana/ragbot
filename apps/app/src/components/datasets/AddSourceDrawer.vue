@@ -93,143 +93,133 @@ function onClose() {
 </script>
 
 <template>
-  <Teleport to="body">
-    <Transition name="scrim">
-      <div v-if="open" class="scrim" @click="onClose" />
-    </Transition>
-    <Transition name="drawer">
-      <div v-if="open" class="drawer" role="dialog" aria-modal="true" aria-label="Add source">
-        <!-- Header -->
-        <div class="drawer-head">
-          <span class="drawer-title">Add source</span>
-          <button class="icon-btn" @click="onClose" aria-label="Close">
-            <X :size="14" :stroke-width="1.8" />
-          </button>
-        </div>
-
-        <!-- Tabs -->
-        <div class="tabs">
-          <button
-            class="tab"
-            :class="{ active: activeTab === 'upload' }"
-            @click="activeTab = 'upload'"
-          >
-            <Upload :size="12" :stroke-width="1.8" />
-            Upload files
-          </button>
-          <button class="tab" :class="{ active: activeTab === 'url' }" @click="activeTab = 'url'">
-            <Globe :size="12" :stroke-width="1.8" />
-            Web URL
-          </button>
-        </div>
-
-        <!-- Upload tab -->
-        <div v-if="activeTab === 'upload'" class="drawer-body">
-          <div
-            class="drop-zone"
-            :class="{ 'drop-zone--over': isDragOver }"
-            @dragover.prevent="isDragOver = true"
-            @dragleave="isDragOver = false"
-            @drop="onDrop"
-          >
-            <div class="drop-icon">
-              <CloudUpload :size="20" :stroke-width="1.5" />
-            </div>
-            <p class="drop-text">Drop files here</p>
-            <p class="drop-sub">PDF, DOCX, Markdown, plain text</p>
-            <label class="btn-secondary" style="margin-top: 6px; cursor: pointer">
-              Choose files
-              <input
-                type="file"
-                accept=".pdf,.docx,.doc,.md,.txt"
-                multiple
-                style="display: none"
-                @change="onFileInput"
-              />
-            </label>
-          </div>
-
-          <div v-if="uploadItems.length" class="upload-list">
-            <div v-for="item in uploadItems" :key="item.id" class="upload-row">
-              <FileText :size="13" :stroke-width="1.5" class="upload-file-icon" />
-              <div class="upload-info">
-                <span class="upload-name">{{ item.name }}</span>
-                <span v-if="item.error" class="upload-error">{{ item.error }}</span>
-              </div>
-              <span class="upload-size">{{ item.size }}</span>
-              <Check v-if="item.status === 'done'" :size="14" :stroke-width="2" class="status-ok" />
-              <X
-                v-else-if="item.status === 'failed'"
-                :size="14"
-                :stroke-width="2"
-                class="status-err"
-              />
-              <span v-else class="upload-spinner" />
-            </div>
-          </div>
-        </div>
-
-        <!-- URL tab -->
-        <div v-if="activeTab === 'url'" class="drawer-body">
-          <p class="url-hint">Scrape a public web page and index its content.</p>
-          <div class="url-field">
-            <input
-              v-model="urlInput"
-              class="url-input"
-              aria-label="Source URL"
-              placeholder="https://…"
-              @keydown.enter="submitUrl"
-            />
-            <p v-if="urlError" class="url-error">{{ urlError }}</p>
-          </div>
-          <button class="btn-primary" :disabled="urlLoading || !urlInput.trim()" @click="submitUrl">
-            {{ urlLoading ? "Adding…" : "Add URL" }}
-          </button>
-        </div>
+  <a-drawer
+    :open="open"
+    placement="right"
+    :width="360"
+    :closable="false"
+    :mask="true"
+    root-class-name="add-source-drawer-root"
+    :body-style="{ padding: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }"
+    :header-style="{ display: 'none' }"
+    @close="onClose"
+  >
+    <div class="drawer" role="dialog" aria-modal="true" aria-label="Add source">
+      <!-- Header -->
+      <div class="drawer-head">
+        <span class="drawer-title">Add source</span>
+        <button class="icon-btn" @click="onClose" aria-label="Close">
+          <X :size="14" :stroke-width="1.8" />
+        </button>
       </div>
-    </Transition>
-  </Teleport>
+
+      <!-- Tabs -->
+      <a-tabs v-model:active-key="activeTab" class="source-tabs">
+        <!-- Upload files tab -->
+        <a-tab-pane key="upload">
+          <template #tab>
+            <span class="tab-label">
+              <Upload :size="12" :stroke-width="1.8" />
+              Upload files
+            </span>
+          </template>
+          <div class="drawer-body">
+            <div
+              class="drop-zone"
+              :class="{ 'drop-zone--over': isDragOver }"
+              @dragover.prevent="isDragOver = true"
+              @dragleave="isDragOver = false"
+              @drop="onDrop"
+            >
+              <div class="drop-icon">
+                <CloudUpload :size="20" :stroke-width="1.5" />
+              </div>
+              <p class="drop-text">Drop files here</p>
+              <p class="drop-sub">PDF, DOCX, Markdown, plain text</p>
+              <label class="btn-secondary" style="margin-top: 6px; cursor: pointer">
+                Choose files
+                <input
+                  type="file"
+                  accept=".pdf,.docx,.doc,.md,.txt"
+                  multiple
+                  style="display: none"
+                  @change="onFileInput"
+                />
+              </label>
+            </div>
+
+            <div v-if="uploadItems.length" class="upload-list">
+              <div v-for="item in uploadItems" :key="item.id" class="upload-row">
+                <FileText :size="13" :stroke-width="1.5" class="upload-file-icon" />
+                <div class="upload-info">
+                  <span class="upload-name">{{ item.name }}</span>
+                  <span v-if="item.error" class="upload-error">{{ item.error }}</span>
+                </div>
+                <span class="upload-size">{{ item.size }}</span>
+                <Check
+                  v-if="item.status === 'done'"
+                  :size="14"
+                  :stroke-width="2"
+                  class="status-ok"
+                />
+                <X
+                  v-else-if="item.status === 'failed'"
+                  :size="14"
+                  :stroke-width="2"
+                  class="status-err"
+                />
+                <span v-else class="upload-spinner" />
+              </div>
+            </div>
+          </div>
+        </a-tab-pane>
+
+        <!-- Scrape URL tab -->
+        <a-tab-pane key="url">
+          <template #tab>
+            <span class="tab-label">
+              <Globe :size="12" :stroke-width="1.8" />
+              Web URL
+            </span>
+          </template>
+          <div class="drawer-body">
+            <p class="url-hint">Scrape a public web page and index its content.</p>
+            <div class="url-field">
+              <input
+                v-model="urlInput"
+                class="url-input"
+                aria-label="Source URL"
+                placeholder="https://…"
+                @keydown.enter="submitUrl"
+              />
+              <p v-if="urlError" class="url-error">{{ urlError }}</p>
+            </div>
+            <button
+              class="btn-primary"
+              :disabled="urlLoading || !urlInput.trim()"
+              @click="submitUrl"
+            >
+              {{ urlLoading ? "Adding…" : "Add URL" }}
+            </button>
+          </div>
+        </a-tab-pane>
+      </a-tabs>
+    </div>
+  </a-drawer>
 </template>
 
-<style scoped>
-.scrim {
-  position: fixed;
-  inset: 0;
-  background: rgba(24, 18, 12, 0.25);
-  z-index: 40;
-}
-.drawer {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 360px;
+<style>
+.add-source-drawer-root .drawer {
+  height: 100%;
   background: var(--surface);
   border-left: 1px solid var(--line-2);
   box-shadow: var(--shadow-3);
-  z-index: 41;
   display: flex;
   flex-direction: column;
-}
-/* Transitions */
-.scrim-enter-active,
-.scrim-leave-active {
-  transition: opacity 200ms var(--ease);
-}
-.scrim-enter-from,
-.scrim-leave-to {
-  opacity: 0;
-}
-.drawer-enter-active,
-.drawer-leave-active {
-  transition: transform 220ms var(--ease);
-}
-.drawer-enter-from,
-.drawer-leave-to {
-  transform: translateX(100%);
+  overflow: hidden;
 }
 
-.drawer-head {
+.add-source-drawer-root .drawer-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -237,12 +227,14 @@ function onClose() {
   border-bottom: 1px solid var(--line);
   flex-shrink: 0;
 }
-.drawer-title {
+
+.add-source-drawer-root .drawer-title {
   font-size: 13.5px;
   font-weight: 600;
   color: var(--ink);
 }
-.icon-btn {
+
+.add-source-drawer-root .icon-btn {
   width: 28px;
   height: 28px;
   display: flex;
@@ -254,39 +246,90 @@ function onClose() {
   border-radius: var(--r-sm);
   cursor: pointer;
 }
-.icon-btn:hover {
+
+.add-source-drawer-root .icon-btn:hover {
   background: var(--bg-2);
   color: var(--ink);
 }
 
-.tabs {
+/* a-tabs override — match original custom switcher look */
+.add-source-drawer-root .source-tabs {
+  flex: 1;
   display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.add-source-drawer-root .source-tabs .ant-tabs-nav {
+  margin: 0;
   border-bottom: 1px solid var(--line);
   flex-shrink: 0;
 }
-.tab {
+
+.add-source-drawer-root .source-tabs .ant-tabs-nav::before {
+  display: none;
+}
+
+.add-source-drawer-root .source-tabs .ant-tabs-tab {
   flex: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   padding: 10px 12px;
-  border: none;
-  background: transparent;
   font-size: 12.5px;
   font-weight: 600;
   color: var(--ink-3);
-  cursor: pointer;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   transition: color var(--dur) var(--ease);
-}
-.tab.active {
-  color: var(--brand);
-  border-bottom-color: var(--brand);
+  margin: 0;
 }
 
-.drawer-body {
+.add-source-drawer-root .source-tabs .ant-tabs-tab:hover {
+  color: var(--ink-2);
+}
+
+.add-source-drawer-root .source-tabs .ant-tabs-tab-active {
+  color: var(--brand) !important;
+}
+
+.add-source-drawer-root .source-tabs .ant-tabs-tab-btn {
+  color: inherit;
+}
+
+.add-source-drawer-root .source-tabs .ant-tabs-ink-bar {
+  background: var(--brand);
+  height: 2px;
+}
+
+.add-source-drawer-root .source-tabs .ant-tabs-nav-list {
+  display: flex;
+  width: 100%;
+}
+
+.add-source-drawer-root .source-tabs .ant-tabs-content-holder {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.add-source-drawer-root .source-tabs .ant-tabs-content {
+  height: 100%;
+}
+
+.add-source-drawer-root .source-tabs .ant-tabs-tabpane {
+  height: 100%;
+}
+
+.add-source-drawer-root .tab-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.add-source-drawer-root .drawer-body {
   padding: 16px;
   flex: 1;
   overflow-y: auto;
@@ -295,7 +338,7 @@ function onClose() {
   gap: 14px;
 }
 
-.drop-zone {
+.add-source-drawer-root .drop-zone {
   border: 1.5px dashed var(--line-2);
   border-radius: var(--r);
   padding: 28px 16px;
@@ -308,11 +351,13 @@ function onClose() {
     border-color var(--dur) var(--ease),
     background var(--dur) var(--ease);
 }
-.drop-zone--over {
+
+.add-source-drawer-root .drop-zone--over {
   border-color: var(--brand);
   background: var(--brand-tint);
 }
-.drop-icon {
+
+.add-source-drawer-root .drop-icon {
   width: 40px;
   height: 40px;
   background: var(--bg-2);
@@ -323,19 +368,21 @@ function onClose() {
   color: var(--ink-3);
   margin-bottom: 6px;
 }
-.drop-text {
+
+.add-source-drawer-root .drop-text {
   font-size: 13px;
   font-weight: 500;
   color: var(--ink-2);
   margin: 0;
 }
-.drop-sub {
+
+.add-source-drawer-root .drop-sub {
   font-size: 12px;
   color: var(--ink-4);
   margin: 0;
 }
 
-.btn-secondary {
+.add-source-drawer-root .btn-secondary {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -348,16 +395,18 @@ function onClose() {
   font-weight: 600;
   cursor: pointer;
 }
-.btn-secondary:hover {
+
+.add-source-drawer-root .btn-secondary:hover {
   background: var(--bg-2);
 }
 
-.upload-list {
+.add-source-drawer-root .upload-list {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
-.upload-row {
+
+.add-source-drawer-root .upload-row {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -366,47 +415,56 @@ function onClose() {
   border: 1px solid var(--line);
   border-radius: var(--r-sm);
 }
-.upload-info {
+
+.add-source-drawer-root .upload-info {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
-.upload-name {
+
+.add-source-drawer-root .upload-name {
   font-size: 12.5px;
   color: var(--ink-2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.upload-error {
+
+.add-source-drawer-root .upload-error {
   font-size: 11px;
   color: var(--err);
 }
-.upload-size {
+
+.add-source-drawer-root .upload-size {
   font-size: 11px;
   color: var(--ink-4);
   flex-shrink: 0;
 }
-.upload-file-icon {
+
+.add-source-drawer-root .upload-file-icon {
   color: var(--ink-3);
   flex-shrink: 0;
 }
-.status-ok {
+
+.add-source-drawer-root .status-ok {
   color: var(--ok);
   flex-shrink: 0;
 }
-.status-err {
+
+.add-source-drawer-root .status-err {
   color: var(--err);
   flex-shrink: 0;
 }
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
   }
 }
-.upload-spinner {
+
+.add-source-drawer-root .upload-spinner {
   width: 14px;
   height: 14px;
   border-radius: 50%;
@@ -416,18 +474,20 @@ function onClose() {
   flex-shrink: 0;
 }
 
-.url-hint {
+.add-source-drawer-root .url-hint {
   font-size: 12.5px;
   color: var(--ink-3);
   margin: 0;
   line-height: 1.5;
 }
-.url-field {
+
+.add-source-drawer-root .url-field {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
-.url-input {
+
+.add-source-drawer-root .url-input {
   width: 100%;
   padding: 8px 10px;
   border: 1px solid var(--line-2);
@@ -438,15 +498,18 @@ function onClose() {
   outline: none;
   transition: border-color var(--dur) var(--ease);
 }
-.url-input:focus {
+
+.add-source-drawer-root .url-input:focus {
   border-color: var(--brand);
 }
-.url-error {
+
+.add-source-drawer-root .url-error {
   font-size: 12px;
   color: var(--err);
   margin: 0;
 }
-.btn-primary {
+
+.add-source-drawer-root .btn-primary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -461,10 +524,12 @@ function onClose() {
   cursor: pointer;
   transition: background var(--dur) var(--ease);
 }
-.btn-primary:hover:not(:disabled) {
+
+.add-source-drawer-root .btn-primary:hover:not(:disabled) {
   background: var(--brand-2);
 }
-.btn-primary:disabled {
+
+.add-source-drawer-root .btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
