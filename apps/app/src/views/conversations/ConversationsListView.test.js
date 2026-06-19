@@ -42,6 +42,45 @@ vi.mock("@/composables/useFormattedTime", () => ({
 
 import ConversationsListView from "@/views/conversations/ConversationsListView.vue"
 
+// a-table stub: renders a real .ant-table DOM tree with thead (conditional on
+// showHeader), tbody, and one tr per dataSource entry. Invokes customRow(record)
+// to spread attrs (tabindex, onClick, onKeydown) onto each tr — exercising the
+// real component's row handlers.
+const ATableStub = {
+  props: {
+    columns: { type: Array, default: () => [] },
+    dataSource: { type: Array, default: () => [] },
+    rowKey: [Function, String],
+    pagination: { type: [Boolean, Object], default: false },
+    showHeader: { type: Boolean, default: true },
+    customRow: { type: Function, default: null },
+    loading: { type: Boolean, default: false },
+  },
+  template: `
+    <div class="ant-table">
+      <table>
+        <thead v-if="showHeader" class="ant-table-thead">
+          <tr>
+            <th v-for="col in columns" :key="col.key" class="ant-table-cell">{{ col.title }}</th>
+          </tr>
+        </thead>
+        <tbody class="ant-table-tbody">
+          <tr
+            v-for="record in dataSource"
+            :key="rowKey ? (typeof rowKey === 'function' ? rowKey(record) : record[rowKey]) : record.id"
+            class="ant-table-row"
+            v-bind="customRow ? customRow(record) : {}"
+          >
+            <td v-for="col in columns" :key="col.key" class="ant-table-cell">
+              <slot name="bodyCell" :column="col" :record="record" :text="record[col.dataIndex]" />
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  `,
+}
+
 // Functional a-modal stub: always rendered (so findComponent resolves), exposes
 // the `open` prop and re-emits ok/cancel. This lets the tests assert the real
 // template wiring (`:open="!!deleteTarget"` and `@ok="confirmDelete"`) instead of
@@ -53,7 +92,12 @@ const AModalStub = {
   template: '<div class="a-modal-stub"><slot /></div>',
 }
 
-const STUBS = { "a-skeleton": true, RouterLink: true, "a-modal": AModalStub }
+const STUBS = {
+  "a-skeleton": true,
+  "a-table": ATableStub,
+  RouterLink: true,
+  "a-modal": AModalStub,
+}
 
 function mountView() {
   return mount(ConversationsListView, { global: { stubs: STUBS } })
@@ -105,6 +149,52 @@ describe("ConversationsListView delete confirmation", () => {
 
     expect(handleDelete).not.toHaveBeenCalled()
     expect(modal.props("open")).toBe(false)
+  })
+})
+
+describe("ConversationsListView — a-table structure", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    fetchAgents.mockResolvedValue([])
+  })
+
+  it("renders an a-table (.ant-table) with the conversations data", async () => {
+    conversations.value = [{ id: "c1", created_at: 0, title: "Chat" }]
+    const wrapper = mountView()
+    await flushPromises()
+    expect(wrapper.find(".ant-table").exists()).toBe(true)
+  })
+
+  it("renders one row per conversation in the tbody", async () => {
+    conversations.value = [
+      { id: "c1", created_at: 0, title: "First" },
+      { id: "c2", created_at: 1, title: "Second" },
+    ]
+    const wrapper = mountView()
+    await flushPromises()
+    // findAll(".ant-table-tbody tr") spans ALL per-group tables in the DOM
+    // (one table per date group), so the total row count equals the total
+    // conversation count regardless of how many groups there are.
+    expect(wrapper.findAll(".ant-table-tbody tr")).toHaveLength(2)
+  })
+
+  it("renders a .group-label for each non-empty date group", async () => {
+    conversations.value = [
+      { id: "c1", created_at: 0, title: "Today chat" },
+      { id: "c2", created_at: 3, title: "This week chat" },
+    ]
+    const wrapper = mountView()
+    await flushPromises()
+    const labels = wrapper.findAll(".group-label").map((el) => el.text().trim())
+    expect(labels).toContain("Today")
+    expect(labels).toContain("Earlier this week")
+  })
+
+  it("renders the conversation title inside the name cell", async () => {
+    conversations.value = [{ id: "c1", created_at: 0, title: "My Chat" }]
+    const wrapper = mountView()
+    await flushPromises()
+    expect(wrapper.find(".conv-title").text()).toContain("My Chat")
   })
 })
 

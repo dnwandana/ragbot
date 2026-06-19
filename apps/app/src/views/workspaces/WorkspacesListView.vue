@@ -1,5 +1,5 @@
 <template>
-  <div class="page" @click="closeMenus">
+  <div class="page">
     <!-- Page head -->
     <div class="page-head">
       <div>
@@ -16,12 +16,12 @@
     <div class="toolbar" @click.stop>
       <div class="search-wrap" :class="{ 'search-wrap--active': query }">
         <Search :size="13" :stroke-width="1.8" style="flex-shrink: 0; color: var(--ink-4)" />
-        <input
-          v-model="query"
+        <a-input
+          v-model:value="query"
           class="search-input"
           aria-label="Search workspaces"
           placeholder="Search workspaces…"
-          type="search"
+          :bordered="false"
           autocomplete="off"
         />
       </div>
@@ -31,26 +31,31 @@
         }}</span
       >
       <div style="flex: 1" />
-      <div class="sort-wrap" @click.stop>
-        <button class="sort-btn" @click="sortMenuOpen = !sortMenuOpen">
+      <a-dropdown
+        :trigger="['click']"
+        :overlay-class-name="'sort-menu-overlay'"
+        placement="bottomRight"
+      >
+        <button class="sort-btn">
           <SlidersHorizontal :size="12" :stroke-width="1.8" />
           {{ currentSortLabel }}
           <ChevronDown :size="10" :stroke-width="2" />
         </button>
-        <div v-if="sortMenuOpen" class="sort-menu">
-          <button
-            v-for="opt in SORT_OPTIONS"
-            :key="opt.key"
-            class="sort-item"
-            :class="{ 'sort-item--active': opt.key === sortKey }"
-            @click="selectSort(opt)"
-          >
-            <Check v-if="opt.key === sortKey" :size="12" :stroke-width="2.2" />
-            <span v-else style="width: 12px; display: inline-block" />
-            {{ opt.label }}
-          </button>
-        </div>
-      </div>
+        <template #overlay>
+          <a-menu>
+            <a-menu-item
+              v-for="opt in SORT_OPTIONS"
+              :key="opt.key"
+              :class="{ 'sort-item--active': opt.key === sortKey }"
+              @click="selectSort(opt)"
+            >
+              <Check v-if="opt.key === sortKey" :size="12" :stroke-width="2.2" />
+              <span v-else style="width: 12px; display: inline-block" />
+              {{ opt.label }}
+            </a-menu-item>
+          </a-menu>
+        </template>
+      </a-dropdown>
     </div>
 
     <!-- Loading skeleton -->
@@ -79,61 +84,67 @@
     </div>
 
     <!-- Table -->
-    <div v-else class="ws-table" :class="{ 'is-fetching': loading }" role="table">
-      <div class="tbl-head tbl-cols">
-        <div>Name</div>
-        <div>Your role</div>
-        <div>Updated</div>
-        <div></div>
-      </div>
-      <div
-        v-for="ws in displayedWorkspaces"
-        :key="ws.id"
-        class="tbl-row tbl-cols"
-        role="row"
-        tabindex="0"
-        @click="openRow(ws)"
-        @keydown.enter.prevent="openRow(ws)"
-        @keydown.space.prevent="openRow(ws)"
+    <div v-else :class="{ 'is-fetching': loading }">
+      <a-table
+        :columns="columns"
+        :data-source="displayedWorkspaces"
+        :row-key="(record) => record.id"
+        :pagination="false"
+        :custom-row="customRow"
       >
-        <div>
-          <div class="tbl-name">{{ ws.name }}</div>
-          <div class="tbl-desc" :class="{ 'tbl-desc--empty': !ws.description }">
-            {{ ws.description || "No description" }}
-          </div>
-        </div>
-        <div>
-          <span class="badge" :class="isOwner(ws) ? 'badge--accent' : 'badge--gray'">
-            {{ roleLabel(ws) }}
-          </span>
-        </div>
-        <div class="tbl-muted">{{ relativeTime(ws.updated_at) }}</div>
-        <div @click.stop @keydown.stop>
-          <div class="menu-wrap">
-            <button
-              class="menu-btn"
-              @click="menuOpenId = menuOpenId === ws.id ? null : ws.id"
-              aria-label="More options"
-            >
-              ···
-            </button>
-            <div v-if="menuOpenId === ws.id" class="menu-popup">
-              <button class="menu-item" @click="goSettings(ws)">
-                <Settings :size="13" :stroke-width="1.6" />
-                Settings
-              </button>
-              <button
-                v-if="isOwner(ws)"
-                class="menu-item menu-item--danger"
-                @click="openDelete(ws)"
-              >
-                <Trash2 :size="13" :stroke-width="1.6" />
-                Delete
-              </button>
+        <template #bodyCell="{ column, record }">
+          <!-- Name + description -->
+          <template v-if="column.key === 'name'">
+            <div class="tbl-name">{{ record.name }}</div>
+            <div class="tbl-desc" :class="{ 'tbl-desc--empty': !record.description }">
+              {{ record.description || "No description" }}
             </div>
-          </div>
-        </div>
-      </div>
+          </template>
+
+          <!-- Role badge -->
+          <template v-else-if="column.key === 'role'">
+            <span class="badge" :class="isOwner(record) ? 'badge--accent' : 'badge--gray'">
+              {{ roleLabel(record) }}
+            </span>
+          </template>
+
+          <!-- Updated time -->
+          <template v-else-if="column.key === 'updated'">
+            <span class="tbl-muted">{{ relativeTime(record.updated_at) }}</span>
+          </template>
+
+          <!-- Actions: kebab menu -->
+          <template v-else-if="column.key === 'actions'">
+            <a-dropdown
+              :trigger="['click']"
+              :overlay-class-name="'row-actions-overlay'"
+              placement="bottomRight"
+              @click.stop
+            >
+              <button class="kebab-btn" aria-label="More options" aria-haspopup="menu">
+                <Ellipsis :size="16" :stroke-width="1.7" />
+              </button>
+              <template #overlay>
+                <a-menu>
+                  <a-menu-item key="settings" @click="goSettings(record)">
+                    <Settings :size="14" :stroke-width="1.6" class="row-menu-icon" />
+                    Settings
+                  </a-menu-item>
+                  <a-menu-item
+                    v-if="isOwner(record)"
+                    key="delete"
+                    class="row-menu__item--danger"
+                    @click="openDelete(record)"
+                  >
+                    <Trash2 :size="14" :stroke-width="1.6" class="row-menu-icon" />
+                    Delete
+                  </a-menu-item>
+                </a-menu>
+              </template>
+            </a-dropdown>
+          </template>
+        </template>
+      </a-table>
     </div>
 
     <!-- Create / Edit modal -->
@@ -168,6 +179,7 @@ import { useRouter } from "vue-router"
 import {
   Check,
   ChevronDown,
+  Ellipsis,
   Plus,
   Search,
   Settings,
@@ -195,24 +207,45 @@ const {
 
 const { relativeTime } = useFormattedTime()
 
-const menuOpenId = ref(null)
-const sortMenuOpen = ref(false)
 const deleteTarget = ref(null)
+
+/**
+ * Column definitions for the a-table.
+ * The actions column has no title — it holds the kebab menu trigger.
+ */
+const columns = [
+  { title: "Name", key: "name" },
+  { title: "Your role", key: "role" },
+  { title: "Updated", key: "updated" },
+  { title: "", key: "actions" },
+]
 
 const currentSortLabel = computed(
   () => SORT_OPTIONS.find((o) => o.key === sortKey.value)?.label ?? "Sort",
 )
 
-/** @returns {void} */
-function closeMenus() {
-  menuOpenId.value = null
-  sortMenuOpen.value = false
+/**
+ * Build Ant Design customRow attributes for a row, attaching click and
+ * keyboard handlers so rows are navigable (Enter / Space) and focusable.
+ * @param {object} record - Workspace row object
+ * @returns {object} Attribute/event object spread onto the <tr>
+ */
+function customRow(record) {
+  return {
+    tabindex: 0,
+    onClick: () => openRow(record),
+    onKeydown: (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault()
+        openRow(record)
+      }
+    },
+  }
 }
 
 /** @param {{ key: string, label: string }} option */
 function selectSort(option) {
   sortKey.value = option.key
-  sortMenuOpen.value = false
 }
 
 /**
@@ -239,13 +272,11 @@ function openRow(ws) {
 
 /** @param {object} ws */
 function goSettings(ws) {
-  menuOpenId.value = null
   router.push(`/workspaces/${ws.id}/settings`)
 }
 
 /** @param {object} ws */
 function openDelete(ws) {
-  menuOpenId.value = null
   deleteTarget.value = ws
 }
 
@@ -328,14 +359,23 @@ async function confirmDelete() {
   border-color: var(--brand);
   outline: none;
 }
+/* a-input :bordered=false renders <input class="ant-input search-input">; combine
+   classes to outrank Ant defaults so the .search-wrap owns the border/background. */
+.search-input.ant-input,
 .search-input {
   flex: 1;
   border: none;
   outline: none;
+  padding: 0;
+  box-shadow: none;
   background: transparent;
   font-size: 12.5px;
   color: var(--ink);
   min-width: 0;
+}
+.search-input.ant-input:focus,
+.search-input.ant-input-focused {
+  box-shadow: none;
 }
 .search-input::placeholder {
   color: var(--ink-4);
@@ -347,9 +387,6 @@ async function confirmDelete() {
   font-size: 12px;
   color: var(--ink-4);
   white-space: nowrap;
-}
-.sort-wrap {
-  position: relative;
 }
 .sort-btn {
   display: inline-flex;
@@ -367,79 +404,55 @@ async function confirmDelete() {
 .sort-btn:hover {
   background: var(--bg-2);
 }
-.sort-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  background: var(--surface);
-  border: 1px solid var(--line-2);
-  border-radius: var(--r);
-  box-shadow: var(--shadow-2);
-  min-width: 180px;
-  padding: 4px;
-  z-index: 30;
-}
-.sort-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 7px 10px;
-  border: none;
-  background: transparent;
-  border-radius: var(--r-sm);
-  font-size: 13px;
-  color: var(--ink-2);
-  cursor: pointer;
-  text-align: left;
-}
-.sort-item:hover {
-  background: var(--bg-2);
-}
-.sort-item--active {
-  font-weight: 500;
-  color: var(--ink);
-}
 
-/* Table */
-.ws-table {
+/* Table: design-system overrides for a-table */
+:deep(.ant-table) {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
+  overflow: hidden;
 }
-.tbl-cols {
-  display: grid;
-  grid-template-columns: 1fr 130px 140px 44px;
-  gap: 12px;
-  align-items: center;
-}
-.tbl-head {
-  padding: 10px 18px;
+:deep(.ant-table-thead > tr > th) {
   background: var(--bg);
-  border-bottom: 1px solid var(--line);
   font-size: 10.5px;
   font-weight: 600;
   color: var(--ink-3);
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  border-bottom: 1px solid var(--line);
+  padding: 10px 18px;
 }
-.tbl-row {
+:deep(.ant-table-tbody > tr > td) {
+  border-bottom: 1px solid var(--line);
   padding: 11px 18px;
-  border-top: 1px solid var(--line);
   cursor: pointer;
 }
-.tbl-row:hover {
-  background: var(--bg);
+:deep(.ant-table-tbody > tr:hover > td) {
+  background: var(--bg) !important;
 }
-.tbl-row:focus-visible {
+:deep(.ant-table-tbody > tr:focus-visible > td) {
   outline: none;
   background: var(--bg-2);
   box-shadow: inset 0 0 0 2px var(--brand-tint);
 }
-.tbl-row:last-child {
-  border-radius: 0 0 var(--r-lg) var(--r-lg);
+:deep(.ant-table-tbody > tr) {
+  outline: none;
+  transition: background var(--dur) var(--ease);
 }
+:deep(.ant-table-tbody > tr:last-child > td:first-child) {
+  border-radius: 0 0 0 var(--r-lg);
+}
+:deep(.ant-table-tbody > tr:last-child > td:last-child) {
+  border-radius: 0 0 var(--r-lg) 0;
+}
+/* Last column (actions) — narrow fixed width, no padding on right */
+:deep(.ant-table-thead > tr > th:last-child),
+:deep(.ant-table-tbody > tr > td:last-child) {
+  width: 44px;
+  padding-right: 12px;
+}
+
+/* Workspace name / description cell */
 .tbl-name {
   font-size: 13.5px;
   font-weight: 500;
@@ -479,13 +492,10 @@ async function confirmDelete() {
   color: var(--color-text-secondary);
 }
 
-/* Menu */
-.menu-wrap {
-  position: relative;
-}
-.menu-btn {
-  width: 24px;
-  height: 24px;
+/* Kebab trigger button */
+.kebab-btn {
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -493,49 +503,12 @@ async function confirmDelete() {
   background: transparent;
   border-radius: var(--r-sm);
   color: var(--ink-4);
-  font-size: 16px;
-  font-weight: 700;
   cursor: pointer;
-  line-height: 1;
+  padding: 0;
 }
-.menu-btn:hover {
+.kebab-btn:hover {
   background: var(--bg-2);
   color: var(--ink);
-}
-.menu-popup {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  background: var(--surface);
-  border: 1px solid var(--line-2);
-  border-radius: var(--r);
-  box-shadow: var(--shadow-2);
-  min-width: 130px;
-  padding: 4px;
-  z-index: 20;
-}
-.menu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 7px 10px;
-  border: none;
-  background: transparent;
-  border-radius: var(--r-sm);
-  font-size: 13px;
-  color: var(--ink-2);
-  cursor: pointer;
-  text-align: left;
-}
-.menu-item:hover {
-  background: var(--bg-2);
-}
-.menu-item--danger {
-  color: var(--err);
-}
-.menu-item--danger:hover {
-  background: var(--err-bg);
 }
 
 /* States */
@@ -601,5 +574,72 @@ async function confirmDelete() {
   cursor: pointer;
   text-decoration: underline;
   padding: 0;
+}
+</style>
+
+<!-- Non-scoped: styles for the portaled overlay (under .row-actions-overlay class) -->
+<style>
+.row-actions-overlay .ant-dropdown-menu {
+  min-width: 148px;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-2);
+  padding: 4px;
+}
+.row-actions-overlay .ant-dropdown-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink-2);
+  border-radius: var(--r-sm);
+  padding: 7px 10px;
+}
+.row-actions-overlay .ant-dropdown-menu-item:hover {
+  background: var(--bg-2);
+}
+.row-actions-overlay .ant-dropdown-menu-item.row-menu__item--danger {
+  color: var(--err);
+}
+.row-actions-overlay .ant-dropdown-menu-item.row-menu__item--danger:hover {
+  background: var(--err-bg);
+}
+.row-actions-overlay .row-menu-icon {
+  flex-shrink: 0;
+  color: inherit;
+}
+.row-actions-overlay .ant-dropdown-menu-title-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+</style>
+
+<!-- Non-scoped: styles for the portaled sort dropdown (under .sort-menu-overlay) -->
+<style>
+.sort-menu-overlay .ant-dropdown-menu {
+  min-width: 180px;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-2);
+  padding: 4px;
+}
+.sort-menu-overlay .ant-dropdown-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink-2);
+  border-radius: var(--r-sm);
+  padding: 7px 10px;
+}
+.sort-menu-overlay .ant-dropdown-menu-item:hover {
+  background: var(--bg-2);
+}
+.sort-menu-overlay .ant-dropdown-menu-item.sort-item--active {
+  font-weight: 500;
+  color: var(--ink);
 }
 </style>
