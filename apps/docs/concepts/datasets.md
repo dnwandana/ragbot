@@ -8,7 +8,7 @@ title: Datasets
 
 ## Create a dataset
 
-Open the **Datasets** area in the sidebar and choose **New dataset**. Give it a name that describes what's inside — `Company handbook`, `Product specs`, `2024 contracts` — and an optional description. A dataset starts empty; you add documents to it next.
+Open the **Datasets** area in the sidebar (its page is headed **Knowledge base**) and choose **New dataset**. Give it a name that describes what's inside — `Company handbook`, `Product specs`, `2024 contracts` — and an optional description. A dataset starts empty; you add documents to it next.
 
 <DatasetsListMock />
 
@@ -54,6 +54,8 @@ You don't have to do anything during this step. Each file shows one of three sta
 ::: info How to tell when it's ready
 Wait for every file you care about to read **Indexed** before you rely on the answers — a document still **Parsing** won't show up in results yet. The chunk count next to a file (for example `34`) tells you how many searchable passages it produced.
 :::
+
+In a dataset with many files, use the **search box** and the **status filter** at the top of the file list to jump straight to what you need.
 
 ## Explore a document
 

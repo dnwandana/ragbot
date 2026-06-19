@@ -19,7 +19,7 @@ RAGBot writes an audit entry whenever someone makes a **change** in the workspac
 
 ## Reading and filtering
 
-Entries are listed newest-first. Use the **Action** and **Category** filters at the top to narrow the list — for instance, show only member changes, or only deletions. Select any row to open its full detail.
+Entries are listed newest-first. Use the **Event type**, **Action**, and **Actor** filters at the top to narrow the list — for instance, show only member changes, only deletions, or only what one person did. Select any row to open its full detail.
 
 ::: info Read-only by design
 Audit entries are **append-only**: they're written automatically and can never be edited or deleted, not even by an Owner. That's what makes the log trustworthy as a record.

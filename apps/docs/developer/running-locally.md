@@ -57,6 +57,7 @@ corepack pnpm dev          # all apps via Turborepo
 # — or individually —
 corepack pnpm dev:api      # API on :3000
 corepack pnpm dev:app      # SPA on :8080
+corepack pnpm dev:web      # marketing site on :4321
 corepack pnpm dev:docs     # these docs on :4173
 ```
 

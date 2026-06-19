@@ -98,6 +98,8 @@ Open a role to see its permissions. Built-in roles are read-only; create a custo
 
 <Shot src="/screenshots/settings/profile.png" label="Settings · Profile" caption="Your profile: display name and timezone." />
 
+<Shot src="/screenshots/settings/account.png" label="Settings · Account" caption="Your account: change your password or delete your account." />
+
 ## Audit logs
 
 Finally, **Audit logs** records every change in the workspace — see [Audit logs](/concepts/audit-logs).
