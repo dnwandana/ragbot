@@ -9,10 +9,10 @@
       <span class="chat-message__role">you</span>
       <span class="chat-message__dot">·</span>
       <span class="chat-message__time">{{ msg.time }}</span>
-      <button class="chat-message__tool-btn" title="Copy" @click="handleCopy">
+      <a-button class="chat-message__tool-btn" title="Copy" @click="handleCopy">
         <Check v-if="copyActive" :size="16" />
         <Copy v-else :size="16" />
-      </button>
+      </a-button>
     </div>
   </div>
 
@@ -64,19 +64,22 @@
         </details>
       </div>
 
-      <!-- Error card -->
-      <div v-if="msg.error" class="chat-message__error">
-        <span class="chat-message__error-icon"><CircleAlert :size="16" /></span>
-        <div>
-          <div class="chat-message__error-title">Generation interrupted</div>
-          <div class="chat-message__error-msg">
-            {{
-              msg.errorMsg ||
-              "The connection dropped while streaming. Your partial answer is kept above."
-            }}
-          </div>
-        </div>
-      </div>
+      <!-- Error alert -->
+      <a-alert
+        v-if="msg.error"
+        class="chat-message__error"
+        type="error"
+        :show-icon="true"
+        message="Generation interrupted"
+        :description="
+          msg.errorMsg ||
+          'The connection dropped while streaming. Your partial answer is kept above.'
+        "
+      >
+        <template #icon>
+          <CircleAlert :size="16" />
+        </template>
+      </a-alert>
 
       <!-- Source citations (only when not streaming and no error) -->
       <div
@@ -92,10 +95,10 @@
       <span class="chat-message__role">RAGBot</span>
       <span class="chat-message__dot">·</span>
       <span class="chat-message__time">{{ msg.time }}</span>
-      <button class="chat-message__tool-btn" title="Copy" @click="handleCopy">
+      <a-button class="chat-message__tool-btn" title="Copy" @click="handleCopy">
         <Check v-if="copyActive" :size="16" />
         <Copy v-else :size="16" />
-      </button>
+      </a-button>
     </div>
   </div>
 </template>
@@ -174,25 +177,29 @@ onUnmounted(() => clearTimeout(copyTimer))
   border: 1px solid var(--line);
 }
 
-/* ── Tool buttons ── */
-.chat-message__tool-btn {
+/* ── Tool buttons (a-button override) ── */
+:deep(.chat-message__tool-btn.ant-btn) {
   width: 28px;
   height: 28px;
+  min-width: 28px;
+  padding: 0;
   border-radius: var(--r-sm);
   background: transparent;
   border: none;
-  display: flex;
+  box-shadow: none;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   color: var(--ink-4);
-  cursor: pointer;
   transition: all var(--dur) var(--ease);
   font-size: 14px;
+  line-height: 1;
 }
 
-.chat-message__tool-btn:hover {
+:deep(.chat-message__tool-btn.ant-btn:hover) {
   background: var(--bg-2);
   color: var(--ink-2);
+  border-color: transparent;
 }
 
 /* ── Meta + actions row (static below the bubble) ── */
@@ -288,31 +295,37 @@ onUnmounted(() => clearTimeout(copyTimer))
   }
 }
 
-/* ── Error card ── */
+/* ── Error alert (a-alert override) ── */
 .chat-message__error {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
   margin-top: 10px;
-  padding: 12px 14px;
-  border-radius: var(--r);
-  background: var(--err-bg);
-  border: 1px solid var(--err-border);
   max-width: 580px;
 }
 
-.chat-message__error-icon {
-  color: var(--err);
-  flex-shrink: 0;
+:deep(.chat-message__error.ant-alert) {
+  border-radius: var(--r);
+  background: var(--err-bg);
+  border: 1px solid var(--err-border);
+  padding: 12px 14px;
 }
 
-.chat-message__error-title {
+:deep(.chat-message__error.ant-alert .ant-alert-icon) {
+  color: var(--err);
+  flex-shrink: 0;
+  margin-right: 10px;
+}
+
+/* Zero Ant's internal content offset so the icon→text gap matches the original 10px. */
+:deep(.chat-message__error.ant-alert .ant-alert-content) {
+  padding-left: 0;
+}
+
+:deep(.chat-message__error.ant-alert .ant-alert-message) {
   font-size: var(--t-base);
   font-weight: 600;
   color: var(--err-2);
 }
 
-.chat-message__error-msg {
+:deep(.chat-message__error.ant-alert .ant-alert-description) {
   font-size: var(--t-sm);
   color: var(--ink-2);
   margin-top: 2px;

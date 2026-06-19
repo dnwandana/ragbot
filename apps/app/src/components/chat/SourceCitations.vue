@@ -1,9 +1,9 @@
 <template>
   <div v-if="sources.length > 0" class="source-citations">
-    <button class="source-toggle" @click="emit('open-panel')">
+    <a-button class="source-toggle" @click="emit('open-panel')">
       <LayoutGrid :size="16" />
       {{ sources.length }} {{ sources.length === 1 ? "source" : "sources" }}
-    </button>
+    </a-button>
   </div>
 </template>
 
@@ -35,6 +35,12 @@ const emit = defineEmits(["open-panel"])
   font: 500 12px var(--font-sans);
   cursor: pointer;
   transition: all var(--dur) var(--ease);
+}
+
+:deep(.source-toggle.ant-btn) {
+  height: auto;
+  line-height: inherit;
+  box-shadow: none;
 }
 
 .source-toggle:hover {

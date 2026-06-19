@@ -1,5 +1,5 @@
 <template>
-  <div ref="drawerRef" class="dataset-drawer">
+  <div class="dataset-drawer">
     <div class="dataset-drawer__header">
       <span class="dataset-drawer__title">Linked sources</span>
       <span class="dataset-drawer__sub">{{ subLabel }}</span>
@@ -96,7 +96,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from "vue"
+import { ref, computed } from "vue"
 import { Check, Search } from "lucide-vue-next"
 
 const props = defineProps({
@@ -116,7 +116,6 @@ const props = defineProps({
 
 const emit = defineEmits(["toggle", "search", "close"])
 
-const drawerRef = ref(null)
 const query = ref("")
 
 /** Results minus the already-selected datasets (those are pinned above). */
@@ -133,35 +132,16 @@ const readOnlyRows = computed(() =>
 const subLabel = computed(() =>
   props.interactive ? "Select datasets" : `${props.selectedIds.length} linked`,
 )
-
-function onClickOutside(e) {
-  if (
-    drawerRef.value &&
-    !drawerRef.value.contains(e.target) &&
-    !e.target.closest("[data-attach]") &&
-    !e.target.closest("[data-sources]") &&
-    !e.target.closest("[data-agent]")
-  ) {
-    emit("close")
-  }
-}
-
-onMounted(() => document.addEventListener("mousedown", onClickOutside))
-onBeforeUnmount(() => document.removeEventListener("mousedown", onClickOutside))
 </script>
 
 <style scoped>
 .dataset-drawer {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 0;
   width: 300px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-3);
   padding: 8px;
-  z-index: 40;
 }
 
 .dataset-drawer__header {

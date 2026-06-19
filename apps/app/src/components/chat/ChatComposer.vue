@@ -1,134 +1,124 @@
 <template>
   <div class="chat-composer">
-    <div class="chat-composer__inner">
-      <!-- Dataset drawer (floating above) -->
-      <DatasetDrawer
-        v-if="drawerOpen"
-        :datasets="datasetOptions"
-        :selected-ids="selectedDatasetIds"
-        :selected-datasets="selectedDatasets"
-        :total="datasetTotal"
-        :loading="datasetLoading"
-        :interactive="datasetPickerInteractive"
-        @toggle="onToggleDataset"
-        @search="(q) => emit('dataset-search', q)"
-        @close="drawerOpen = false"
-      />
-
-      <div
-        class="chat-composer__card"
-        :class="{ 'chat-composer__card--focused': focused }"
-        @click="agentPickerOpen = false"
-      >
-        <textarea
-          ref="textareaRef"
-          v-model="value"
+    <div ref="innerRef" class="chat-composer__inner">
+      <div class="chat-composer__card" :class="{ 'chat-composer__card--focused': focused }">
+        <a-textarea
+          v-model:value="value"
           class="chat-composer__textarea"
           aria-label="Message"
           :placeholder="
             busy ? 'Searching…' : 'Ask anything across your sources…  (Shift+Enter for newline)'
           "
           :disabled="busy"
-          rows="1"
-          @input="autoGrow"
+          :bordered="false"
+          :auto-size="{ minRows: 1, maxRows: 9 }"
           @keydown="onKey"
           @focus="focused = true"
           @blur="focused = false"
         />
 
         <div class="chat-composer__row">
-          <!-- Agent selector — only shown when agents list is provided -->
-          <template v-if="agents.length">
-            <div class="agent-picker-wrap" @click.stop>
+          <!-- Agent popover — only shown when an agents list is provided. Mirrors the
+               dataset popover so both selectors share Ant's open/close behaviour. -->
+          <a-popover
+            v-if="agents.length"
+            :open="agentPickerOpen"
+            placement="topLeft"
+            trigger="click"
+            overlay-class-name="agent-popover-overlay"
+            :get-popup-container="getAgentPopupContainer"
+            @open-change="
+              (open) => {
+                if (!open) agentPickerOpen = false
+              }
+            "
+          >
+            <template #content>
+              <AgentDrawer
+                :agents="agents"
+                :selected-agent-id="selectedAgentId"
+                :selected-agent="selectedAgent"
+                :total="agentTotal"
+                :loading="agentLoading"
+                @select="selectAgent"
+                @search="(q) => emit('agent-search', q)"
+                @close="agentPickerOpen = false"
+              />
+            </template>
+
+            <button
+              data-agent
+              class="chat-composer__icon-btn"
+              :class="{ 'chat-composer__icon-btn--active': agentPickerOpen || selectedAgentId }"
+              :title="agentLabel"
+              :disabled="!agentPickerInteractive"
+              @click.stop="agentPickerInteractive && (agentPickerOpen = !agentPickerOpen)"
+            >
+              <Bot :size="15" />
+            </button>
+          </a-popover>
+
+          <!-- Dataset popover: wraps both trigger buttons so either one opens the panel -->
+          <a-popover
+            :open="drawerOpen"
+            placement="topLeft"
+            trigger="click"
+            overlay-class-name="dataset-popover-overlay"
+            :get-popup-container="getDatasetPopupContainer"
+            @open-change="
+              (open) => {
+                if (!open) drawerOpen = false
+              }
+            "
+          >
+            <template #content>
+              <DatasetDrawer
+                :datasets="datasetOptions"
+                :selected-ids="selectedDatasetIds"
+                :selected-datasets="selectedDatasets"
+                :total="datasetTotal"
+                :loading="datasetLoading"
+                :interactive="datasetPickerInteractive"
+                @toggle="onToggleDataset"
+                @search="(q) => emit('dataset-search', q)"
+                @close="drawerOpen = false"
+              />
+            </template>
+
+            <span class="dataset-trigger-wrap">
               <button
-                data-agent
+                data-attach
                 class="chat-composer__icon-btn"
-                :class="{ 'chat-composer__icon-btn--active': selectedAgentId }"
-                :title="agentLabel"
-                :disabled="!agentPickerInteractive"
-                @click="agentPickerInteractive && (agentPickerOpen = !agentPickerOpen)"
+                :class="{ 'chat-composer__icon-btn--active': drawerOpen || selCount > 0 }"
+                title="Choose sources to search"
+                @click.stop="drawerOpen = !drawerOpen"
               >
-                <Bot :size="15" />
+                <Paperclip :size="16" />
               </button>
 
-              <!-- Agent picker popup -->
-              <div v-if="agentPickerOpen && agentPickerInteractive" class="agent-picker-popup">
-                <div class="agent-picker-header">Select agent</div>
-                <div class="agent-search" @click.stop>
-                  <Search :size="14" class="agent-search__icon" />
-                  <input
-                    v-model="agentQuery"
-                    class="agent-search__input"
-                    placeholder="Search agents…"
-                    @input="emit('agent-search', agentQuery)"
-                  />
-                </div>
-
-                <!-- Pinned: current agent (stays visible during search) -->
-                <template v-if="selectedAgent">
-                  <div class="agent-picker-group">Current</div>
-                  <button
-                    class="agent-picker-row agent-picker-row--active"
-                    @click="selectAgent(selectedAgent.id)"
-                  >
-                    <div class="agent-picker-info">
-                      <div class="agent-picker-name">{{ selectedAgent.name }}</div>
-                      <div class="agent-picker-sub">{{ agentSub(selectedAgent) }}</div>
-                    </div>
-                    <Check :size="13" />
-                  </button>
-                  <div class="agent-picker-divider" />
-                </template>
-
-                <div v-if="otherAgents.length" class="agent-picker-group">All agents</div>
-                <button
-                  v-for="a in otherAgents"
-                  :key="a.id"
-                  class="agent-picker-row"
-                  @click="selectAgent(a.id)"
-                >
-                  <div class="agent-picker-info">
-                    <div class="agent-picker-name">{{ a.name }}</div>
-                    <div class="agent-picker-sub">{{ agentSub(a) }}</div>
-                  </div>
-                </button>
-
-                <p v-if="agentLoading" class="agent-picker-hint">Searching…</p>
-                <p v-else-if="agentQuery.trim() && !otherAgents.length" class="agent-picker-hint">
-                  No agents match "{{ agentQuery.trim() }}".
-                </p>
-                <p v-else-if="agentTotal > agents.length" class="agent-picker-hint">
-                  Showing {{ agents.length }} of {{ agentTotal }} — search to find more.
-                </p>
-              </div>
-            </div>
-          </template>
-
-          <button
-            data-attach
-            class="chat-composer__icon-btn"
-            :class="{ 'chat-composer__icon-btn--active': drawerOpen || selCount > 0 }"
-            title="Choose sources to search"
-            @click="drawerOpen = !drawerOpen"
-          >
-            <Paperclip :size="16" />
-          </button>
-
-          <button data-sources class="chat-composer__chip" @click="drawerOpen = !drawerOpen">
-            <LayoutGrid :size="16" />
-            {{ selCount }} {{ selCount === 1 ? "source" : "sources" }}
-            <ChevronDown :size="16" />
-          </button>
+              <button
+                v-if="selCount > 0"
+                data-sources
+                class="chat-composer__chip"
+                @click.stop="drawerOpen = !drawerOpen"
+              >
+                <LayoutGrid :size="16" />
+                {{ selCount }} {{ selCount === 1 ? "source" : "sources" }}
+                <ChevronDown :size="16" />
+              </button>
+            </span>
+          </a-popover>
 
           <span v-if="value.length > 0" class="chat-composer__meter" :style="{ color: meterColor }">
             {{ tokens.toLocaleString() }}/{{ MAX_TOKENS.toLocaleString() }}
           </span>
 
-          <button v-if="streaming" class="chat-composer__stop" @click="emit('abort')">
+          <a-button v-if="streaming" class="chat-composer__stop" @click="emit('abort')">
             <Ban :size="16" /> Stop
-          </button>
-          <button
+          </a-button>
+          <a-button
             v-else
+            type="primary"
             class="chat-composer__send"
             :class="{ 'chat-composer__send--disabled': !canSend }"
             :disabled="!canSend"
@@ -136,7 +126,7 @@
           >
             {{ loading ? "Searching…" : "Send" }}
             <ArrowUp v-if="!loading" :size="16" />
-          </button>
+          </a-button>
         </div>
       </div>
 
@@ -148,18 +138,10 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, nextTick } from "vue"
-import {
-  Paperclip,
-  LayoutGrid,
-  ChevronDown,
-  ArrowUp,
-  Ban,
-  Bot,
-  Check,
-  Search,
-} from "lucide-vue-next"
+import { ref, computed, watch, onMounted } from "vue"
+import { Paperclip, LayoutGrid, ChevronDown, ArrowUp, Ban, Bot } from "lucide-vue-next"
 import DatasetDrawer from "./DatasetDrawer.vue"
+import AgentDrawer from "./AgentDrawer.vue"
 
 const MAX_TOKENS = 8000
 
@@ -204,7 +186,21 @@ const value = ref("")
 const focused = ref(false)
 const drawerOpen = ref(false)
 const agentPickerOpen = ref(false)
-const textareaRef = ref(null)
+const innerRef = ref(null)
+
+/**
+ * Resolve the container the dataset/agent popovers mount into.
+ * Must live in script (not the template) so `innerRef.value` is the DOM node —
+ * in the template `innerRef` is auto-unwrapped and `.value` is undefined, which
+ * made Ant's Portal render nothing. Falls back to <body> as a safety net.
+ * @returns {HTMLElement} the composer inner element, or document.body.
+ */
+function getDatasetPopupContainer() {
+  return innerRef.value || document.body
+}
+
+/** Mount the agent popover in the same container as the dataset popover. */
+const getAgentPopupContainer = getDatasetPopupContainer
 
 const busy = computed(() => props.streaming || props.loading)
 const tokens = computed(() => Math.ceil(value.value.length / 4))
@@ -214,28 +210,7 @@ const canSend = computed(() => value.value.trim().length > 0 && !over.value && !
 const meterColor = computed(() =>
   over.value ? "var(--err)" : tokens.value > MAX_TOKENS * 0.8 ? "var(--warn)" : "var(--ink-4)",
 )
-const agentQuery = ref("")
-watch(agentPickerOpen, (open) => {
-  if (!open) agentQuery.value = ""
-})
 const agentLabel = computed(() => props.selectedAgent?.name || "Agent")
-const otherAgents = computed(() => props.agents.filter((a) => a.id !== props.selectedAgentId))
-
-function agentSub(a) {
-  return a.is_default ? "Default" : a.is_system ? "System" : a.model_config?.model?.split("/").pop()
-}
-
-/** Resize the textarea to fit its content, capped at 220px. */
-function resizeTextarea() {
-  const el = textareaRef.value
-  if (!el) return
-  el.style.height = "auto"
-  el.style.height = Math.min(el.scrollHeight, 220) + "px"
-}
-
-function autoGrow() {
-  resizeTextarea()
-}
 
 function onKey(e) {
   if (e.key === "Enter" && !e.shiftKey) {
@@ -248,7 +223,6 @@ function submit() {
   if (!canSend.value) return
   emit("send", value.value.trim())
   value.value = ""
-  if (textareaRef.value) textareaRef.value.style.height = "auto"
 }
 
 function selectAgent(agentId) {
@@ -270,7 +244,6 @@ function seedInitialText() {
   if (seeded || !props.initialText || value.value) return
   seeded = true
   value.value = props.initialText
-  nextTick(resizeTextarea)
 }
 
 onMounted(seedInitialText)
@@ -313,10 +286,15 @@ watch(() => props.initialText, seedInitialText)
     var(--shadow-2);
 }
 
+/* a-textarea renders <textarea class="ant-input chat-composer__textarea">; combine
+   classes to outrank Ant's .ant-input defaults and keep the borderless, padless look. */
+.chat-composer__textarea.ant-input,
 .chat-composer__textarea {
   border: none;
   outline: none;
   resize: none;
+  padding: 0;
+  box-shadow: none;
   font: 400 15px var(--font-sans);
   color: var(--ink);
   width: 100%;
@@ -324,6 +302,11 @@ watch(() => props.initialText, seedInitialText)
   min-height: 24px;
   max-height: 220px;
   line-height: 1.5;
+}
+.chat-composer__textarea.ant-input:focus,
+.chat-composer__textarea.ant-input-focused {
+  border: none;
+  box-shadow: none;
 }
 
 .chat-composer__row {
@@ -374,38 +357,52 @@ watch(() => props.initialText, seedInitialText)
   margin-left: 6px;
 }
 
+/* send/stop are now a-button (<button class="ant-btn chat-composer__send">); the
+   combined .ant-btn selector outranks Ant's button defaults to preserve the look. */
+.chat-composer__send.ant-btn,
 .chat-composer__send {
   margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  height: auto;
   padding: 7px 13px;
   border-radius: var(--r-sm);
   background: var(--brand);
   color: #fff;
   font: 600 13px var(--font-sans);
   border: none;
+  box-shadow: none;
   cursor: pointer;
   transition: background var(--dur) var(--ease);
 }
+.chat-composer__send.ant-btn-primary:not(:disabled):hover {
+  background: var(--brand-2);
+  color: #fff;
+}
 
-.chat-composer__send--disabled {
+.chat-composer__send--disabled.ant-btn,
+.chat-composer__send--disabled,
+.chat-composer__send.ant-btn:disabled {
   background: var(--bg-2);
   color: var(--ink-4);
   cursor: not-allowed;
 }
 
+.chat-composer__stop.ant-btn,
 .chat-composer__stop {
   margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  height: auto;
   padding: 7px 13px;
   border-radius: var(--r-sm);
   background: var(--surface);
   color: var(--ink);
   font: 600 13px var(--font-sans);
   border: 1px solid var(--line-2);
+  box-shadow: none;
   cursor: pointer;
 }
 
@@ -416,112 +413,30 @@ watch(() => props.initialText, seedInitialText)
   color: var(--ink-4);
 }
 
-.agent-picker-wrap {
-  position: relative;
+.dataset-trigger-wrap {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
 }
+</style>
 
-.agent-picker-popup {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 0;
-  background: var(--surface);
-  border: 1px solid var(--line-2);
-  border-radius: var(--r);
-  box-shadow: var(--shadow-2);
-  min-width: 240px;
-  padding: 6px;
-  z-index: 30;
-}
-
-.agent-picker-header {
-  font-size: 10.5px;
-  font-weight: 700;
-  color: var(--ink-3);
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  padding: 4px 8px 8px;
-}
-
-.agent-search {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin: 0 4px 8px;
-  padding: 7px 10px;
-  border: 1px solid var(--line-2);
-  border-radius: var(--r-sm);
-  background: var(--bg);
-}
-
-.agent-search__icon {
-  color: var(--ink-4);
-  flex-shrink: 0;
-}
-
-.agent-search__input {
-  border: none;
-  outline: none;
+<!--
+  Non-scoped: the dataset/agent popovers are portaled out of this component, so their
+  chrome must be styled globally (namespaced by overlay-class-name). Each drawer paints
+  its own card surface (background, border, radius, shadow), so Ant's default
+  .ant-popover-inner padding + background + shadow rendered a double-container frame
+  around the rounded panel. Strip that chrome and the drawer becomes the sole surface.
+-->
+<style>
+.dataset-popover-overlay .ant-popover-inner,
+.agent-popover-overlay .ant-popover-inner {
+  padding: 0;
   background: transparent;
-  font: 400 12.5px var(--font-sans);
-  color: var(--ink);
-  width: 100%;
+  box-shadow: none;
+  border-radius: var(--r-lg);
 }
-
-.agent-picker-group {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--ink-4);
-  padding: 6px 8px 3px;
-}
-
-.agent-picker-divider {
-  height: 1px;
-  background: var(--line);
-  margin: 6px 6px;
-}
-
-.agent-picker-hint {
-  font-size: 11.5px;
-  color: var(--ink-4);
-  margin: 8px 8px 4px;
-  line-height: 1.5;
-}
-
-.agent-picker-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  padding: 9px 10px;
-  border: none;
-  background: transparent;
-  border-radius: var(--r-sm);
-  cursor: pointer;
-  text-align: left;
-}
-
-.agent-picker-row:hover {
-  background: var(--bg-2);
-}
-
-.agent-picker-row--active {
-  background: var(--brand-tint);
-}
-
-.agent-picker-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--ink);
-}
-
-.agent-picker-sub {
-  font-size: 11px;
-  color: var(--ink-3);
-  margin-top: 1px;
+.dataset-popover-overlay .ant-popover-arrow,
+.agent-popover-overlay .ant-popover-arrow {
+  display: none;
 }
 </style>
