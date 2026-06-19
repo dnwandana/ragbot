@@ -226,21 +226,29 @@ function segState(i) {
           </div>
           <div class="ob-mock__inner">
             <div class="ob-mock__tpl-grid">
+              <div class="ob-mock__tpl">
+                <span class="ob-mock__tpl-label">Blank</span>
+                <span class="ob-mock__tpl-desc">Start from scratch</span>
+              </div>
               <div class="ob-mock__tpl ob-mock__tpl--active">
                 <span class="ob-mock__tpl-label">Support</span>
-                <span class="ob-mock__tpl-desc">Answer questions from connected docs</span>
+                <span class="ob-mock__tpl-desc">Answer customer questions from your docs</span>
               </div>
               <div class="ob-mock__tpl">
                 <span class="ob-mock__tpl-label">Research</span>
-                <span class="ob-mock__tpl-desc">Summarise and cross-reference sources</span>
+                <span class="ob-mock__tpl-desc">Synthesise findings across documents</span>
               </div>
               <div class="ob-mock__tpl">
                 <span class="ob-mock__tpl-label">Policy Q&amp;A</span>
-                <span class="ob-mock__tpl-desc">Strict policy lookups with citations</span>
+                <span class="ob-mock__tpl-desc">Precise answers from policy docs</span>
               </div>
               <div class="ob-mock__tpl">
-                <span class="ob-mock__tpl-label">Blank</span>
-                <span class="ob-mock__tpl-desc">Start with an empty system prompt</span>
+                <span class="ob-mock__tpl-label">Onboarding buddy</span>
+                <span class="ob-mock__tpl-desc">Help new teammates find their way</span>
+              </div>
+              <div class="ob-mock__tpl">
+                <span class="ob-mock__tpl-label">Docs expert</span>
+                <span class="ob-mock__tpl-desc">Explain product and technical docs</span>
               </div>
             </div>
           </div>

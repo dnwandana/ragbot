@@ -44,7 +44,7 @@ const members = [
     initials: "AT",
     name: "Alan Turing",
     email: "alan@example.com",
-    role: "Member",
+    role: "Editor",
     joined: "Mar 3, 2025",
   },
 ]

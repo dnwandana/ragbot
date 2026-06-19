@@ -34,7 +34,8 @@ import { ShieldCheck, Lock, Eye } from "lucide-vue-next"
 const builtinRoles = [
   { name: "Owner", description: "Full control of the workspace", memberCount: 1 },
   { name: "Admin", description: "Manage members, datasets, and agents", memberCount: 2 },
-  { name: "Member", description: "Use agents and chat", memberCount: 5 },
+  { name: "Editor", description: "Upload, build datasets and agents, and chat", memberCount: 5 },
+  { name: "Viewer", description: "Read and chat only — can't change anything", memberCount: 3 },
 ]
 
 const customRoles = [
