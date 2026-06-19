@@ -296,7 +296,9 @@ async function handleToggleDefault() {
 
             <!-- Sticky footer (inside form so submit button triggers @finish) -->
             <div class="drawer-foot">
-              <button v-if="!agent?.is_system" type="submit" class="btn-save">Save changes</button>
+              <button v-if="!agent?.is_system" type="submit" class="btn-save">
+                {{ agent ? "Save changes" : "Create agent" }}
+              </button>
               <button type="button" class="btn-cancel" @click="emit('close')">
                 {{ agent?.is_system ? "Close" : "Cancel" }}
               </button>

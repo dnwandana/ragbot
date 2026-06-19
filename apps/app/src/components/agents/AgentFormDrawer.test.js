@@ -118,6 +118,24 @@ describe("AgentFormDrawer help-me-choose guide", () => {
   })
 })
 
+describe("AgentFormDrawer submit-button label", () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it("reads 'Create agent' in create mode", () => {
+    const wrapper = mountDrawer()
+    expect(wrapper.find(".btn-save").text()).toBe("Create agent")
+  })
+
+  it("reads 'Save changes' in edit mode", () => {
+    const wrapper = mountDrawer({
+      id: "a1",
+      name: "Existing",
+      model_config: { model: "openai/gpt-4.1" },
+    })
+    expect(wrapper.find(".btn-save").text()).toBe("Save changes")
+  })
+})
+
 describe("AgentFormDrawer default-agent toggle feedback", () => {
   beforeEach(() => vi.clearAllMocks())
 
