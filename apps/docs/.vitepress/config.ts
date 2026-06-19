@@ -60,6 +60,7 @@ export default defineConfig({
         items: [
           { text: "FAQ", link: "/help/faq" },
           { text: "Troubleshooting", link: "/help/troubleshooting" },
+          { text: "Changelog", link: "/changelog" },
         ],
       },
     ],
