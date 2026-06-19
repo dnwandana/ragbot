@@ -123,234 +123,204 @@ async function handleToggleDefault() {
 </script>
 
 <template>
-  <Teleport to="body">
-    <Transition name="scrim">
-      <div v-if="open" class="scrim" @click="emit('close')" />
-    </Transition>
-    <Transition name="drawer">
-      <div v-if="open" class="drawer" role="dialog" aria-modal="true" aria-label="Agent form">
-        <!-- Header -->
-        <div class="drawer-head">
-          <div class="head-info">
-            <div class="drawer-title">
-              {{ agent ? agent.name : "New agent" }}
-              <span v-if="agent && !agent.is_system && modelLabel()" class="model-chip">
-                {{ modelLabel() }}
-              </span>
-            </div>
-            <div class="drawer-sub">
-              {{
-                agent?.is_system
-                  ? "System agent — read only"
-                  : agent
-                    ? "Editing agent"
-                    : "Create agent"
-              }}
-            </div>
+  <a-drawer
+    :open="open"
+    placement="right"
+    :width="420"
+    :closable="false"
+    :mask="true"
+    root-class-name="agent-drawer-root"
+    :body-style="{ padding: 0 }"
+    :header-style="{ display: 'none' }"
+    @close="emit('close')"
+  >
+    <div class="drawer" role="dialog" aria-modal="true" aria-label="Agent form">
+      <!-- Header -->
+      <div class="drawer-head">
+        <div class="head-info">
+          <div class="drawer-title">
+            {{ agent ? agent.name : "New agent" }}
+            <span v-if="agent && !agent.is_system && modelLabel()" class="model-chip">
+              {{ modelLabel() }}
+            </span>
           </div>
-          <button class="close-btn" @click="emit('close')" aria-label="Close">✕</button>
+          <div class="drawer-sub">
+            {{
+              agent?.is_system
+                ? "System agent — read only"
+                : agent
+                  ? "Editing agent"
+                  : "Create agent"
+            }}
+          </div>
         </div>
+        <button class="close-btn" @click="emit('close')" aria-label="Close">✕</button>
+      </div>
 
-        <!-- Scrollable body -->
-        <div class="drawer-body">
-          <a-form :model="form" layout="vertical" @finish="onSubmit">
-            <!-- Name — hidden for system agents -->
-            <a-form-item
-              v-if="!agent?.is_system"
-              label="Name"
-              name="name"
-              :rules="[{ required: !agent, message: 'Name is required' }, { max: 255 }]"
+      <!-- Scrollable body -->
+      <div class="drawer-body">
+        <a-form :model="form" layout="vertical" @finish="onSubmit">
+          <!-- Name — hidden for system agents -->
+          <a-form-item
+            v-if="!agent?.is_system"
+            label="Name"
+            name="name"
+            :rules="[{ required: !agent, message: 'Name is required' }, { max: 255 }]"
+          >
+            <a-input v-model:value="form.name" placeholder="e.g. Legal Expert" />
+          </a-form-item>
+
+          <!-- Description -->
+          <a-form-item label="Description">
+            <a-input
+              v-model:value="form.description"
+              placeholder="Optional description"
+              :disabled="agent?.is_system"
+            />
+          </a-form-item>
+
+          <div class="section-divider" />
+
+          <!-- System prompt -->
+          <a-form-item
+            label="System prompt"
+            name="system_prompt"
+            :rules="[{ required: !agent, message: 'System prompt is required' }]"
+          >
+            <a-textarea
+              v-model:value="form.system_prompt"
+              :rows="8"
+              placeholder="You are a helpful assistant..."
+              :readonly="agent?.is_system"
+            />
+          </a-form-item>
+
+          <div class="section-divider" />
+
+          <!-- Model -->
+          <a-form-item label="Model">
+            <a-select
+              v-model:value="form.model_config.model"
+              :disabled="agent?.is_system"
+              option-label-prop="label"
             >
-              <a-input v-model:value="form.name" placeholder="e.g. Legal Expert" />
-            </a-form-item>
-
-            <!-- Description -->
-            <a-form-item label="Description">
-              <a-input
-                v-model:value="form.description"
-                placeholder="Optional description"
-                :disabled="agent?.is_system"
-              />
-            </a-form-item>
-
-            <div class="section-divider" />
-
-            <!-- System prompt -->
-            <a-form-item
-              label="System prompt"
-              name="system_prompt"
-              :rules="[{ required: !agent, message: 'System prompt is required' }]"
-            >
-              <a-textarea
-                v-model:value="form.system_prompt"
-                :rows="8"
-                placeholder="You are a helpful assistant..."
-                :readonly="agent?.is_system"
-              />
-            </a-form-item>
-
-            <div class="section-divider" />
-
-            <!-- Model -->
-            <a-form-item label="Model">
-              <a-select
-                v-model:value="form.model_config.model"
-                :disabled="agent?.is_system"
-                option-label-prop="label"
+              <a-select-option
+                v-for="opt in modelOptions"
+                :key="opt.value"
+                :value="opt.value"
+                :label="opt.label"
               >
-                <a-select-option
-                  v-for="opt in modelOptions"
-                  :key="opt.value"
-                  :value="opt.value"
-                  :label="opt.label"
-                >
-                  <div class="model-opt">
-                    <div class="model-opt-head">
-                      <span class="model-opt-label">{{ opt.label }}</span>
-                      <span
-                        class="model-badge"
-                        :class="{ 'model-badge--rec': opt.badge === 'Recommended' }"
-                      >
-                        {{ opt.badge }}
-                      </span>
-                    </div>
-                    <div v-if="opt.description" class="model-opt-desc">{{ opt.description }}</div>
-                  </div>
-                </a-select-option>
-              </a-select>
-              <template v-if="!agent?.is_system">
-                <button type="button" class="guide-link" @click="showGuide = !showGuide">
-                  Not sure which to pick? Help me choose
-                </button>
-                <div v-if="showGuide" class="guide-panel">
-                  <div class="guide-question">What will you mostly use it for?</div>
-                  <div class="guide-chips">
-                    <button
-                      v-for="rec in MODEL_RECOMMENDATIONS"
-                      :key="rec.key"
-                      type="button"
-                      class="guide-chip"
-                      :class="{ 'guide-chip--on': selectedChip === rec.key }"
-                      @click="selectedChip = rec.key"
+                <div class="model-opt">
+                  <div class="model-opt-head">
+                    <span class="model-opt-label">{{ opt.label }}</span>
+                    <span
+                      class="model-badge"
+                      :class="{ 'model-badge--rec': opt.badge === 'Recommended' }"
                     >
-                      {{ rec.label }}
-                    </button>
+                      {{ opt.badge }}
+                    </span>
                   </div>
-                  <div v-if="recommendation" class="guide-reco">
-                    <div class="guide-reco-info">
-                      <span class="guide-reco-label">{{
-                        findModel(recommendation.model).label
-                      }}</span>
-                      <span class="model-badge model-badge--rec">Our pick</span>
-                      <div class="guide-reco-reason">{{ recommendation.reason }}</div>
-                    </div>
-                    <button type="button" class="guide-use-btn" @click="applyRecommendation">
-                      Use this
-                    </button>
-                  </div>
+                  <div v-if="opt.description" class="model-opt-desc">{{ opt.description }}</div>
                 </div>
-              </template>
-            </a-form-item>
-
-            <!-- Temperature -->
-            <a-form-item label="Temperature">
-              <a-slider
-                v-model:value="form.model_config.temperature"
-                :min="0"
-                :max="2"
-                :step="0.1"
-                :marks="{ 0: '0', 1: '1', 2: '2' }"
-                :disabled="agent?.is_system"
-              />
-            </a-form-item>
-
-            <!-- Default agent toggle — only shown when editing an existing agent -->
-            <template v-if="agent">
-              <div class="section-divider" />
-              <div
-                class="default-toggle-row"
-                :class="{ 'default-toggle-row--on': agent.is_default }"
-              >
-                <div class="default-toggle-info">
-                  <div class="default-toggle-label">Default agent</div>
-                  <div class="default-toggle-sub">
-                    {{
-                      agent.is_default
-                        ? "This agent is currently the default"
-                        : "Pre-selected when starting a new conversation"
-                    }}
-                  </div>
+              </a-select-option>
+            </a-select>
+            <template v-if="!agent?.is_system">
+              <button type="button" class="guide-link" @click="showGuide = !showGuide">
+                Not sure which to pick? Help me choose
+              </button>
+              <div v-if="showGuide" class="guide-panel">
+                <div class="guide-question">What will you mostly use it for?</div>
+                <div class="guide-chips">
+                  <button
+                    v-for="rec in MODEL_RECOMMENDATIONS"
+                    :key="rec.key"
+                    type="button"
+                    class="guide-chip"
+                    :class="{ 'guide-chip--on': selectedChip === rec.key }"
+                    @click="selectedChip = rec.key"
+                  >
+                    {{ rec.label }}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  class="toggle-switch"
-                  :class="{ 'toggle-switch--on': agent.is_default }"
-                  :disabled="agent.is_default || settingDefault"
-                  :aria-label="agent.is_default ? 'This agent is the default' : 'Set as default'"
-                  @click="handleToggleDefault"
-                >
-                  <span class="toggle-knob" />
-                </button>
+                <div v-if="recommendation" class="guide-reco">
+                  <div class="guide-reco-info">
+                    <span class="guide-reco-label">{{
+                      findModel(recommendation.model).label
+                    }}</span>
+                    <span class="model-badge model-badge--rec">Our pick</span>
+                    <div class="guide-reco-reason">{{ recommendation.reason }}</div>
+                  </div>
+                  <button type="button" class="guide-use-btn" @click="applyRecommendation">
+                    Use this
+                  </button>
+                </div>
               </div>
             </template>
+          </a-form-item>
 
-            <!-- Sticky footer (inside form so submit button triggers @finish) -->
-            <div class="drawer-foot">
-              <button v-if="!agent?.is_system" type="submit" class="btn-save">
-                {{ agent ? "Save changes" : "Create agent" }}
-              </button>
-              <button type="button" class="btn-cancel" @click="emit('close')">
-                {{ agent?.is_system ? "Close" : "Cancel" }}
+          <!-- Temperature -->
+          <a-form-item label="Temperature">
+            <a-slider
+              v-model:value="form.model_config.temperature"
+              :min="0"
+              :max="2"
+              :step="0.1"
+              :marks="{ 0: '0', 1: '1', 2: '2' }"
+              :disabled="agent?.is_system"
+            />
+          </a-form-item>
+
+          <!-- Default agent toggle — only shown when editing an existing agent -->
+          <template v-if="agent">
+            <div class="section-divider" />
+            <div class="default-toggle-row" :class="{ 'default-toggle-row--on': agent.is_default }">
+              <div class="default-toggle-info">
+                <div class="default-toggle-label">Default agent</div>
+                <div class="default-toggle-sub">
+                  {{
+                    agent.is_default
+                      ? "This agent is currently the default"
+                      : "Pre-selected when starting a new conversation"
+                  }}
+                </div>
+              </div>
+              <button
+                type="button"
+                class="toggle-switch"
+                :class="{ 'toggle-switch--on': agent.is_default }"
+                :disabled="agent.is_default || settingDefault"
+                :aria-label="agent.is_default ? 'This agent is the default' : 'Set as default'"
+                @click="handleToggleDefault"
+              >
+                <span class="toggle-knob" />
               </button>
             </div>
-          </a-form>
-        </div>
+          </template>
+
+          <!-- Sticky footer (inside form so submit button triggers @finish) -->
+          <div class="drawer-foot">
+            <button v-if="!agent?.is_system" type="submit" class="btn-save">
+              {{ agent ? "Save changes" : "Create agent" }}
+            </button>
+            <button type="button" class="btn-cancel" @click="emit('close')">
+              {{ agent?.is_system ? "Close" : "Cancel" }}
+            </button>
+          </div>
+        </a-form>
       </div>
-    </Transition>
-  </Teleport>
+    </div>
+  </a-drawer>
 </template>
 
-<style scoped>
-.scrim {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.35);
-  z-index: 40;
-}
-
-.drawer {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 420px;
+<style>
+.agent-drawer-root .drawer {
+  height: 100%;
   background: var(--surface);
-  border-left: 1px solid var(--line-2);
-  box-shadow: var(--shadow-3);
-  z-index: 41;
   display: flex;
   flex-direction: column;
 }
 
-/* Transitions */
-.scrim-enter-active,
-.scrim-leave-active {
-  transition: opacity 200ms var(--ease);
-}
-.scrim-enter-from,
-.scrim-leave-to {
-  opacity: 0;
-}
-.drawer-enter-active,
-.drawer-leave-active {
-  transition: transform 220ms var(--ease);
-}
-.drawer-enter-from,
-.drawer-leave-to {
-  transform: translateX(100%);
-}
-
-.drawer-head {
+.agent-drawer-root .drawer-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -360,12 +330,12 @@ async function handleToggleDefault() {
   flex-shrink: 0;
 }
 
-.head-info {
+.agent-drawer-root .head-info {
   flex: 1;
   min-width: 0;
 }
 
-.drawer-title {
+.agent-drawer-root .drawer-title {
   font-size: 15px;
   font-weight: 700;
   color: var(--ink);
@@ -376,13 +346,13 @@ async function handleToggleDefault() {
   flex-wrap: wrap;
 }
 
-.drawer-sub {
+.agent-drawer-root .drawer-sub {
   font-size: 12px;
   color: var(--ink-3);
   margin-top: 2px;
 }
 
-.model-chip {
+.agent-drawer-root .model-chip {
   display: inline-flex;
   padding: 2px 8px;
   border-radius: 20px;
@@ -394,7 +364,7 @@ async function handleToggleDefault() {
   border: 1px solid var(--line);
 }
 
-.close-btn {
+.agent-drawer-root .close-btn {
   width: 28px;
   height: 28px;
   flex-shrink: 0;
@@ -409,24 +379,24 @@ async function handleToggleDefault() {
   cursor: pointer;
 }
 
-.close-btn:hover {
+.agent-drawer-root .close-btn:hover {
   background: var(--bg-2);
   color: var(--ink);
 }
 
-.drawer-body {
+.agent-drawer-root .drawer-body {
   flex: 1;
   overflow-y: auto;
   padding: 16px 20px 0;
 }
 
-.section-divider {
+.agent-drawer-root .section-divider {
   border: none;
   border-top: 1px solid var(--line);
   margin: 4px 0 16px;
 }
 
-.drawer-foot {
+.agent-drawer-root .drawer-foot {
   position: sticky;
   bottom: 0;
   display: flex;
@@ -437,7 +407,7 @@ async function handleToggleDefault() {
   margin-top: 8px;
 }
 
-.btn-save {
+.agent-drawer-root .btn-save {
   flex: 1;
   padding: 10px;
   background: var(--brand);
@@ -449,11 +419,11 @@ async function handleToggleDefault() {
   cursor: pointer;
 }
 
-.btn-save:hover {
+.agent-drawer-root .btn-save:hover {
   background: var(--brand-2);
 }
 
-.btn-cancel {
+.agent-drawer-root .btn-cancel {
   padding: 10px 16px;
   background: var(--surface);
   color: var(--ink-2);
@@ -463,11 +433,11 @@ async function handleToggleDefault() {
   cursor: pointer;
 }
 
-.btn-cancel:hover {
+.agent-drawer-root .btn-cancel:hover {
   background: var(--bg-2);
 }
 
-.default-toggle-row {
+.agent-drawer-root .default-toggle-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -478,33 +448,33 @@ async function handleToggleDefault() {
   gap: 12px;
 }
 
-.default-toggle-row--on {
+.agent-drawer-root .default-toggle-row--on {
   background: var(--brand-tint);
   border-color: var(--brand);
 }
 
-.default-toggle-info {
+.agent-drawer-root .default-toggle-info {
   flex: 1;
   min-width: 0;
 }
 
-.default-toggle-label {
+.agent-drawer-root .default-toggle-label {
   font-size: 13px;
   font-weight: 500;
   color: var(--ink);
 }
 
-.default-toggle-sub {
+.agent-drawer-root .default-toggle-sub {
   font-size: 11.5px;
   color: var(--ink-3);
   margin-top: 2px;
 }
 
-.default-toggle-row--on .default-toggle-sub {
+.agent-drawer-root .default-toggle-row--on .default-toggle-sub {
   color: var(--brand);
 }
 
-.toggle-switch {
+.agent-drawer-root .toggle-switch {
   width: 38px;
   height: 22px;
   border-radius: 11px;
@@ -517,16 +487,16 @@ async function handleToggleDefault() {
   padding: 0;
 }
 
-.toggle-switch--on {
+.agent-drawer-root .toggle-switch--on {
   background: var(--brand);
   cursor: default;
 }
 
-.toggle-switch:disabled {
+.agent-drawer-root .toggle-switch:disabled {
   cursor: default;
 }
 
-.toggle-knob {
+.agent-drawer-root .toggle-knob {
   display: block;
   width: 18px;
   height: 18px;
@@ -539,28 +509,28 @@ async function handleToggleDefault() {
   transition: transform var(--dur) var(--ease);
 }
 
-.toggle-switch--on .toggle-knob {
+.agent-drawer-root .toggle-switch--on .toggle-knob {
   transform: translateX(16px);
 }
 
-.model-opt {
+.agent-drawer-root .model-opt {
   padding: 2px 0;
 }
 
-.model-opt-head {
+.agent-drawer-root .model-opt-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
 }
 
-.model-opt-label {
+.agent-drawer-root .model-opt-label {
   font-size: 13px;
   font-weight: 500;
   color: var(--ink);
 }
 
-.model-badge {
+.agent-drawer-root .model-badge {
   padding: 1px 8px;
   border-radius: 20px;
   font-size: 10.5px;
@@ -571,19 +541,19 @@ async function handleToggleDefault() {
   flex-shrink: 0;
 }
 
-.model-badge--rec {
+.agent-drawer-root .model-badge--rec {
   background: var(--brand-tint);
   color: var(--brand-3);
   border-color: rgba(255, 107, 53, 0.25);
 }
 
-.model-opt-desc {
+.agent-drawer-root .model-opt-desc {
   font-size: 11.5px;
   color: var(--ink-3);
   margin-top: 1px;
 }
 
-.guide-link {
+.agent-drawer-root .guide-link {
   margin-top: 6px;
   padding: 0;
   border: none;
@@ -593,11 +563,11 @@ async function handleToggleDefault() {
   cursor: pointer;
 }
 
-.guide-link:hover {
+.agent-drawer-root .guide-link:hover {
   text-decoration: underline;
 }
 
-.guide-panel {
+.agent-drawer-root .guide-panel {
   margin-top: 8px;
   padding: 12px;
   background: var(--brand-tint);
@@ -605,20 +575,20 @@ async function handleToggleDefault() {
   border-radius: var(--r);
 }
 
-.guide-question {
+.agent-drawer-root .guide-question {
   font-size: 12.5px;
   font-weight: 600;
   color: var(--ink);
   margin-bottom: 8px;
 }
 
-.guide-chips {
+.agent-drawer-root .guide-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
 
-.guide-chip {
+.agent-drawer-root .guide-chip {
   padding: 4px 12px;
   border-radius: 20px;
   border: 1px solid var(--line-2);
@@ -628,12 +598,12 @@ async function handleToggleDefault() {
   cursor: pointer;
 }
 
-.guide-chip--on {
+.agent-drawer-root .guide-chip--on {
   border-color: var(--brand);
   color: var(--brand);
 }
 
-.guide-reco {
+.agent-drawer-root .guide-reco {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -645,20 +615,20 @@ async function handleToggleDefault() {
   border-radius: var(--r-sm);
 }
 
-.guide-reco-label {
+.agent-drawer-root .guide-reco-label {
   font-size: 13px;
   font-weight: 600;
   color: var(--ink);
   margin-right: 6px;
 }
 
-.guide-reco-reason {
+.agent-drawer-root .guide-reco-reason {
   font-size: 11.5px;
   color: var(--ink-3);
   margin-top: 2px;
 }
 
-.guide-use-btn {
+.agent-drawer-root .guide-use-btn {
   padding: 6px 12px;
   background: var(--brand);
   color: #fff;
@@ -670,7 +640,7 @@ async function handleToggleDefault() {
   flex-shrink: 0;
 }
 
-.guide-use-btn:hover {
+.agent-drawer-root .guide-use-btn:hover {
   background: var(--brand-2);
 }
 </style>

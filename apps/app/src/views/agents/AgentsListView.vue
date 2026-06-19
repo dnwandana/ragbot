@@ -4,6 +4,7 @@ import { useRoute } from "vue-router"
 import {
   Check,
   ChevronDown,
+  Ellipsis,
   LayoutGrid,
   List,
   Pencil,
@@ -47,21 +48,43 @@ const { SORT_OPTIONS, currentSortLabel, totalCount, paginationInfo, pageNumbers,
 
 const { shortDate } = useFormattedTime()
 
-const menuOpenId = ref(null)
 const deleteTarget = ref(null)
-const sortMenuOpen = ref(false)
 
-/** @returns {void} */
-function closeMenus() {
-  menuOpenId.value = null
-  sortMenuOpen.value = false
+/**
+ * Column definitions for the a-table (table mode only).
+ * The actions column has no title — it holds the kebab menu trigger.
+ */
+const columns = [
+  { title: "Name", key: "name" },
+  { title: "Model", key: "model" },
+  { title: "Created", key: "created" },
+  { title: "Updated", key: "updated" },
+  { title: "", key: "actions" },
+]
+
+/**
+ * Build Ant Design customRow attributes for an agent row, attaching click and
+ * keyboard handlers so rows open the edit drawer and are focusable.
+ * @param {object} record - Agent row object
+ * @returns {object} Attribute/event object spread onto the <tr>
+ */
+function customRow(record) {
+  return {
+    tabindex: 0,
+    onClick: () => openEdit(record),
+    onKeydown: (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault()
+        openEdit(record)
+      }
+    },
+  }
 }
 
 /** @param {{ label: string, sortBy: string, sortOrder: string }} option */
 function selectSort(option) {
   sortBy.value = option.sortBy
   sortOrder.value = option.sortOrder
-  sortMenuOpen.value = false
 }
 
 /** @param {object} agent @returns {string} */
@@ -71,19 +94,16 @@ function modelLabel(agent) {
 
 /** @param {object} agent */
 function openDelete(agent) {
-  menuOpenId.value = null
   deleteTarget.value = agent
 }
 
 /** @param {object} agent */
 function handleEditClick(agent) {
   openEdit(agent)
-  menuOpenId.value = null
 }
 
 /** @param {object} agent */
 async function handleSetDefaultClick(agent) {
-  menuOpenId.value = null
   await handleSetDefault(agent.id)
 }
 
@@ -95,7 +115,7 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <div class="page" @click="closeMenus">
+  <div class="page">
     <!-- Page head -->
     <div class="page-head">
       <div>
@@ -112,12 +132,12 @@ async function confirmDelete() {
     <div class="toolbar" @click.stop>
       <div class="search-wrap" :class="{ 'search-wrap--active': query }">
         <Search :size="13" :stroke-width="1.8" style="flex-shrink: 0; color: var(--ink-4)" />
-        <input
-          v-model="query"
+        <a-input
+          v-model:value="query"
           class="search-input"
           aria-label="Search agents"
           placeholder="Search agents…"
-          type="search"
+          :bordered="false"
           autocomplete="off"
         />
         <span v-if="loading && agents.length" class="search-spin" />
@@ -125,30 +145,35 @@ async function confirmDelete() {
       <span class="toolbar-count">{{ totalCount }} agent{{ totalCount === 1 ? "" : "s" }}</span>
       <div style="flex: 1" />
       <!-- Sort dropdown -->
-      <div class="sort-wrap" @click.stop>
-        <button class="sort-btn" @click="sortMenuOpen = !sortMenuOpen">
+      <a-dropdown
+        :trigger="['click']"
+        :overlay-class-name="'sort-menu-overlay'"
+        placement="bottomRight"
+      >
+        <button class="sort-btn">
           <SlidersHorizontal :size="12" :stroke-width="1.8" />
           {{ currentSortLabel }}
           <ChevronDown :size="10" :stroke-width="2" />
         </button>
-        <div v-if="sortMenuOpen" class="sort-menu">
-          <button
-            v-for="opt in SORT_OPTIONS"
-            :key="opt.label"
-            class="sort-item"
-            :class="{ 'sort-item--active': opt.sortBy === sortBy && opt.sortOrder === sortOrder }"
-            @click="selectSort(opt)"
-          >
-            <Check
-              v-if="opt.sortBy === sortBy && opt.sortOrder === sortOrder"
-              :size="12"
-              :stroke-width="2.2"
-            />
-            <span v-else style="width: 12px; display: inline-block" />
-            {{ opt.label }}
-          </button>
-        </div>
-      </div>
+        <template #overlay>
+          <a-menu>
+            <a-menu-item
+              v-for="opt in SORT_OPTIONS"
+              :key="opt.label"
+              :class="{ 'sort-item--active': opt.sortBy === sortBy && opt.sortOrder === sortOrder }"
+              @click="selectSort(opt)"
+            >
+              <Check
+                v-if="opt.sortBy === sortBy && opt.sortOrder === sortOrder"
+                :size="12"
+                :stroke-width="2.2"
+              />
+              <span v-else style="width: 12px; display: inline-block" />
+              {{ opt.label }}
+            </a-menu-item>
+          </a-menu>
+        </template>
+      </a-dropdown>
       <!-- View toggle -->
       <div class="view-toggle">
         <button
@@ -279,37 +304,42 @@ async function confirmDelete() {
               modelLabel(agent)
             }}</span>
           </div>
-          <div class="menu-wrap" @click.stop>
-            <button
-              class="menu-btn"
-              @click="menuOpenId = menuOpenId === agent.id ? null : agent.id"
-              aria-label="More options"
-            >
-              ···
+          <a-dropdown
+            :trigger="['click']"
+            :overlay-class-name="'row-actions-overlay'"
+            placement="bottomRight"
+            @click.stop
+          >
+            <button class="kebab-btn" aria-label="More options" aria-haspopup="menu">
+              <Ellipsis :size="16" :stroke-width="1.7" />
             </button>
-            <div v-if="menuOpenId === agent.id" class="menu-popup">
-              <button
-                v-if="!agent.is_default"
-                class="menu-item menu-item--star"
-                @click="handleSetDefaultClick(agent)"
-              >
-                <Star :size="13" :stroke-width="1.6" />
-                Set as default
-              </button>
-              <button class="menu-item" @click="handleEditClick(agent)">
-                <Pencil :size="13" :stroke-width="1.6" />
-                Edit
-              </button>
-              <button
-                class="menu-item menu-item--danger"
-                :disabled="agent.is_system"
-                @click="openDelete(agent)"
-              >
-                <Trash2 :size="13" :stroke-width="1.6" />
-                Delete
-              </button>
-            </div>
-          </div>
+            <template #overlay>
+              <a-menu>
+                <a-menu-item
+                  v-if="!agent.is_default"
+                  key="set-default"
+                  class="row-menu__item--star"
+                  @click="handleSetDefaultClick(agent)"
+                >
+                  <Star :size="14" :stroke-width="1.6" class="row-menu-icon" />
+                  Set as default
+                </a-menu-item>
+                <a-menu-item key="edit" @click="handleEditClick(agent)">
+                  <Pencil :size="14" :stroke-width="1.6" class="row-menu-icon" />
+                  Edit
+                </a-menu-item>
+                <a-menu-item
+                  key="delete"
+                  class="row-menu__item--danger"
+                  :disabled="agent.is_system"
+                  @click="openDelete(agent)"
+                >
+                  <Trash2 :size="14" :stroke-width="1.6" class="row-menu-icon" />
+                  Delete
+                </a-menu-item>
+              </a-menu>
+            </template>
+          </a-dropdown>
         </div>
         <p class="card-desc" :class="{ 'card-desc--prompt': !agent.description }">
           {{
@@ -326,70 +356,88 @@ async function confirmDelete() {
     </div>
 
     <!-- Table view -->
-    <div v-else class="agent-table" :class="{ 'is-fetching': loading }">
-      <div class="tbl-head tbl-cols">
-        <div>Name</div>
-        <div>Model</div>
-        <div>Created</div>
-        <div>Updated</div>
-        <div></div>
-      </div>
-      <div
-        v-for="agent in agents"
-        :key="agent.id"
-        class="tbl-row tbl-cols"
-        :class="{ 'tbl-row--active': drawerAgent?.id === agent.id && isDrawerOpen }"
-        @click="openEdit(agent)"
+    <div v-else :class="{ 'is-fetching': loading }">
+      <a-table
+        :columns="columns"
+        :data-source="agents"
+        :row-key="(record) => record.id"
+        :pagination="false"
+        :custom-row="customRow"
+        :row-class-name="
+          (record) => (drawerAgent?.id === record.id && isDrawerOpen ? 'tbl-row--active' : '')
+        "
       >
-        <div>
-          <div class="tbl-name">
-            {{ agent.name }}
-            <span v-if="agent.is_default" class="chip chip--default" style="margin-left: 6px"
-              >Default</span
-            >
-            <span v-else-if="agent.is_system" class="chip chip--sys" style="margin-left: 6px"
-              >System</span
-            >
-          </div>
-          <div v-if="agent.description" class="tbl-desc">{{ agent.description }}</div>
-        </div>
-        <div class="tbl-mono">{{ agent.is_system ? "—" : modelLabel(agent) }}</div>
-        <div class="tbl-muted">{{ shortDate(agent.created_at) }}</div>
-        <div class="tbl-muted">{{ relativeTime(agent.updated_at) }}</div>
-        <div @click.stop>
-          <div class="menu-wrap">
-            <button
-              class="menu-btn"
-              @click="menuOpenId = menuOpenId === agent.id ? null : agent.id"
-              aria-label="More options"
-            >
-              ···
-            </button>
-            <div v-if="menuOpenId === agent.id" class="menu-popup">
-              <button
-                v-if="!agent.is_default"
-                class="menu-item menu-item--star"
-                @click="handleSetDefaultClick(agent)"
+        <template #bodyCell="{ column, record }">
+          <!-- Name + chips + description -->
+          <template v-if="column.key === 'name'">
+            <div class="tbl-name">
+              {{ record.name }}
+              <span v-if="record.is_default" class="chip chip--default" style="margin-left: 6px"
+                >Default</span
               >
-                <Star :size="13" :stroke-width="1.6" />
-                Set as default
-              </button>
-              <button class="menu-item" @click="handleEditClick(agent)">
-                <Pencil :size="13" :stroke-width="1.6" />
-                Edit
-              </button>
-              <button
-                class="menu-item menu-item--danger"
-                :disabled="agent.is_system"
-                @click="openDelete(agent)"
+              <span v-else-if="record.is_system" class="chip chip--sys" style="margin-left: 6px"
+                >System</span
               >
-                <Trash2 :size="13" :stroke-width="1.6" />
-                Delete
-              </button>
             </div>
-          </div>
-        </div>
-      </div>
+            <div v-if="record.description" class="tbl-desc">{{ record.description }}</div>
+          </template>
+
+          <!-- Model label -->
+          <template v-else-if="column.key === 'model'">
+            <span class="tbl-mono">{{ record.is_system ? "—" : modelLabel(record) }}</span>
+          </template>
+
+          <!-- Created date -->
+          <template v-else-if="column.key === 'created'">
+            <span class="tbl-muted">{{ shortDate(record.created_at) }}</span>
+          </template>
+
+          <!-- Updated time -->
+          <template v-else-if="column.key === 'updated'">
+            <span class="tbl-muted">{{ relativeTime(record.updated_at) }}</span>
+          </template>
+
+          <!-- Actions: kebab menu -->
+          <template v-else-if="column.key === 'actions'">
+            <a-dropdown
+              :trigger="['click']"
+              :overlay-class-name="'row-actions-overlay'"
+              placement="bottomRight"
+              @click.stop
+            >
+              <button class="kebab-btn" aria-label="More options" aria-haspopup="menu">
+                <Ellipsis :size="16" :stroke-width="1.7" />
+              </button>
+              <template #overlay>
+                <a-menu>
+                  <a-menu-item
+                    v-if="!record.is_default"
+                    key="set-default"
+                    class="row-menu__item--star"
+                    @click="handleSetDefaultClick(record)"
+                  >
+                    <Star :size="14" :stroke-width="1.6" class="row-menu-icon" />
+                    Set as default
+                  </a-menu-item>
+                  <a-menu-item key="edit" @click="handleEditClick(record)">
+                    <Pencil :size="14" :stroke-width="1.6" class="row-menu-icon" />
+                    Edit
+                  </a-menu-item>
+                  <a-menu-item
+                    key="delete"
+                    class="row-menu__item--danger"
+                    :disabled="record.is_system"
+                    @click="openDelete(record)"
+                  >
+                    <Trash2 :size="14" :stroke-width="1.6" class="row-menu-icon" />
+                    Delete
+                  </a-menu-item>
+                </a-menu>
+              </template>
+            </a-dropdown>
+          </template>
+        </template>
+      </a-table>
     </div>
 
     <!-- Pagination -->
@@ -644,48 +692,44 @@ async function confirmDelete() {
   font-size: 10.5px;
 }
 
-/* Table */
-.agent-table {
-  background: var(--surface);
+/* Table — a-table overrides */
+:deep(.ant-table) {
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
+  overflow: hidden;
 }
 
-.tbl-cols {
-  display: grid;
-  grid-template-columns: 1fr 160px 110px 120px 40px;
-  gap: 12px;
-  align-items: center;
-}
-
-.tbl-head {
-  padding: 10px 18px;
+:deep(.ant-table-thead > tr > th) {
   background: var(--bg);
-  border-bottom: 1px solid var(--line);
   font-size: 10.5px;
   font-weight: 600;
   color: var(--ink-3);
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  border-bottom: 1px solid var(--line);
+  padding: 10px 18px;
 }
 
-.tbl-row {
+:deep(.ant-table-tbody > tr > td) {
+  border-bottom: 1px solid var(--line);
   padding: 11px 18px;
-  border-top: 1px solid var(--line);
   cursor: pointer;
 }
 
-.tbl-row:hover {
-  background: var(--bg);
+:deep(.ant-table-tbody > tr:hover > td) {
+  background: var(--bg) !important;
 }
 
-.tbl-row:last-child {
-  border-radius: 0 0 var(--r-lg) var(--r-lg);
+:deep(.ant-table-tbody > tr.tbl-row--active > td) {
+  background: var(--brand-tint) !important;
 }
 
-.tbl-row--active {
-  background: var(--brand-tint);
+:deep(.ant-table-tbody > tr:last-child > td:first-child) {
+  border-bottom-left-radius: var(--r-lg);
+}
+
+:deep(.ant-table-tbody > tr:last-child > td:last-child) {
+  border-bottom-right-radius: var(--r-lg);
 }
 
 .tbl-name {
@@ -713,14 +757,10 @@ async function confirmDelete() {
   color: var(--ink-4);
 }
 
-/* Menu */
-.menu-wrap {
-  position: relative;
-}
-
-.menu-btn {
-  width: 24px;
-  height: 24px;
+/* Kebab trigger button */
+.kebab-btn {
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -728,72 +768,13 @@ async function confirmDelete() {
   background: transparent;
   border-radius: var(--r-sm);
   color: var(--ink-4);
-  font-size: 16px;
-  font-weight: 700;
   cursor: pointer;
-  line-height: 1;
+  padding: 0;
 }
 
-.menu-btn:hover {
+.kebab-btn:hover {
   background: var(--bg-2);
   color: var(--ink);
-}
-
-.menu-popup {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  background: var(--surface);
-  border: 1px solid var(--line-2);
-  border-radius: var(--r);
-  box-shadow: var(--shadow-2);
-  min-width: 130px;
-  padding: 4px;
-  z-index: 20;
-}
-
-.menu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 7px 10px;
-  border: none;
-  background: transparent;
-  border-radius: var(--r-sm);
-  font-size: 13px;
-  color: var(--ink-2);
-  cursor: pointer;
-  text-align: left;
-}
-
-.menu-item:hover {
-  background: var(--bg-2);
-}
-
-.menu-item--danger {
-  color: var(--err);
-}
-
-.menu-item--danger:hover {
-  background: var(--err-bg);
-}
-
-.menu-item:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.menu-item:disabled:hover {
-  background: transparent;
-}
-
-.menu-item--star {
-  color: var(--brand);
-}
-
-.menu-item--star:hover {
-  background: var(--brand-tint);
 }
 
 /* Skeleton */
@@ -875,14 +856,23 @@ async function confirmDelete() {
   outline: none;
 }
 
+/* a-input :bordered=false renders <input class="ant-input search-input">; combine
+   classes to outrank Ant defaults so the .search-wrap owns the border/background. */
+.search-input.ant-input,
 .search-input {
   flex: 1;
   border: none;
   outline: none;
+  padding: 0;
+  box-shadow: none;
   background: transparent;
   font-size: 12.5px;
   color: var(--ink);
   min-width: 0;
+}
+.search-input.ant-input:focus,
+.search-input.ant-input-focused {
+  box-shadow: none;
 }
 .search-input::placeholder {
   color: var(--ink-4);
@@ -912,9 +902,6 @@ async function confirmDelete() {
   white-space: nowrap;
 }
 
-.sort-wrap {
-  position: relative;
-}
 .sort-btn {
   display: inline-flex;
   align-items: center;
@@ -930,39 +917,6 @@ async function confirmDelete() {
 }
 .sort-btn:hover {
   background: var(--bg-2);
-}
-.sort-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  background: var(--surface);
-  border: 1px solid var(--line-2);
-  border-radius: var(--r);
-  box-shadow: var(--shadow-2);
-  min-width: 180px;
-  padding: 4px;
-  z-index: 30;
-}
-.sort-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 7px 10px;
-  border: none;
-  background: transparent;
-  border-radius: var(--r-sm);
-  font-size: 13px;
-  color: var(--ink-2);
-  cursor: pointer;
-  text-align: left;
-}
-.sort-item:hover {
-  background: var(--bg-2);
-}
-.sort-item--active {
-  font-weight: 500;
-  color: var(--ink);
 }
 
 /* Fetching state — dim grid/table during re-fetch */
@@ -1059,5 +1013,82 @@ async function confirmDelete() {
   color: var(--ink-4);
   padding: 0 2px;
   user-select: none;
+}
+</style>
+
+<!-- Non-scoped: styles for the portaled overlay (under .row-actions-overlay class) -->
+<style>
+.row-actions-overlay .ant-dropdown-menu {
+  min-width: 148px;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-2);
+  padding: 4px;
+}
+.row-actions-overlay .ant-dropdown-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink-2);
+  border-radius: var(--r-sm);
+  padding: 7px 10px;
+}
+.row-actions-overlay .ant-dropdown-menu-item:hover {
+  background: var(--bg-2);
+}
+.row-actions-overlay .ant-dropdown-menu-item.row-menu__item--danger {
+  color: var(--err);
+}
+.row-actions-overlay .ant-dropdown-menu-item.row-menu__item--danger:hover {
+  background: var(--err-bg);
+}
+.row-actions-overlay .ant-dropdown-menu-item.row-menu__item--star {
+  color: var(--brand);
+}
+.row-actions-overlay .ant-dropdown-menu-item.row-menu__item--star:hover {
+  background: var(--brand-tint);
+}
+.row-actions-overlay .ant-dropdown-menu-item-disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.row-actions-overlay .row-menu-icon {
+  flex-shrink: 0;
+  color: inherit;
+}
+.row-actions-overlay .ant-dropdown-menu-title-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+</style>
+
+<!-- Non-scoped: styles for the portaled sort dropdown (under .sort-menu-overlay) -->
+<style>
+.sort-menu-overlay .ant-dropdown-menu {
+  min-width: 180px;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-2);
+  padding: 4px;
+}
+.sort-menu-overlay .ant-dropdown-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink-2);
+  border-radius: var(--r-sm);
+  padding: 7px 10px;
+}
+.sort-menu-overlay .ant-dropdown-menu-item:hover {
+  background: var(--bg-2);
+}
+.sort-menu-overlay .ant-dropdown-menu-item.sort-item--active {
+  font-weight: 500;
+  color: var(--ink);
 }
 </style>
