@@ -251,13 +251,23 @@ async function runAction(key) {
           apiInviteMember(createdWorkspaceId.value, { email, role_id }),
         ),
       )
-      const sent = results.filter((r) => r.status === "fulfilled").length
-      if (sent === 0 && list.length > 0) {
-        showToast("Failed to send invites — check the addresses and try again", "err")
-      } else {
+      const failed = list.filter((_, i) => results[i].status === "rejected")
+      const sent = list.length - failed.length
+
+      if (failed.length === 0) {
         completed.value = new Set([...completed.value, "invites"])
-        showToast(`${sent} of ${list.length} ${list.length === 1 ? "invite" : "invites"} sent`)
+        showToast(`${sent} ${sent === 1 ? "invite" : "invites"} sent`)
         advance()
+      } else {
+        formData.invites = failed // keep only the failures
+        const addr = failed.length === 1 ? "address" : "addresses"
+        showToast(
+          sent > 0
+            ? `${sent} sent, ${failed.length} failed — check the ${addr} and retry`
+            : `Couldn't send — check the ${addr} and retry`,
+          "err",
+        )
+        // no advance(): user stays on the step and retries
       }
     } finally {
       busy.value = null
@@ -430,9 +440,9 @@ onUnmounted(() => clearTimeout(toastTimer))
     <div class="ob-card">
       <div class="ob-topbar">
         <img src="/logo.svg" alt="RAGBot" class="ob-topbar-logo" />
-        <button v-if="view !== 'complete'" class="ob-exit" @click="exitOpen = true">
+        <a-button v-if="view !== 'complete'" class="ob-exit" @click="exitOpen = true">
           Exit &amp; resume later
-        </button>
+        </a-button>
       </div>
 
       <div v-if="view === 'steps'" class="ob-progress-wrap">
@@ -497,12 +507,84 @@ onUnmounted(() => clearTimeout(toastTimer))
           Your progress is saved. You can pick up right where you left off whenever you're ready.
         </p>
         <div class="ob-modal-actions">
-          <button class="ob-btn ob-btn-secondary" @click="exitOpen = false">Keep setting up</button>
-          <button class="ob-btn ob-btn-primary" @click="exitLater">
+          <a-button class="ob-btn ob-btn-secondary" @click="exitOpen = false"
+            >Keep setting up</a-button
+          >
+          <a-button type="primary" class="ob-btn ob-btn-primary" @click="exitLater">
             Exit to dashboard <ArrowRight :size="16" />
-          </button>
+          </a-button>
         </div>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Exit button — borderless ghost style matching ob-exit look */
+:deep(.ob-exit.ant-btn) {
+  display: inline-flex;
+  align-items: center;
+  height: auto;
+  padding: 6px 12px;
+  border-radius: var(--r-sm);
+  font-size: var(--t-sm);
+  font-weight: 500;
+  color: var(--ink-3);
+  background: transparent;
+  border: 1px solid var(--line-2);
+  box-shadow: none;
+}
+
+:deep(.ob-exit.ant-btn:hover),
+:deep(.ob-exit.ant-btn:focus) {
+  background: var(--bg-2);
+  border-color: var(--line);
+  color: var(--ink-2);
+}
+
+/* Modal secondary button (Keep setting up) */
+:deep(.ob-btn-secondary.ant-btn) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: auto;
+  padding: 9px 18px;
+  border-radius: var(--r);
+  font-size: var(--t-base);
+  font-weight: 500;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  color: var(--ink-2);
+  box-shadow: none;
+}
+
+:deep(.ob-btn-secondary.ant-btn:hover),
+:deep(.ob-btn-secondary.ant-btn:focus) {
+  background: var(--bg-2);
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+/* Modal primary button (Exit to dashboard) */
+:deep(.ob-btn-primary.ant-btn) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: auto;
+  padding: 9px 18px;
+  border-radius: var(--r);
+  font-size: var(--t-base);
+  font-weight: 600;
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+  box-shadow: none;
+}
+
+:deep(.ob-btn-primary.ant-btn:hover),
+:deep(.ob-btn-primary.ant-btn:focus) {
+  background: var(--brand-2);
+  border-color: var(--brand-2);
+  color: #fff;
+}
+</style>

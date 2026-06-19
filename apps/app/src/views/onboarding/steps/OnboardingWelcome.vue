@@ -61,10 +61,36 @@ const STEP_META = [
         <Clock :size="16" />
         About {{ props.ctx.steps.length + 1 }} minutes
       </span>
-      <button class="ob-btn ob-btn-primary ob-btn-lg" @click="props.ctx.next()">
+      <a-button type="primary" class="ob-btn ob-btn-primary ob-btn-lg" @click="props.ctx.next()">
         Get started
         <ArrowRight :size="16" />
-      </button>
+      </a-button>
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Override Ant button styles to match ob-btn-primary look */
+:deep(.ob-btn-primary.ant-btn) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: auto;
+  padding: 11px 22px;
+  border-radius: var(--r);
+  font-size: var(--t-base);
+  font-weight: 600;
+  line-height: 1.4;
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+  box-shadow: none;
+}
+
+:deep(.ob-btn-primary.ant-btn:hover),
+:deep(.ob-btn-primary.ant-btn:focus) {
+  background: var(--brand-2);
+  border-color: var(--brand-2);
+  color: #fff;
+}
+</style>

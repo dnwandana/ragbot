@@ -1,5 +1,6 @@
 <script setup>
-import { Bot, ArrowLeft, LoaderCircle, Check, CircleAlert } from "lucide-vue-next"
+import { computed } from "vue"
+import { Bot, ArrowLeft, LoaderCircle, CircleAlert } from "lucide-vue-next"
 import { AGENT_TEMPLATES, nameForTemplate } from "../agentTemplates.js"
 
 const props = defineProps({
@@ -12,12 +13,22 @@ const emit = defineEmits(["update:agentName", "update:agentTemplate", "update:ag
 const ctx = props.ctx
 
 /**
- * Apply a template: select it, replace the prompt, and update the agent
- * name via the shared fill rule (user-typed names are preserved). The parent
- * owns formData, so each field change is emitted rather than mutated.
- * @param {{ key: string, label: string, name: string, prompt: string }} tpl - Picked template
+ * Option list for the template a-select. Each entry carries a label for the
+ * dropdown display and a value matching the template key.
+ * @type {import("vue").ComputedRef<{ value: string, label: string }[]>}
  */
-function pickTemplate(tpl) {
+const templateOptions = computed(() =>
+  AGENT_TEMPLATES.map((tpl) => ({ value: tpl.key, label: tpl.label })),
+)
+
+/**
+ * Handle a-select's @change event: look up the full template object, then emit
+ * template key, prompt, and (via nameForTemplate) the resolved agent name.
+ * @param {string} key - The selected template key emitted by a-select
+ */
+function onTemplateChange(key) {
+  const tpl = AGENT_TEMPLATES.find((t) => t.key === key)
+  if (!tpl) return
   emit("update:agentTemplate", tpl.key)
   emit("update:agentPrompt", tpl.prompt)
   emit("update:agentName", nameForTemplate(props.agentName, tpl))
@@ -25,10 +36,10 @@ function pickTemplate(tpl) {
 
 /**
  * Emit the new agent name and clear any prior validation error.
- * @param {Event} e - Input event from the agent-name field
+ * @param {string} value - New value emitted by a-input's update:value event
  */
-function onName(e) {
-  emit("update:agentName", e.target.value)
+function onName(value) {
+  emit("update:agentName", value)
   ctx.setError("agent", null)
 }
 </script>
@@ -47,14 +58,13 @@ function onName(e) {
   <div class="ob-body-inner">
     <div class="ob-field">
       <label class="ob-label" for="ag-name">Agent name</label>
-      <input
+      <a-input
         id="ag-name"
-        class="ob-input"
-        :class="{ 'is-error': ctx.errors.agent }"
         :value="props.agentName"
         placeholder="e.g. Support Sidekick"
+        :status="ctx.errors.agent ? 'error' : ''"
         autofocus
-        @input="onName"
+        @update:value="onName"
       />
       <div v-if="ctx.errors.agent" class="ob-error-text">
         <CircleAlert :size="16" /> {{ ctx.errors.agent }}
@@ -63,31 +73,22 @@ function onName(e) {
 
     <div class="ob-field">
       <label class="ob-label">Start from a template</label>
-      <div class="ob-tpl-grid">
-        <button
-          v-for="tpl in AGENT_TEMPLATES"
-          :key="tpl.key"
-          class="ob-tpl"
-          :class="{ 'is-active': props.agentTemplate === tpl.key }"
-          @click="pickTemplate(tpl)"
-        >
-          <span class="ob-tpl-label">{{ tpl.label }}</span>
-          <span class="ob-tpl-desc">{{ tpl.desc }}</span>
-          <span v-if="props.agentTemplate === tpl.key" class="ob-tpl-check">
-            <Check :size="16" />
-          </span>
-        </button>
-      </div>
+      <a-select
+        :value="props.agentTemplate || undefined"
+        :options="templateOptions"
+        placeholder="Choose a template…"
+        class="ob-tpl-select"
+        @change="onTemplateChange"
+      />
     </div>
 
     <div class="ob-field">
       <label class="ob-label">System prompt</label>
-      <textarea
-        class="ob-textarea"
+      <a-textarea
         :value="props.agentPrompt"
-        rows="5"
+        :rows="5"
         placeholder="e.g. You are a knowledge assistant. Answer only from the indexed sources and cite the document for every claim…"
-        @input="(e) => emit('update:agentPrompt', e.target.value)"
+        @update:value="(v) => emit('update:agentPrompt', v)"
       />
       <div class="ob-hint">
         This is your agent's job description. Edit freely — the template is just a head start.
@@ -112,3 +113,24 @@ function onName(e) {
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Make the template select full-width to match other ob-field controls */
+.ob-tpl-select {
+  width: 100%;
+}
+
+/* Bump specificity so Ant's input/textarea borders harmonise with onboarding card */
+:deep(.ob-tpl-select .ant-select-selector) {
+  border-radius: var(--ob-radius, 8px) !important;
+}
+
+:deep(.ant-input),
+:deep(.ant-input-affix-wrapper) {
+  border-radius: var(--ob-radius, 8px);
+}
+
+:deep(.ant-input-textarea textarea) {
+  border-radius: var(--ob-radius, 8px);
+}
+</style>

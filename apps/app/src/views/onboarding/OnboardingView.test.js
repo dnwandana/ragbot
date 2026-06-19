@@ -2,15 +2,23 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { mount, flushPromises } from "@vue/test-utils"
 
-const { createAgent, createWorkspace, createDataset, fetchRoles, fetchWorkspaces, wsState } =
-  vi.hoisted(() => ({
-    createAgent: vi.fn().mockResolvedValue({}),
-    createWorkspace: vi.fn().mockResolvedValue({ id: "ws1" }),
-    createDataset: vi.fn().mockResolvedValue({ id: "ds1" }),
-    fetchRoles: vi.fn().mockResolvedValue(undefined),
-    fetchWorkspaces: vi.fn().mockResolvedValue(undefined),
-    wsState: { workspaces: [] },
-  }))
+const {
+  createAgent,
+  createWorkspace,
+  createDataset,
+  fetchRoles,
+  fetchWorkspaces,
+  wsState,
+  inviteMember,
+} = vi.hoisted(() => ({
+  createAgent: vi.fn().mockResolvedValue({}),
+  createWorkspace: vi.fn().mockResolvedValue({ id: "ws1" }),
+  createDataset: vi.fn().mockResolvedValue({ id: "ds1" }),
+  fetchRoles: vi.fn().mockResolvedValue(undefined),
+  fetchWorkspaces: vi.fn().mockResolvedValue(undefined),
+  wsState: { workspaces: [] },
+  inviteMember: vi.fn(),
+}))
 
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal()),
@@ -38,7 +46,7 @@ vi.mock("@/stores/datasetFiles", () => ({
 vi.mock("@/stores/agents", () => ({
   useAgentsStore: () => ({ createAgent }),
 }))
-vi.mock("@/api/members", () => ({ inviteMember: vi.fn() }))
+vi.mock("@/api/members", () => ({ inviteMember }))
 
 import OnboardingView from "@/views/onboarding/OnboardingView.vue"
 import { DEFAULT_MODEL_CONFIG } from "@/constants/models"
@@ -62,6 +70,7 @@ const STUBS = {
   OnboardingSource: true,
   OnboardingAgent: AgentStepStub,
   OnboardingComplete: true,
+  "a-button": true,
 }
 
 const WorkspaceStepStub = {
@@ -143,6 +152,11 @@ describe("OnboardingView workspace step", () => {
 const SourceStepStub = {
   props: ["ctx"],
   template: `<button class="run-source" @click="ctx.runAction('source')">Add source</button>`,
+}
+
+const InviteStepStub = {
+  props: ["ctx"],
+  template: `<button class="run-invites" @click="ctx.runAction('invites')">Send invites</button>`,
 }
 
 describe("OnboardingView source step", () => {
@@ -367,5 +381,72 @@ describe("OnboardingView stale workspace guard", () => {
 
     const saved = JSON.parse(localStorage.getItem("ragbot-onboarding-v1"))
     expect(saved.completed).toEqual([])
+  })
+})
+
+describe("OnboardingView invites step", () => {
+  beforeEach(() => {
+    wsState.workspaces = [{ id: "ws1" }]
+    vi.clearAllMocks()
+    localStorage.setItem(
+      "ragbot-onboarding-v1",
+      JSON.stringify({
+        view: "steps",
+        stepIdx: 1,
+        completed: ["workspace"],
+        createdWorkspaceId: "ws1",
+        formData: {
+          workspaceName: "Acme",
+          workspaceDescription: "",
+          invites: [
+            { email: "a@x.com", role_id: "r1" },
+            { email: "bad@x.com", role_id: "r1" },
+            { email: "c@x.com", role_id: "r1" },
+          ],
+          datasetName: "",
+          datasetDescription: "",
+          files: [],
+          agentName: "Helper",
+          agentTemplate: "support",
+          agentPrompt: "You are helpful.",
+        },
+      }),
+    )
+  })
+
+  afterEach(() => {
+    localStorage.removeItem("ragbot-onboarding-v1")
+    wsState.workspaces = []
+  })
+
+  it("partial failure retains only the failed invite, does not advance, does not complete", async () => {
+    inviteMember.mockImplementation((_wsId, { email }) =>
+      email === "bad@x.com" ? Promise.reject(new Error("nope")) : Promise.resolve({}),
+    )
+    const wrapper = mount(OnboardingView, {
+      global: { stubs: { ...STUBS, OnboardingInvite: InviteStepStub } },
+    })
+    await flushPromises()
+    await wrapper.find(".run-invites").trigger("click")
+    await flushPromises()
+
+    const saved = JSON.parse(localStorage.getItem("ragbot-onboarding-v1"))
+    expect(saved.formData.invites).toEqual([{ email: "bad@x.com", role_id: "r1" }])
+    expect(saved.stepIdx).toBe(1)
+    expect(saved.completed).not.toContain("invites")
+  })
+
+  it("all success advances and marks complete", async () => {
+    inviteMember.mockResolvedValue({})
+    const wrapper = mount(OnboardingView, {
+      global: { stubs: { ...STUBS, OnboardingInvite: InviteStepStub } },
+    })
+    await flushPromises()
+    await wrapper.find(".run-invites").trigger("click")
+    await flushPromises()
+
+    const saved = JSON.parse(localStorage.getItem("ragbot-onboarding-v1"))
+    expect(saved.completed).toContain("invites")
+    expect(saved.stepIdx).toBe(2)
   })
 })

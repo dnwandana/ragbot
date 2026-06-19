@@ -149,27 +149,27 @@ const readyCount = computed(
       <div class="ob-substep"><span class="ob-sub-badge">A</span> Name your dataset</div>
       <div class="ob-field">
         <label class="ob-label" for="ds-name">Dataset name</label>
-        <input
+        <a-input
           id="ds-name"
           class="ob-input"
           :value="props.datasetName"
           placeholder="Company knowledge"
           autofocus
-          @input="(e) => emit('update:datasetName', e.target.value)"
-          @keydown.enter="props.datasetName.trim() && (phase = 'files')"
+          @change="(e) => emit('update:datasetName', e.target.value)"
+          @pressEnter="props.datasetName.trim() && (phase = 'files')"
         />
         <div class="ob-hint">A clear label you'll recognise later — e.g. "HR policies".</div>
       </div>
       <div class="ob-field">
         <label class="ob-label" for="ds-desc">Description</label>
-        <textarea
+        <a-textarea
           id="ds-desc"
           class="ob-input"
-          rows="3"
-          maxlength="1000"
+          :rows="3"
+          :maxlength="1000"
           :value="props.datasetDescription"
           placeholder="What's in this dataset? (optional)"
-          @input="emit('update:datasetDescription', $event.target.value)"
+          @change="emit('update:datasetDescription', $event.target.value)"
         />
       </div>
     </div>
@@ -209,6 +209,7 @@ const readyCount = computed(
     <div class="ob-body-inner">
       <div class="ob-substep"><span class="ob-sub-badge">B</span> Upload files or add a URL</div>
 
+      <!-- Custom dropzone — kept as-is to preserve look and drag-and-drop behaviour -->
       <div
         class="ob-dropzone"
         :class="{ 'is-drag': dragging }"
@@ -237,17 +238,21 @@ const readyCount = computed(
       <div class="ob-field">
         <div v-if="urlErr" class="ob-error-text"><CircleAlert :size="16" /> {{ urlErr }}</div>
         <div class="ob-invite-row">
-          <div class="ob-input-wrap has-prefix" style="flex: 1">
-            <span class="ob-input-prefix"><Link :size="16" /></span>
-            <input
-              class="ob-input"
-              :class="{ 'is-error': urlErr }"
-              v-model="urlVal"
-              placeholder="https://acme.com/docs"
-              @keydown.enter.prevent="addUrl"
-              @input="urlErr = null"
-            />
-          </div>
+          <a-input
+            class="ob-input ob-url-input"
+            :class="{ 'is-error': urlErr }"
+            :value="urlVal"
+            placeholder="https://acme.com/docs"
+            @change="
+              (e) => {
+                urlVal = e.target.value
+                urlErr = null
+              }
+            "
+            @pressEnter="addUrl"
+          >
+            <template #prefix><Link :size="16" /></template>
+          </a-input>
           <button class="ob-btn ob-btn-secondary" @click="addUrl">Add URL</button>
         </div>
       </div>
@@ -303,3 +308,46 @@ const readyCount = computed(
     </div>
   </template>
 </template>
+
+<style scoped>
+/*
+ * Ant Design overrides scoped to this component only.
+ * Bump specificity with the component class so these win over Ant defaults
+ * without touching onboarding.css.
+ */
+
+/* Dataset-name and description fields: inherit ob-input sizing */
+.ob-input.ant-input,
+.ob-input.ant-input-affix-wrapper {
+  height: var(--ob-input-h, 38px);
+  border-radius: var(--r-sm);
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--surface);
+  border-color: var(--line-2);
+}
+
+.ob-input.ant-input:focus,
+.ob-input.ant-input-affix-wrapper:focus,
+.ob-input.ant-input-affix-wrapper-focused {
+  border-color: var(--brand-3);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand-3) 20%, transparent);
+}
+
+/* URL input row: full width inside ob-invite-row */
+.ob-url-input.ant-input-affix-wrapper {
+  flex: 1;
+}
+
+/* Error state */
+.ob-input.ant-input.is-error,
+.ob-input.ant-input-affix-wrapper.is-error {
+  border-color: var(--err);
+}
+
+/* Description textarea */
+.ob-input.ant-input[rows] {
+  height: auto;
+  resize: vertical;
+}
+</style>

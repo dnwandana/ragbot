@@ -1,15 +1,6 @@
 <script setup>
 import { ref, computed, watch } from "vue"
-import {
-  UserPlus,
-  Mail,
-  ChevronDown,
-  Plus,
-  X,
-  ArrowLeft,
-  LoaderCircle,
-  CircleAlert,
-} from "lucide-vue-next"
+import { UserPlus, Mail, Plus, X, ArrowLeft, LoaderCircle, CircleAlert } from "lucide-vue-next"
 
 const props = defineProps({
   ctx: { type: Object, required: true },
@@ -18,10 +9,14 @@ const props = defineProps({
 const emit = defineEmits(["update:invites"])
 const ctx = props.ctx
 
+/** @type {import("vue").Ref<string>} */
 const draft = ref("")
+
+/** @type {import("vue").Ref<string|null>} */
 const selectedRoleId = ref(null)
+
+/** @type {import("vue").Ref<string|null>} */
 const localErr = ref(null)
-const roleSelectOpen = ref(false)
 
 watch(
   () => ctx.roles,
@@ -33,12 +28,9 @@ watch(
   { immediate: true },
 )
 
-const selectedRole = computed(
-  () => ctx.roles.find((r) => r.id === selectedRoleId.value) ?? ctx.roles[0],
-)
-
 /**
- * @param {string} s
+ * Validate that a string looks like an email address.
+ * @param {string} s - String to test
  * @returns {boolean}
  */
 function isEmail(s) {
@@ -46,8 +38,9 @@ function isEmail(s) {
 }
 
 /**
- * @param {string} email
- * @returns {string}
+ * Derive avatar initials from an email address.
+ * @param {string} email - The invitee's email
+ * @returns {string} One or two uppercase letters, or "?"
  */
 function avatarInitials(email) {
   const name = (email || "")
@@ -58,6 +51,11 @@ function avatarInitials(email) {
   return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?"
 }
 
+/**
+ * Parse the draft field, validate each part as an email, and emit the updated
+ * invite list. Clears the draft on success or sets a localErr on the first
+ * invalid token.
+ */
 function addInvite() {
   const parts = draft.value
     .split(/[\s,;]+/)
@@ -82,7 +80,8 @@ function addInvite() {
 }
 
 /**
- * @param {string} email
+ * Remove a single invite from the list by email address.
+ * @param {string} email - Email of the invite to remove
  */
 function removeInvite(email) {
   emit(
@@ -92,22 +91,19 @@ function removeInvite(email) {
 }
 
 /**
- * @param {string} roleId
- */
-function pickRole(roleId) {
-  selectedRoleId.value = roleId
-  roleSelectOpen.value = false
-}
-
-/**
- * @param {string} roleId
- * @returns {string}
+ * Look up the display name for a role by id.
+ * @param {string} roleId - The role id to look up
+ * @returns {string} The role name, or "—" if not found
  */
 function roleName(roleId) {
   return ctx.roles.find((r) => r.id === roleId)?.name ?? "—"
 }
 
+/** @type {import("vue").ComputedRef<number>} */
 const inviteCount = computed(() => props.invites.length)
+
+/** @type {import("vue").ComputedRef<Array<{value:string, label:string}>>} */
+const roleOptions = computed(() => ctx.roles.map((r) => ({ value: r.id, label: r.name })))
 </script>
 
 <template>
@@ -124,41 +120,27 @@ const inviteCount = computed(() => props.invites.length)
     <div class="ob-field">
       <label class="ob-label">Email addresses</label>
       <div class="ob-invite-row">
-        <div class="ob-input-wrap has-prefix" style="flex: 1">
+        <!-- Email input: a-input with Mail prefix icon -->
+        <div class="ob-input-wrap has-prefix invite-email-wrap">
           <span class="ob-input-prefix"><Mail :size="16" /></span>
-          <input
-            class="ob-input"
+          <a-input
+            v-model:value="draft"
+            class="invite-email-input"
             :class="{ 'is-error': localErr }"
-            v-model="draft"
             placeholder="teammate@acme.com"
-            @keydown.enter.prevent="addInvite"
-            @input="localErr = null"
+            :status="localErr ? 'error' : ''"
+            @pressEnter="addInvite"
+            @change="localErr = null"
           />
         </div>
 
-        <div v-if="roleSelectOpen" class="ob-dropdown-backdrop" @click="roleSelectOpen = false" />
-        <div v-if="ctx.roles.length" class="ob-select">
-          <button
-            type="button"
-            class="ob-select-btn"
-            :class="{ 'is-open': roleSelectOpen }"
-            @click="roleSelectOpen = !roleSelectOpen"
-          >
-            <span>{{ selectedRole?.name ?? "Role" }}</span>
-            <ChevronDown :size="11" style="color: var(--ink-4)" />
-          </button>
-          <div v-if="roleSelectOpen" class="ob-select-menu">
-            <div
-              v-for="role in ctx.roles"
-              :key="role.id"
-              class="ob-select-item"
-              :class="{ 'is-active': role.id === selectedRoleId }"
-              @click="pickRole(role.id)"
-            >
-              {{ role.name }}
-            </div>
-          </div>
-        </div>
+        <!-- Role selector: a-select -->
+        <a-select
+          v-if="ctx.roles.length"
+          v-model:value="selectedRoleId"
+          class="invite-role-select"
+          :options="roleOptions"
+        />
 
         <button type="button" class="ob-btn ob-btn-icon" title="Add" @click="addInvite">
           <Plus :size="16" />
@@ -209,3 +191,47 @@ const inviteCount = computed(() => props.invites.length)
     </div>
   </div>
 </template>
+
+<style scoped>
+/* ── Email input: remove Ant border/background so the ob-input-wrap chrome
+   wraps the field correctly, matching the other onboarding steps. ─────────── */
+/* Email a-input has a #prefix slot, so Ant wraps it in .ant-input-affix-wrapper.
+   The surrounding .ob-input-wrap chrome supplies the visible border, so strip
+   Ant's border/background from both the wrapper and the inner input. */
+.invite-email-wrap :deep(.ant-input-affix-wrapper),
+.invite-email-wrap :deep(.ant-input) {
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  flex: 1;
+}
+
+.invite-email-wrap.ob-input-wrap.has-prefix {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+/* ── Role select: match the ob-select-btn look ─────────────────────────────── */
+.invite-role-select {
+  min-width: 110px;
+}
+.invite-role-select :deep(.ant-select-selector) {
+  height: 36px;
+  border-radius: var(--r);
+  border-color: var(--line-2);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--t-sm);
+}
+.invite-role-select :deep(.ant-select-selection-item) {
+  line-height: 34px;
+  color: var(--ink);
+}
+
+/* Error state: Ant applies a red border via status="error". */
+.invite-email-wrap.is-error :deep(.ant-input-affix-wrapper),
+.invite-email-wrap :deep(.ant-input-status-error) {
+  border-color: var(--err);
+}
+</style>

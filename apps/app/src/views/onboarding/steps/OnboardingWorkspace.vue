@@ -11,10 +11,10 @@ const ctx = props.ctx
 
 /**
  * Emit the new workspace name and clear any prior validation error.
- * @param {Event} e - Input event from the workspace-name field
+ * @param {string} value - New value from the a-input update:value event
  */
-function onName(e) {
-  emit("update:workspaceName", e.target.value)
+function onName(value) {
+  emit("update:workspaceName", value)
   ctx.setError("workspace", null)
 }
 </script>
@@ -33,7 +33,7 @@ function onName(e) {
     <div class="ob-field">
       <label class="ob-label" for="ws-name">Workspace name</label>
       <div class="ob-input-wrap">
-        <input
+        <a-input
           id="ws-name"
           class="ob-input"
           :class="{ 'is-error': ctx.errors.workspace }"
@@ -41,7 +41,7 @@ function onName(e) {
           placeholder="Acme workspace"
           autocomplete="off"
           autofocus
-          @input="onName"
+          @update:value="onName"
           @keydown.enter="props.workspaceName.trim() && ctx.runAction('workspace')"
         />
       </div>
@@ -54,14 +54,14 @@ function onName(e) {
     <div class="ob-field">
       <label class="ob-label" for="ws-desc">Description</label>
       <div class="ob-input-wrap">
-        <textarea
+        <a-textarea
           id="ws-desc"
           class="ob-input"
-          rows="3"
-          maxlength="240"
+          :rows="3"
+          :maxlength="240"
           :value="props.workspaceDescription"
           placeholder="A short line about your workspace (optional)"
-          @input="emit('update:workspaceDescription', $event.target.value)"
+          @update:value="emit('update:workspaceDescription', $event)"
         />
       </div>
     </div>
@@ -83,3 +83,69 @@ function onName(e) {
     </div>
   </div>
 </template>
+
+<style scoped>
+/*
+ * Ant Design input overrides scoped to this step.
+ * :deep() targets the inner ant-input element rendered by a-input / a-textarea.
+ * Specificity is bumped via .ob-input so these win over Ant defaults
+ * without touching the shared onboarding.css.
+ */
+.ob-input :deep(.ant-input) {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  font: 400 var(--t-base) / 1.45 var(--font-sans);
+  color: var(--ink);
+  transition:
+    border-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+  outline: none;
+  box-shadow: none;
+}
+
+.ob-input :deep(.ant-input::placeholder) {
+  color: var(--ink-4);
+}
+
+.ob-input :deep(.ant-input:focus),
+.ob-input :deep(.ant-input-focused) {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-tint);
+}
+
+.ob-input.is-error :deep(.ant-input) {
+  border-color: var(--err);
+}
+
+.ob-input.is-error :deep(.ant-input:focus) {
+  box-shadow: 0 0 0 3px var(--err-bg);
+}
+
+/* Wrapper that Ant wraps around a-input */
+.ob-input :deep(.ant-input-affix-wrapper),
+.ob-input :deep(.ant-input-outlined) {
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* a-textarea uses ant-input directly (no wrapper) */
+.ob-input :deep(textarea.ant-input) {
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.ob-input :deep(textarea.ant-input::placeholder) {
+  color: var(--ink-4);
+}
+
+.ob-input :deep(textarea.ant-input:focus) {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-tint);
+}
+</style>

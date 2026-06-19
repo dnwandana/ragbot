@@ -82,16 +82,78 @@ const rows = computed(() => [
           <span class="ob-result-label">{{ row.label }}</span>
           <span class="ob-result-value">{{ row.value }}</span>
         </div>
-        <button v-if="row.on" class="ob-result-cta" @click="props.ctx.goToItem(row.key)">
+        <a-button
+          v-if="row.on"
+          class="ob-result-cta"
+          size="small"
+          @click="props.ctx.goToItem(row.key)"
+        >
           {{ row.cta }} <ArrowRight :size="11" />
-        </button>
+        </a-button>
       </div>
     </div>
 
     <div>
-      <button class="ob-btn ob-btn-primary ob-btn-lg ob-btn-full" @click="props.ctx.finish()">
+      <a-button
+        type="primary"
+        class="ob-btn ob-btn-primary ob-btn-lg ob-btn-full"
+        @click="props.ctx.finish()"
+      >
         Go to dashboard <ArrowRight :size="16" />
-      </button>
+      </a-button>
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Primary action button — matches ob-btn-primary look without touching onboarding.css */
+:deep(.ob-btn-primary.ant-btn) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: auto;
+  padding: 11px 22px;
+  border-radius: var(--r);
+  font-size: var(--t-base);
+  font-weight: 600;
+  line-height: 1.4;
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+  box-shadow: none;
+}
+
+:deep(.ob-btn-primary.ant-btn:hover),
+:deep(.ob-btn-primary.ant-btn:focus) {
+  background: var(--brand-2);
+  border-color: var(--brand-2);
+  color: #fff;
+}
+
+/* Row CTA button — small, ghost-like link button */
+:deep(.ob-result-cta.ant-btn) {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: auto;
+  padding: 4px 10px;
+  border-radius: var(--r-sm);
+  font-size: var(--t-sm);
+  font-weight: 500;
+  background: transparent;
+  border: 1px solid var(--line-2);
+  color: var(--ink-2);
+  box-shadow: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+:deep(.ob-result-cta.ant-btn:hover),
+:deep(.ob-result-cta.ant-btn:focus) {
+  background: var(--bg-2);
+  border-color: var(--brand);
+  color: var(--brand);
+}
+</style>
