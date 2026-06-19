@@ -163,7 +163,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref, computed } from "vue"
+import { ref, computed } from "vue"
 import { useRouter } from "vue-router"
 import {
   Check,
@@ -191,7 +191,6 @@ const {
   closeModal,
   handleSubmit,
   handleDelete,
-  fetchWorkspaces,
 } = useWorkspaces()
 
 const { relativeTime } = useFormattedTime()
@@ -255,8 +254,6 @@ async function confirmDelete() {
   await handleDelete(deleteTarget.value.id)
   deleteTarget.value = null
 }
-
-onMounted(fetchWorkspaces)
 </script>
 
 <style scoped>
