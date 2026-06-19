@@ -845,9 +845,25 @@ body[data-texture="clean"] .cta-panel {
   flex-wrap: wrap;
   gap: 18px;
 }
+.footer-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 22px;
+}
 .footer-copy {
   font-size: 0.86rem;
   color: var(--ink-4);
+}
+.footer-link {
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: var(--ink-3);
+  text-decoration: none;
+  transition: color var(--dur) var(--ease);
+}
+.footer-link:hover {
+  color: var(--ink);
 }
 .theme-toggle {
   display: flex;
@@ -1213,5 +1229,18 @@ body[data-headline="fraunces"] .nf-title {
   }
   .hero-actions .reassure {
     justify-content: center;
+  }
+}
+
+/* Tighten the nav on very narrow phones so the Docs link + CTA never overflow */
+@media (max-width: 400px) {
+  .nav-inner {
+    gap: 8px;
+  }
+  .nav-link {
+    padding: 10px 8px;
+  }
+  .nav-cta {
+    padding: 12px 14px;
   }
 }

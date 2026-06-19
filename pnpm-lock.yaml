@@ -206,12 +206,18 @@ importers:
       eslint-plugin-astro:
         specifier: ^1.0.0
         version: 1.7.0(eslint@10.4.1)
+      joi:
+        specifier: ^17.13.3
+        version: 17.13.3
       prettier:
         specifier: 3.8.3
         version: 3.8.3
       prettier-plugin-astro:
         specifier: ^0.14.0
         version: 0.14.1
+      vite:
+        specifier: ^7.3.2
+        version: 7.3.2(@types/node@24.12.2)
 
 packages:
 

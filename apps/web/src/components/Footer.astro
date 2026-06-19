@@ -1,10 +1,16 @@
 ---
 import { Sun, Moon } from "@lucide/astro"
+
+const docsUrl = import.meta.env.PUBLIC_DOCS_URL
+const year = new Date().getFullYear()
 ---
 
 <footer class="footer">
   <div class="wrap footer-inner">
-    <div class="footer-copy">© 2026 RAGBot. Made for people with a lot to read.</div>
+    <div class="footer-left">
+      <span class="footer-copy">© {year} RAGBot. Made for people with a lot to read.</span>
+      <a class="footer-link" href={`${docsUrl}/`}>Documentation</a>
+    </div>
     <button
       id="theme-toggle"
       class="theme-toggle"

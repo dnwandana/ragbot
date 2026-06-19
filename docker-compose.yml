@@ -29,6 +29,7 @@ services:
       args:
         PUBLIC_SITE_URL: https://${DOMAIN}
         PUBLIC_APP_URL: https://app.${DOMAIN}
+        PUBLIC_DOCS_URL: https://docs.${DOMAIN}
     restart: unless-stopped
 
   docs:
