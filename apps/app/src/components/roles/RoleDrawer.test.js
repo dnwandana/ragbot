@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
-import { mount, flushPromises, enableAutoUnmount } from "@vue/test-utils"
+import { mount, flushPromises } from "@vue/test-utils"
 
 vi.mock("ant-design-vue", async (importOriginal) => ({
   ...(await importOriginal()),
@@ -9,10 +9,6 @@ vi.mock("ant-design-vue", async (importOriginal) => ({
 
 import { message } from "ant-design-vue"
 import RoleDrawer from "@/components/roles/RoleDrawer.vue"
-
-// Auto-unmount every mounted wrapper after each test so no suite leaks the
-// document-level Escape keydown listener that RoleDrawer attaches while open.
-enableAutoUnmount(afterEach)
 
 const ALL_PERMISSIONS = [
   { id: "p1", name: "workspace:read" },
@@ -27,12 +23,37 @@ const MatrixStub = {
   template: "<div class='matrix-stub' />",
 }
 
+// a-drawer stub: teleports its default slot to document.body, applies root-class-name
+// as a class on the wrapper div, and only renders content when :open is true.
+const ADrawerStub = {
+  props: {
+    open: { type: Boolean, default: false },
+    rootClassName: { type: String, default: "" },
+    placement: String,
+    width: [Number, String],
+    closable: Boolean,
+    mask: Boolean,
+    bodyStyle: Object,
+    headerStyle: Object,
+  },
+  emits: ["close"],
+  template: `
+    <div>
+      <teleport to="body">
+        <div v-if="open" :class="rootClassName">
+          <slot />
+        </div>
+      </teleport>
+    </div>
+  `,
+}
+
 const STUBS = {
-  teleport: true,
+  "a-drawer": ADrawerStub,
   RolePermissionMatrix: MatrixStub,
 }
 
-function mountDrawer(props = {}, options = {}) {
+function mountDrawer(props = {}) {
   return mount(RoleDrawer, {
     props: {
       open: true,
@@ -40,83 +61,127 @@ function mountDrawer(props = {}, options = {}) {
       allPermissions: ALL_PERMISSIONS,
       ...props,
     },
+    attachTo: document.body,
     global: { stubs: STUBS },
-    ...options,
   })
 }
 
 describe("RoleDrawer visibility", () => {
-  beforeEach(() => vi.clearAllMocks())
-
-  it("renders the drawer when open is true", () => {
-    const wrapper = mountDrawer({ open: true })
-    expect(wrapper.find(".drawer").exists()).toBe(true)
+  beforeEach(() => {
+    vi.clearAllMocks()
+    document.body.innerHTML = ""
+  })
+  afterEach(() => {
+    document.body.innerHTML = ""
   })
 
-  it("does not render the drawer when open is false", () => {
+  it("renders the drawer when open is true", async () => {
+    const wrapper = mountDrawer({ open: true })
+    await wrapper.vm.$nextTick()
+    expect(document.querySelector(".role-drawer-root")).not.toBe(null)
+    wrapper.unmount()
+  })
+
+  it("does not render the drawer when open is false", async () => {
     const wrapper = mountDrawer({ open: false })
-    expect(wrapper.find(".drawer").exists()).toBe(false)
+    await wrapper.vm.$nextTick()
+    expect(document.querySelector(".role-drawer-root")).toBe(null)
+    wrapper.unmount()
   })
 })
 
 describe("RoleDrawer title by mode", () => {
-  beforeEach(() => vi.clearAllMocks())
-
-  it("shows 'Create role' in create mode", () => {
-    const wrapper = mountDrawer({ mode: "create" })
-    expect(wrapper.find(".drawer-title").text()).toBe("Create role")
+  beforeEach(() => {
+    vi.clearAllMocks()
+    document.body.innerHTML = ""
+  })
+  afterEach(() => {
+    document.body.innerHTML = ""
   })
 
-  it("shows 'Edit role' in edit mode", () => {
+  it("shows 'Create role' in create mode", async () => {
+    const wrapper = mountDrawer({ mode: "create" })
+    await wrapper.vm.$nextTick()
+    expect(document.querySelector(".drawer-title").textContent).toBe("Create role")
+    wrapper.unmount()
+  })
+
+  it("shows 'Edit role' in edit mode", async () => {
     const wrapper = mountDrawer({
       mode: "edit",
       role: { name: "Reviewer", permissions: [{ id: "p1", name: "workspace:read" }] },
     })
-    expect(wrapper.find(".drawer-title").text()).toBe("Edit role")
+    await wrapper.vm.$nextTick()
+    expect(document.querySelector(".drawer-title").textContent).toBe("Edit role")
+    wrapper.unmount()
   })
 
-  it("shows the role name in view mode", () => {
+  it("shows the role name in view mode", async () => {
     const wrapper = mountDrawer({
       mode: "view",
       role: { name: "Admin", permissions: [{ id: "p1", name: "workspace:read" }] },
     })
-    expect(wrapper.find(".drawer-title").text()).toBe("Admin")
+    await wrapper.vm.$nextTick()
+    expect(document.querySelector(".drawer-title").textContent).toBe("Admin")
+    wrapper.unmount()
   })
 })
 
 describe("RoleDrawer read-only", () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    document.body.innerHTML = ""
+  })
+  afterEach(() => {
+    document.body.innerHTML = ""
+  })
 
-  it("hides the footer in view mode", () => {
+  it("hides the footer in view mode", async () => {
     const wrapper = mountDrawer({
       mode: "view",
       role: { name: "Admin", permissions: [{ id: "p1", name: "workspace:read" }] },
     })
-    expect(wrapper.find(".drawer-foot").exists()).toBe(false)
+    await wrapper.vm.$nextTick()
+    expect(document.querySelector(".drawer-foot")).toBe(null)
+    wrapper.unmount()
   })
 
-  it("shows the locked banner in view mode", () => {
+  it("shows the locked banner in view mode", async () => {
     const wrapper = mountDrawer({
       mode: "view",
       role: { name: "Admin", permissions: [{ id: "p1", name: "workspace:read" }] },
     })
-    expect(wrapper.find(".locked-banner").exists()).toBe(true)
+    await wrapper.vm.$nextTick()
+    expect(document.querySelector(".locked-banner")).not.toBe(null)
+    wrapper.unmount()
   })
 
-  it("shows the footer when not read-only", () => {
+  it("shows the footer when not read-only", async () => {
     const wrapper = mountDrawer({ mode: "create" })
-    expect(wrapper.find(".drawer-foot").exists()).toBe(true)
+    await wrapper.vm.$nextTick()
+    expect(document.querySelector(".drawer-foot")).not.toBe(null)
+    wrapper.unmount()
   })
 })
 
 describe("RoleDrawer save", () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    document.body.innerHTML = ""
+  })
+  afterEach(() => {
+    document.body.innerHTML = ""
+  })
 
   it("emits save with the payload shape on a valid submit", async () => {
     const wrapper = mountDrawer({ mode: "create" })
+    await wrapper.vm.$nextTick()
     // create mode seeds the three core read perms via createDefaults()
-    await wrapper.find("input.name-input").setValue("Compliance")
-    await wrapper.find(".btn-save").trigger("click")
+    const input = document.querySelector("input.name-input")
+    input.value = "Compliance"
+    input.dispatchEvent(new Event("input"))
+    await wrapper.vm.$nextTick()
+    document.querySelector(".btn-save").click()
     await flushPromises()
 
     const saves = wrapper.emitted("save")
@@ -127,15 +192,18 @@ describe("RoleDrawer save", () => {
     // createDefaults() seeds exactly the three core read perms (workspace/role/member:read)
     expect(payload.permission_ids).toHaveLength(3)
     expect(payload.permission_ids).toEqual(expect.arrayContaining(["p1", "p2", "p3"]))
+    wrapper.unmount()
   })
 
   it("does not emit save and shows an error when the name is empty", async () => {
     const wrapper = mountDrawer({ mode: "create" })
-    await wrapper.find(".btn-save").trigger("click")
+    await wrapper.vm.$nextTick()
+    document.querySelector(".btn-save").click()
     await flushPromises()
 
     expect(wrapper.emitted("save")).toBeUndefined()
     expect(message.error).toHaveBeenCalled()
+    wrapper.unmount()
   })
 
   it("does not emit save and shows an error when no permissions are selected", async () => {
@@ -143,102 +211,159 @@ describe("RoleDrawer save", () => {
       mode: "edit",
       role: { name: "Empty", permissions: [] },
     })
-    await wrapper.find("input.name-input").setValue("Still empty")
-    await wrapper.find(".btn-save").trigger("click")
+    await wrapper.vm.$nextTick()
+    const input = document.querySelector("input.name-input")
+    input.value = "Still empty"
+    input.dispatchEvent(new Event("input"))
+    await wrapper.vm.$nextTick()
+    document.querySelector(".btn-save").click()
     await flushPromises()
 
     expect(wrapper.emitted("save")).toBeUndefined()
     expect(message.error).toHaveBeenCalled()
+    wrapper.unmount()
   })
 })
 
 describe("RoleDrawer cancel", () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    document.body.innerHTML = ""
+  })
+  afterEach(() => {
+    document.body.innerHTML = ""
+  })
 
   it("emits cancel when the close button is clicked", async () => {
     const wrapper = mountDrawer({ mode: "create" })
-    await wrapper.find(".close-btn").trigger("click")
+    await wrapper.vm.$nextTick()
+    document.querySelector(".close-btn").click()
     expect(wrapper.emitted("cancel")).toHaveLength(1)
+    wrapper.unmount()
   })
 
   it("emits cancel when the Cancel button is clicked", async () => {
     const wrapper = mountDrawer({ mode: "create" })
-    await wrapper.find(".btn-cancel").trigger("click")
+    await wrapper.vm.$nextTick()
+    document.querySelector(".btn-cancel").click()
     expect(wrapper.emitted("cancel")).toHaveLength(1)
+    wrapper.unmount()
   })
 
-  it("emits cancel when the scrim is clicked", async () => {
+  it("emits cancel when the scrim is clicked (a-drawer @close)", async () => {
     const wrapper = mountDrawer({ mode: "create" })
-    await wrapper.find(".scrim").trigger("click")
+    await wrapper.vm.$nextTick()
+    // a-drawer emits "close" when the mask is clicked; the stub relays @close to emit("cancel").
+    // Trigger it directly via the stub's emitted close event.
+    wrapper.findComponent(ADrawerStub).vm.$emit("close")
+    await wrapper.vm.$nextTick()
     expect(wrapper.emitted("cancel")).toHaveLength(1)
+    wrapper.unmount()
   })
 })
 
 describe("RoleDrawer loading guards", () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    document.body.innerHTML = ""
+  })
+  afterEach(() => {
+    document.body.innerHTML = ""
+  })
 
-  it("does not emit cancel from the scrim while loading", async () => {
+  it("does not emit cancel from the a-drawer close event while loading", async () => {
     const wrapper = mountDrawer({ mode: "create", loading: true })
-    await wrapper.find(".scrim").trigger("click")
+    await wrapper.vm.$nextTick()
+    wrapper.findComponent(ADrawerStub).vm.$emit("close")
+    await wrapper.vm.$nextTick()
     expect(wrapper.emitted("cancel")).toBeUndefined()
+    wrapper.unmount()
   })
 
   it("does not emit cancel from the close button while loading", async () => {
     const wrapper = mountDrawer({ mode: "create", loading: true })
-    expect(wrapper.find(".close-btn").attributes("disabled")).toBeDefined()
-    await wrapper.find(".close-btn").trigger("click")
+    await wrapper.vm.$nextTick()
+    const btn = document.querySelector(".close-btn")
+    expect(btn.disabled).toBe(true)
+    btn.click()
     expect(wrapper.emitted("cancel")).toBeUndefined()
+    wrapper.unmount()
   })
 
-  it("does not emit cancel on Escape while loading", () => {
+  it("does not emit cancel on Escape while loading", async () => {
     const wrapper = mountDrawer({ open: true, loading: true })
+    await wrapper.vm.$nextTick()
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))
     expect(wrapper.emitted("cancel")).toBeUndefined()
+    wrapper.unmount()
   })
 })
 
 describe("RoleDrawer focus management", () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    document.body.innerHTML = ""
+  })
+  afterEach(() => {
+    document.body.innerHTML = ""
+  })
 
   it("moves focus to the close button when opened", async () => {
-    const wrapper = mountDrawer({ open: true }, { attachTo: document.body })
+    const wrapper = mountDrawer({ open: true })
     await flushPromises()
-    expect(document.activeElement).toBe(wrapper.find(".close-btn").element)
+    expect(document.activeElement).toBe(document.querySelector(".close-btn"))
+    wrapper.unmount()
   })
 
   it("traps Tab from the last focusable back to the first", async () => {
-    const wrapper = mountDrawer({ open: true }, { attachTo: document.body })
+    const wrapper = mountDrawer({ open: true })
     await flushPromises()
-    const drawer = wrapper.find(".drawer").element
-    const focusables = drawer.querySelectorAll(
+    const root = document.querySelector(".role-drawer-root")
+    const focusables = root.querySelectorAll(
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
     )
     const last = focusables[focusables.length - 1]
     last.focus()
-    await wrapper.find(".drawer").trigger("keydown", { key: "Tab" })
+    // Tab keydown on the drawer inner container
+    const drawerInner = root.querySelector(".drawer-inner")
+    drawerInner.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }))
+    await wrapper.vm.$nextTick()
     expect(document.activeElement).toBe(focusables[0])
+    wrapper.unmount()
   })
 })
 
 describe("RoleDrawer escape", () => {
-  beforeEach(() => vi.clearAllMocks())
-
-  it("emits cancel when Escape is pressed while open", () => {
-    const wrapper = mountDrawer({ open: true })
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))
-    expect(wrapper.emitted("cancel")).toHaveLength(1)
+  beforeEach(() => {
+    vi.clearAllMocks()
+    document.body.innerHTML = ""
+  })
+  afterEach(() => {
+    document.body.innerHTML = ""
   })
 
-  it("ignores non-Escape keys", () => {
+  it("emits cancel when Escape is pressed while open", async () => {
     const wrapper = mountDrawer({ open: true })
+    await wrapper.vm.$nextTick()
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))
+    expect(wrapper.emitted("cancel")).toHaveLength(1)
+    wrapper.unmount()
+  })
+
+  it("ignores non-Escape keys", async () => {
+    const wrapper = mountDrawer({ open: true })
+    await wrapper.vm.$nextTick()
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }))
     expect(wrapper.emitted("cancel")).toBeUndefined()
+    wrapper.unmount()
   })
 
   it("stops listening for Escape after the drawer closes", async () => {
     const wrapper = mountDrawer({ open: true })
+    await wrapper.vm.$nextTick()
     await wrapper.setProps({ open: false })
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))
     expect(wrapper.emitted("cancel")).toBeUndefined()
+    wrapper.unmount()
   })
 })

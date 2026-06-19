@@ -2,11 +2,11 @@
 /**
  * RoleDrawer — slide-in create/edit/view drawer for a workspace role.
  *
- * Overlays the still-visible roles list (scrim + slide-in panel), replacing the
+ * Overlays the still-visible roles list (a-drawer with mask), replacing the
  * former full-page RoleEditor. The host controls visibility via the `open` prop.
  *
  * Props:
- *   - open: when true the scrim + drawer are rendered (slide/fade transitions)
+ *   - open: when true the drawer is shown
  *   - mode: "create" | "edit" | "view"
  *   - role: the role object (with `permissions`) for edit/view; null for create
  *   - allPermissions: flat array of all permissions from the API
@@ -15,7 +15,7 @@
  * Emits:
  *   - save({ name, description, permission_ids }) — validated payload matching the API contract
  *     (the server's create/update schemas require `permission_ids`, an array of permission UUIDs)
- *   - cancel — close the drawer without saving (close button, Cancel, or scrim click)
+ *   - cancel — close the drawer without saving (close button, Cancel, or mask click)
  */
 import { ref, computed, watch, onUnmounted, nextTick } from "vue"
 import { Input, Button, message } from "ant-design-vue"
@@ -36,11 +36,11 @@ const props = defineProps({
 
 const emit = defineEmits(["save", "cancel"])
 
-const drawerEl = ref(null)
 const closeBtnEl = ref(null)
+const drawerInnerEl = ref(null)
 let lastFocused = null
 
-/** Close the drawer unless a save is in flight. Shared by the scrim, close button, Cancel, and Escape. */
+/** Close the drawer unless a save is in flight. Shared by the close button, Cancel, and a-drawer @close. */
 function requestCancel() {
   if (!props.loading) emit("cancel")
 }
@@ -50,11 +50,10 @@ function onKeydown(e) {
   if (e.key === "Escape") requestCancel()
 }
 
-/** Trap Tab focus inside the drawer so keyboard users can't reach the page behind the scrim. */
-/** Inert while the drawer is closing so a Tab during the leave animation can't escape the scrim. */
+/** Trap Tab focus inside the drawer so keyboard users can't reach the page behind the mask. */
 function onTabKeydown(e) {
-  if (!props.open || e.key !== "Tab" || !drawerEl.value) return
-  const focusables = drawerEl.value.querySelectorAll(
+  if (!props.open || e.key !== "Tab" || !drawerInnerEl.value) return
+  const focusables = drawerInnerEl.value.querySelectorAll(
     'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
   )
   if (!focusables.length) return
@@ -146,132 +145,104 @@ function handleSave() {
 </script>
 
 <template>
-  <Teleport to="body">
-    <Transition name="scrim">
-      <div v-if="open" class="scrim" @click="requestCancel" />
-    </Transition>
-    <Transition name="drawer">
-      <div
-        v-if="open"
-        ref="drawerEl"
-        class="drawer"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Role form"
-        @keydown="onTabKeydown"
-      >
-        <!-- Header -->
-        <div class="drawer-head">
-          <div class="head-info">
-            <div class="drawer-title">{{ title }}</div>
-            <div class="drawer-sub">{{ subtitle }}</div>
-          </div>
-          <button
-            ref="closeBtnEl"
-            class="close-btn"
-            :disabled="loading"
-            @click="requestCancel"
-            aria-label="Close"
-          >
-            ✕
-          </button>
+  <a-drawer
+    :open="open"
+    placement="right"
+    :width="560"
+    :closable="false"
+    :mask="true"
+    root-class-name="role-drawer-root"
+    :body-style="{ padding: 0 }"
+    :header-style="{ display: 'none' }"
+    @close="requestCancel"
+  >
+    <div
+      ref="drawerInnerEl"
+      class="drawer-inner"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Role form"
+      @keydown="onTabKeydown"
+    >
+      <!-- Header -->
+      <div class="drawer-head">
+        <div class="head-info">
+          <div class="drawer-title">{{ title }}</div>
+          <div class="drawer-sub">{{ subtitle }}</div>
+        </div>
+        <button
+          ref="closeBtnEl"
+          class="close-btn"
+          :disabled="loading"
+          aria-label="Close"
+          @click="requestCancel"
+        >
+          ✕
+        </button>
+      </div>
+
+      <!-- Scrollable body -->
+      <div class="drawer-body" :class="{ 'drawer-body--readonly': readOnly }">
+        <div v-if="readOnly" class="locked-banner">
+          <Lock :size="16" />
+          <span>Built-in roles are locked. Create a custom role if you need a variation.</span>
         </div>
 
-        <!-- Scrollable body -->
-        <div class="drawer-body" :class="{ 'drawer-body--readonly': readOnly }">
-          <div v-if="readOnly" class="locked-banner">
-            <Lock :size="16" />
-            <span>Built-in roles are locked. Create a custom role if you need a variation.</span>
-          </div>
+        <div v-if="!readOnly" class="fields">
+          <label class="field">
+            <span class="field-label">Role name</span>
+            <Input
+              v-model:value="name"
+              class="name-input"
+              placeholder="e.g. Compliance reviewer"
+              :maxlength="50"
+            />
+          </label>
+          <label class="field">
+            <span class="field-label">Description</span>
+            <Input.TextArea
+              v-model:value="description"
+              :rows="2"
+              :maxlength="140"
+              placeholder="Who should hold this role and why"
+            />
+          </label>
+        </div>
 
-          <div v-if="!readOnly" class="fields">
-            <label class="field">
-              <span class="field-label">Role name</span>
-              <Input
-                v-model:value="name"
-                class="name-input"
-                placeholder="e.g. Compliance reviewer"
-                :maxlength="50"
-              />
-            </label>
-            <label class="field">
-              <span class="field-label">Description</span>
-              <Input.TextArea
-                v-model:value="description"
-                :rows="2"
-                :maxlength="140"
-                placeholder="Who should hold this role and why"
-              />
-            </label>
-          </div>
+        <div class="perms-hd">
+          <span class="perms-title">Permissions</span>
+          <span class="perms-count"
+            >{{ selectedPermissions.length }} of {{ allPermissions.length }} enabled</span
+          >
+        </div>
 
-          <div class="perms-hd">
-            <span class="perms-title">Permissions</span>
-            <span class="perms-count"
-              >{{ selectedPermissions.length }} of {{ allPermissions.length }} enabled</span
-            >
-          </div>
+        <RolePermissionMatrix
+          v-model="selectedPermissions"
+          :permissions="allPermissions"
+          :editable="!readOnly"
+        />
 
-          <RolePermissionMatrix
-            v-model="selectedPermissions"
-            :permissions="allPermissions"
-            :editable="!readOnly"
-          />
-
-          <!-- Sticky footer -->
-          <div v-if="!readOnly" class="drawer-foot">
-            <Button class="btn-cancel" :disabled="loading" @click="requestCancel">Cancel</Button>
-            <Button class="btn-save" type="primary" :loading="loading" @click="handleSave">
-              {{ mode === "edit" ? "Save role" : "Create role" }}
-            </Button>
-          </div>
+        <!-- Sticky footer -->
+        <div v-if="!readOnly" class="drawer-foot">
+          <Button class="btn-cancel" :disabled="loading" @click="requestCancel">Cancel</Button>
+          <Button class="btn-save" type="primary" :loading="loading" @click="handleSave">
+            {{ mode === "edit" ? "Save role" : "Create role" }}
+          </Button>
         </div>
       </div>
-    </Transition>
-  </Teleport>
+    </div>
+  </a-drawer>
 </template>
 
-<style scoped>
-.scrim {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.35);
-  z-index: 40;
-}
-
-.drawer {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 560px;
+<style>
+.role-drawer-root .drawer-inner {
+  height: 100%;
   background: var(--surface);
-  border-left: 1px solid var(--line-2);
-  box-shadow: var(--shadow-3);
-  z-index: 41;
   display: flex;
   flex-direction: column;
 }
 
-/* Transitions */
-.scrim-enter-active,
-.scrim-leave-active {
-  transition: opacity 200ms var(--ease);
-}
-.scrim-enter-from,
-.scrim-leave-to {
-  opacity: 0;
-}
-.drawer-enter-active,
-.drawer-leave-active {
-  transition: transform 220ms var(--ease);
-}
-.drawer-enter-from,
-.drawer-leave-to {
-  transform: translateX(100%);
-}
-
-.drawer-head {
+.role-drawer-root .drawer-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -281,25 +252,25 @@ function handleSave() {
   flex-shrink: 0;
 }
 
-.head-info {
+.role-drawer-root .head-info {
   flex: 1;
   min-width: 0;
 }
 
-.drawer-title {
+.role-drawer-root .drawer-title {
   font-size: 15px;
   font-weight: 700;
   color: var(--ink);
   letter-spacing: -0.015em;
 }
 
-.drawer-sub {
+.role-drawer-root .drawer-sub {
   font-size: 12px;
   color: var(--ink-3);
   margin-top: 2px;
 }
 
-.close-btn {
+.role-drawer-root .close-btn {
   width: 28px;
   height: 28px;
   flex-shrink: 0;
@@ -314,17 +285,17 @@ function handleSave() {
   cursor: pointer;
 }
 
-.close-btn:hover {
+.role-drawer-root .close-btn:hover {
   background: var(--bg-2);
   color: var(--ink);
 }
 
-.close-btn:disabled {
+.role-drawer-root .close-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
-.drawer-body {
+.role-drawer-root .drawer-body {
   flex: 1;
   overflow-y: auto;
   padding: 16px 20px 0;
@@ -332,11 +303,11 @@ function handleSave() {
 
 /* In read-only (view) mode the footer is hidden, so restore the end padding
    it would otherwise provide below the permission matrix. */
-.drawer-body--readonly {
+.role-drawer-root .drawer-body--readonly {
   padding-bottom: 24px;
 }
 
-.locked-banner {
+.role-drawer-root .locked-banner {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -349,18 +320,18 @@ function handleSave() {
   margin-bottom: 20px;
 }
 
-.fields {
+.role-drawer-root .fields {
   display: flex;
   flex-direction: column;
   gap: 14px;
   margin-bottom: 24px;
 }
 
-.field {
+.role-drawer-root .field {
   display: block;
 }
 
-.field-label {
+.role-drawer-root .field-label {
   display: block;
   font-size: var(--t-sm);
   font-weight: 500;
@@ -368,25 +339,25 @@ function handleSave() {
   margin-bottom: 6px;
 }
 
-.perms-hd {
+.role-drawer-root .perms-hd {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   margin-bottom: 14px;
 }
 
-.perms-title {
+.role-drawer-root .perms-title {
   font-size: var(--t-md);
   font-weight: 600;
   color: var(--ink);
 }
 
-.perms-count {
+.role-drawer-root .perms-count {
   font-size: var(--t-sm);
   color: var(--ink-3);
 }
 
-.drawer-foot {
+.role-drawer-root .drawer-foot {
   position: sticky;
   bottom: 0;
   display: flex;
