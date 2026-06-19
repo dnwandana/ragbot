@@ -46,12 +46,19 @@ export function useAccount() {
     deletingAccount.value = true
     try {
       await apiDeleteProfile()
-      authStore.user = null
-      clearUserData()
-      await router.push("/login")
+    } catch {
+      // The HTTP client already surfaced the error toast (e.g. the sole-owner 409).
+      // Swallow here so the rejection doesn't bubble out of the click handler as an
+      // unhandled error. Scoped to the API call so post-success cleanup errors aren't
+      // masked.
+      return
     } finally {
       deletingAccount.value = false
     }
+
+    authStore.user = null
+    clearUserData()
+    await router.push("/login")
   }
 
   return { changingPassword, deletingAccount, submitChangePassword, submitDeleteAccount }
