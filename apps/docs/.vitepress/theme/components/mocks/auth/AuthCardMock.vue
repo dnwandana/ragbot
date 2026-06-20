@@ -61,10 +61,7 @@ const c = computed(() => copy[props.variant] || copy.login)
 </script>
 
 <template>
-  <MockFrame
-    :label="c.label"
-    :caption="c.cap"
-  >
+  <MockFrame :label="c.label" :caption="c.cap">
     <div class="ac-shell">
       <div class="ac-card">
         <!-- Header -->
@@ -80,25 +77,13 @@ const c = computed(() => copy[props.variant] || copy.login)
 
         <!-- Form fields -->
         <div class="ac-form">
-          <template
-            v-for="f in c.fields"
-            :key="f.id"
-          >
+          <template v-for="f in c.fields" :key="f.id">
             <div class="ac-item">
               <div class="ac-label-row">
-                <label
-                  :for="f.id"
-                  class="ac-label"
-                >{{ f.l }}</label>
-                <span
-                  v-if="f.pw && c.forgotLink"
-                  class="ac-forgot"
-                >Forgot password?</span>
+                <label :for="f.id" class="ac-label">{{ f.l }}</label>
+                <span v-if="f.pw && c.forgotLink" class="ac-forgot">Forgot password?</span>
               </div>
-              <div
-                class="ac-input-wrap"
-                :class="{ 'ac-input-wrap--pw': f.pw }"
-              >
+              <div class="ac-input-wrap" :class="{ 'ac-input-wrap--pw': f.pw }">
                 <input
                   :id="f.id"
                   :type="f.type"
@@ -106,11 +91,8 @@ const c = computed(() => copy[props.variant] || copy.login)
                   class="ac-input"
                   tabindex="-1"
                   readonly
-                >
-                <span
-                  v-if="f.pw"
-                  class="ac-eye"
-                >
+                />
+                <span v-if="f.pw" class="ac-eye">
                   <!-- eye icon approximation — two overlapping circles -->
                   <svg
                     width="14"
@@ -123,11 +105,7 @@ const c = computed(() => copy[props.variant] || copy.login)
                     stroke-linejoin="round"
                   >
                     <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
-                    <circle
-                      cx="12"
-                      cy="12"
-                      r="3"
-                    />
+                    <circle cx="12" cy="12" r="3" />
                   </svg>
                 </span>
               </div>
@@ -144,10 +122,7 @@ const c = computed(() => copy[props.variant] || copy.login)
           </template>
 
           <!-- Primary button -->
-          <button
-            class="ac-btn-primary"
-            tabindex="-1"
-          >
+          <button class="ac-btn-primary" tabindex="-1">
             {{ c.cta }}
           </button>
         </div>
