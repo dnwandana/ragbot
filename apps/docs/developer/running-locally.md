@@ -45,7 +45,7 @@ Set `NODE_ENV=development` locally. The API only marks auth cookies `Secure` in 
 Migrations don't run automatically:
 
 ```bash
-corepack pnpm --filter @fullstack/api migrate
+corepack pnpm --filter @ragbot/api migrate
 ```
 
 There are also seeds for the 31 permissions and a couple of test users.

@@ -11,13 +11,13 @@
 ## Commands
 
 ```bash
-corepack pnpm --filter @fullstack/web dev        # astro dev on port 4321
-corepack pnpm --filter @fullstack/web build      # static build to dist/
-corepack pnpm --filter @fullstack/web preview     # preview the built site
-corepack pnpm --filter @fullstack/web lint        # eslint . (report-only)
-corepack pnpm --filter @fullstack/web lint:fix    # eslint . --fix
-corepack pnpm --filter @fullstack/web format      # prettier --check .
-corepack pnpm --filter @fullstack/web format:fix  # prettier --write .
+corepack pnpm --filter @ragbot/web dev        # astro dev on port 4321
+corepack pnpm --filter @ragbot/web build      # static build to dist/
+corepack pnpm --filter @ragbot/web preview     # preview the built site
+corepack pnpm --filter @ragbot/web lint        # eslint . (report-only)
+corepack pnpm --filter @ragbot/web lint:fix    # eslint . --fix
+corepack pnpm --filter @ragbot/web format      # prettier --check .
+corepack pnpm --filter @ragbot/web format:fix  # prettier --write .
 ```
 
 From the repo root, the shortcuts `dev:web` / `build:web` / `lint:web` / `format:web` run the same via Turborepo.

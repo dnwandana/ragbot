@@ -121,11 +121,11 @@ Each mock wraps `MockFrame` and recreates a real `apps/app` screen in HTML/CSS (
 ## Commands
 
 ```bash
-corepack pnpm --filter @fullstack/docs dev         # vitepress dev
-corepack pnpm --filter @fullstack/docs build       # static build to .vitepress/dist
-corepack pnpm --filter @fullstack/docs preview      # preview the built site on :4173
-corepack pnpm --filter @fullstack/docs lint         # eslint .
-corepack pnpm --filter @fullstack/docs format:fix   # prettier --write .
+corepack pnpm --filter @ragbot/docs dev         # vitepress dev
+corepack pnpm --filter @ragbot/docs build       # static build to .vitepress/dist
+corepack pnpm --filter @ragbot/docs preview      # preview the built site on :4173
+corepack pnpm --filter @ragbot/docs lint         # eslint .
+corepack pnpm --filter @ragbot/docs format:fix   # prettier --write .
 ```
 
 From the repo root: `dev:docs` / `build:docs` / `lint:docs` / `format:docs` run the same via Turborepo.

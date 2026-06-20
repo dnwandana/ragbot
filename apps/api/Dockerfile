@@ -5,7 +5,7 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json ./apps/api/
 
-RUN pnpm install --filter @fullstack/api --prod --frozen-lockfile
+RUN pnpm install --filter @ragbot/api --prod --frozen-lockfile
 
 COPY apps/api/src ./apps/api/src
 COPY apps/api/knexfile.js ./apps/api/knexfile.js

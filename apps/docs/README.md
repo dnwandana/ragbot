@@ -1,15 +1,15 @@
-# @fullstack/docs
+# @ragbot/docs
 
 The end-user product documentation site for RAGBot — a VitePress static site, prerendered with no server runtime. It covers how to use the product: getting started, the core concepts (workspaces, members & roles, datasets, agents, chatting, audit logs, account), a screenshot product tour, developer guides, and help. This is end-user documentation, not the product UI (`apps/app`) or marketing site (`apps/web`).
 
 ## Quick start
 
 ```bash
-corepack pnpm --filter @fullstack/docs dev         # vitepress dev
-corepack pnpm --filter @fullstack/docs build       # static build to .vitepress/dist
-corepack pnpm --filter @fullstack/docs preview      # preview the built site on :4173
-corepack pnpm --filter @fullstack/docs lint         # eslint .
-corepack pnpm --filter @fullstack/docs format:fix   # prettier --write .
+corepack pnpm --filter @ragbot/docs dev         # vitepress dev
+corepack pnpm --filter @ragbot/docs build       # static build to .vitepress/dist
+corepack pnpm --filter @ragbot/docs preview      # preview the built site on :4173
+corepack pnpm --filter @ragbot/docs lint         # eslint .
+corepack pnpm --filter @ragbot/docs format:fix   # prettier --write .
 ```
 
 ## Content map

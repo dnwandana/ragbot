@@ -4,9 +4,9 @@ RUN corepack enable pnpm
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/docs/package.json ./apps/docs/
-RUN pnpm install --filter @fullstack/docs --frozen-lockfile
+RUN pnpm install --filter @ragbot/docs --frozen-lockfile
 COPY apps/docs ./apps/docs
-RUN pnpm --filter @fullstack/docs build
+RUN pnpm --filter @ragbot/docs build
 
 # Stage 2: serve static dist with nginx
 FROM nginx:1.30-alpine

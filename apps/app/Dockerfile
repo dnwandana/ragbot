@@ -6,14 +6,14 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/app/package.json ./apps/app/
 
-RUN pnpm install --filter @fullstack/app --frozen-lockfile
+RUN pnpm install --filter @ragbot/app --frozen-lockfile
 
 COPY apps/app ./apps/app
 
 ARG VITE_API_BASE_URL=/api
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
-RUN pnpm --filter @fullstack/app build
+RUN pnpm --filter @ragbot/app build
 
 # Stage 2: serve with nginx
 FROM nginx:1.30-alpine
