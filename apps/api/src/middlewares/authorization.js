@@ -3,6 +3,7 @@ import { HTTP_STATUS_CODE } from "../utils/constant.js"
 import { verifyAccessToken, verifyRefreshToken } from "../utils/jwt.js"
 import logger from "../utils/logger.js"
 import * as refreshTokenModel from "../models/refresh-tokens.js"
+import { isSessionDenied } from "../utils/session-denylist.js"
 
 /**
  * Translates JWT verification errors into appropriate HTTP responses.
@@ -28,16 +29,17 @@ const handleJwtError = (error, req, next, logPrefix) => {
 /**
  * Express middleware to require a valid access token for protected routes.
  *
- * Validates the access token from httpOnly cookie and sets the user in the request object.
+ * Validates the access token from httpOnly cookie, checks the session denylist for instant
+ * revocation, and sets the user and session id in the request object.
  *
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  * @param {Function} next - Express next middleware function
- * @returns {Object} JSON response with error status and message
+ * @returns {Promise<void>}
  */
-export const requireAccessToken = (req, res, next) => {
+export const requireAccessToken = async (req, res, next) => {
   try {
-    // get token from header
+    // get token from cookie
     const accessToken = req.cookies?.access_token
     if (!accessToken) {
       logger.warn("Authentication failed: No token provided", {
@@ -55,10 +57,16 @@ export const requireAccessToken = (req, res, next) => {
       throw new HttpError(HTTP_STATUS_CODE.UNAUTHORIZED, "Invalid token type")
     }
 
-    // set user in request
-    req.user = { id: decoded.id }
+    // Instant revocation: reject sessions on the denylist. Tokens issued before
+    // sessions existed carry no sid and skip the check (transitional, one TTL).
+    if (decoded.sid && (await isSessionDenied(decoded.sid))) {
+      throw new HttpError(HTTP_STATUS_CODE.UNAUTHORIZED, "Session revoked")
+    }
 
-    // Log successful authentication
+    // set user + session in request
+    req.user = { id: decoded.id }
+    req.sessionId = decoded.sid ?? null
+
     logger.debug("User authenticated successfully", {
       userId: decoded.id,
       method: req.method,

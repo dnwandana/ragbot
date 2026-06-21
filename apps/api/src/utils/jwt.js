@@ -2,15 +2,20 @@ import crypto from "node:crypto"
 import jwt from "jsonwebtoken"
 
 /**
- * Generates a signed JSON Web Token for a given user.
+ * Generates a signed access token for a given user, optionally bound to a session.
  *
  * @param {string|number} id The unique identifier of the user.
+ * @param {string} [sid] The session id (refresh_tokens row id) to bind the token to.
  * @returns {string} A signed JWT string.
  */
-export const generateAccessToken = (id) => {
+export const generateAccessToken = (id, sid) => {
   const jwtPayload = {
     id,
     type: "access",
+  }
+
+  if (sid) {
+    jwtPayload.sid = sid
   }
 
   return jwt.sign(jwtPayload, process.env.ACCESS_TOKEN_SECRET, {

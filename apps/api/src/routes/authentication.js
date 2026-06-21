@@ -2,6 +2,7 @@ import { Router } from "express"
 import { authLimiter } from "../middlewares/rate-limit.js"
 import { requireAccessToken, requireRefreshToken } from "../middlewares/authorization.js"
 import * as auth from "../controllers/authentication.js"
+import sessionsRoutes from "./sessions.js"
 
 const router = Router()
 
@@ -17,5 +18,6 @@ router.delete("/profile", requireAccessToken, authLimiter, auth.deleteProfile)
 router.put("/password", requireAccessToken, authLimiter, auth.changePassword)
 router.post("/refresh", requireRefreshToken, authLimiter, auth.refreshAccessToken)
 router.post("/logout", requireRefreshToken, auth.logout)
+router.use("/sessions", requireAccessToken, authLimiter, sessionsRoutes)
 
 export default router

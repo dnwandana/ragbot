@@ -69,6 +69,16 @@ const envSchema = joi
       .valid("fast", "cost_effective", "agentic", "agentic_plus")
       .default("cost_effective"),
     FIRECRAWL_API_KEY: joi.string().required(),
+
+    // Geolocation
+    IP_GEOLOCATION_ENABLED: joi.boolean().default(false),
+    IPGEOLOCATION_API_KEY: joi.string().when("IP_GEOLOCATION_ENABLED", {
+      is: true,
+      // oxlint-disable-next-line no-thenable -- `then` is a Joi `.when()` option, not a Promise
+      then: joi.string().required(),
+      otherwise: joi.string().optional(),
+    }),
+    IPGEOLOCATION_TIMEOUT_MS: joi.number().default(5000),
   })
   .unknown(true)
 

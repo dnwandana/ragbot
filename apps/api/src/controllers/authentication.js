@@ -11,6 +11,8 @@ import * as userModel from "../models/users.js"
 import * as refreshTokenModel from "../models/refresh-tokens.js"
 import * as emailTokenModel from "../models/email-tokens.js"
 import * as emailService from "../services/email.js"
+import { lookupLocation } from "../services/ip-geolocation.js"
+import { denySession } from "../utils/session-denylist.js"
 const MAX_FAILED_ATTEMPTS = 5
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000
 
@@ -111,24 +113,74 @@ const changePasswordSchema = joi
 const generateEmailToken = () => crypto.randomBytes(32).toString("hex")
 
 /**
- * Generates an access/refresh token pair, persists the refresh token hash, and sets cookies.
+ * Creates a brand-new session: persists the refresh-token hash with request
+ * metadata (UA, IP, optional geo), then issues an access token bound to that
+ * session id. Used on signin and after a password change.
  *
- * @param {Object} res - Express response object.
- * @param {string} userId - The user UUID to issue tokens for.
+ * @param {Object} params
+ * @param {Object} params.req - Express request (for UA + IP).
+ * @param {Object} params.res - Express response (for cookies).
+ * @param {string} params.userId - The user UUID to issue tokens for.
+ * @returns {Promise<void>}
  */
-const issueTokenPair = async (res, userId) => {
-  const accessToken = generateAccessToken(userId)
+const issueTokenPair = async ({ req, res, userId }) => {
   const refreshToken = generateRefreshToken(userId)
   const tokenHash = refreshTokenModel.hashToken(refreshToken)
 
-  await refreshTokenModel.create({
+  const ip = req.ip
+  const location = process.env.IP_GEOLOCATION_ENABLED === "true" ? await lookupLocation(ip) : null
+
+  const [session] = await refreshTokenModel.create({
     user_id: userId,
+    token_hash: tokenHash,
+    expires_at: parseExpiresIn(process.env.REFRESH_TOKEN_EXPIRES_IN),
+    user_agent: req.headers["user-agent"] ?? null,
+    ip_address: ip ?? null,
+    location,
+  })
+
+  const accessToken = generateAccessToken(userId, session.id)
+
+  setAccessTokenCookie(res, accessToken)
+  setRefreshTokenCookie(res, refreshToken)
+}
+
+/**
+ * Rotates an existing session's tokens in place — the session id (and its row)
+ * stays stable so the session remains listable across refreshes.
+ *
+ * @param {Object} params
+ * @param {Object} params.res - Express response (for cookies).
+ * @param {string} params.userId - The user UUID.
+ * @param {string} params.sessionId - The existing session (refresh_tokens) id.
+ * @returns {Promise<void>}
+ */
+const rotateSessionTokens = async ({ res, userId, sessionId }) => {
+  const refreshToken = generateRefreshToken(userId)
+  const tokenHash = refreshTokenModel.hashToken(refreshToken)
+
+  await refreshTokenModel.rotate({
+    id: sessionId,
     token_hash: tokenHash,
     expires_at: parseExpiresIn(process.env.REFRESH_TOKEN_EXPIRES_IN),
   })
 
+  const accessToken = generateAccessToken(userId, sessionId)
+
   setAccessTokenCookie(res, accessToken)
   setRefreshTokenCookie(res, refreshToken)
+}
+
+/**
+ * Denylists every active session for a user so their access tokens stop working
+ * immediately (used on password change, account deletion, and password reset).
+ *
+ * @param {string} userId - User UUID.
+ * @returns {Promise<void>}
+ */
+const denyAllSessions = async (userId) => {
+  const ids = await refreshTokenModel.findActiveIdsByUserId(userId)
+  await Promise.all(ids.map((id) => denySession(id)))
 }
 
 /**
@@ -309,7 +361,7 @@ export const signin = async (req, res, next) => {
     // Successful login — reset lockout fields
     await userModel.resetLoginState(user.id)
 
-    await issueTokenPair(res, user.id)
+    await issueTokenPair({ req, res, userId: user.id })
 
     return res.json(
       apiResponse({
@@ -391,6 +443,7 @@ export const resetPassword = async (req, res, next) => {
     const password_hash = await hashPassword(value.password)
     await userModel.update({ id: record.user_id }, { password_hash, updated_at: new Date() })
     await emailTokenModel.markUsed(record.id)
+    await denyAllSessions(record.user_id)
     await refreshTokenModel.revokeAllForUser(record.user_id)
 
     return res.json(apiResponse({ message: "Password reset successfully", data: null }))
@@ -481,6 +534,7 @@ export const deleteProfile = async (req, res, next) => {
     }
 
     await userModel.softDelete(req.user.id)
+    await denyAllSessions(req.user.id)
     await refreshTokenModel.revokeAllForUser(req.user.id)
     clearAuthCookies(res)
 
@@ -517,11 +571,13 @@ export const changePassword = async (req, res, next) => {
 
     const newHash = await hashPassword(value.new_password)
     await userModel.update({ id: req.user.id }, { password_hash: newHash, updated_at: new Date() })
-    // Revoke every refresh token (signs out other devices), then re-issue a fresh
+    // Denylist all active sessions so existing access tokens stop working immediately,
+    // then revoke every refresh token (signs out other devices), then re-issue a fresh
     // pair for THIS session so the active session isn't half-invalidated. Mirrors
     // refreshAccessToken's revoke-then-issue flow.
+    await denyAllSessions(req.user.id)
     await refreshTokenModel.revokeAllForUser(req.user.id)
-    await issueTokenPair(res, req.user.id)
+    await issueTokenPair({ req, res, userId: req.user.id })
 
     return res.json(apiResponse({ message: "Password updated", data: null }))
   } catch (error) {
@@ -544,8 +600,7 @@ export const refreshAccessToken = async (req, res, next) => {
     const user = await userModel.findOne({ id: req.user.id })
     if (!user) throw new HttpError(HTTP_STATUS_CODE.UNAUTHORIZED, "User not found")
 
-    await refreshTokenModel.revokeById(req.refreshTokenId)
-    await issueTokenPair(res, user.id)
+    await rotateSessionTokens({ res, userId: user.id, sessionId: req.refreshTokenId })
 
     return res.json(apiResponse({ message: "OK", data: { id: user.id, email: user.email } }))
   } catch (error) {
@@ -564,6 +619,7 @@ export const refreshAccessToken = async (req, res, next) => {
  */
 export const logout = async (req, res, next) => {
   try {
+    await denySession(req.refreshTokenId)
     await refreshTokenModel.revokeById(req.refreshTokenId)
     clearAuthCookies(res)
     return res.json(apiResponse({ message: "Logged out", data: null }))
