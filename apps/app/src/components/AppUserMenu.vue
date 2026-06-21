@@ -1,12 +1,8 @@
 <script setup>
 import { computed } from "vue"
-import { User, Lock, LogOut } from "lucide-vue-next"
+import { Settings, LogOut } from "lucide-vue-next"
 import { useRouter } from "vue-router"
 import { useAuthStore } from "@/stores/auth"
-
-const props = defineProps({
-  workspaceId: { type: String, default: null },
-})
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -25,9 +21,9 @@ const avatarInitials = computed(() => {
   )
 })
 
-/** Navigate to a settings route. */
-function navigateTo(routeName) {
-  router.push({ name: routeName, params: { workspaceId: props.workspaceId } })
+/** Navigate to the user account settings page. */
+function goToSettings() {
+  router.push("/settings")
 }
 
 /** Sign the user out and redirect to login. */
@@ -56,18 +52,11 @@ async function handleLogout() {
           <div class="user-menu__header-email">{{ currentUser?.email || "" }}</div>
         </div>
 
-        <!-- Workspace-scoped links -->
-        <template v-if="workspaceId">
-          <div class="user-menu__divider" />
-          <a-menu-item key="profile" @click="navigateTo('SettingsProfile')">
-            <User :size="14" :stroke-width="1.7" class="menu-icon" />
-            Profile
-          </a-menu-item>
-          <a-menu-item key="security" @click="navigateTo('SettingsAccount')">
-            <Lock :size="14" :stroke-width="1.7" class="menu-icon" />
-            Security
-          </a-menu-item>
-        </template>
+        <div class="user-menu__divider" />
+        <a-menu-item key="account" @click="goToSettings">
+          <Settings :size="14" :stroke-width="1.7" class="menu-icon" />
+          Account settings
+        </a-menu-item>
 
         <div class="user-menu__divider" />
         <a-menu-item key="logout" class="user-menu__item--danger" @click="handleLogout">

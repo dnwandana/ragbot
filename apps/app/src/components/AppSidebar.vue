@@ -38,9 +38,16 @@ const { theme, toggleTheme } = useTheme()
 const { can } = usePermissions()
 const { relativeTime, calendarDaysAgo } = useFormattedTime()
 
-const workspaceId = computed(() => route.params.workspaceId || null)
-const currentWorkspace = computed(() =>
-  workspacesStore.workspaces.find((ws) => ws.id === workspaceId.value),
+// Prefer the route param, but fall back to the workspace the store last loaded
+// so workspace-independent routes (e.g. /settings) keep showing the workspace
+// the user is working in instead of collapsing the sidebar.
+const workspaceId = computed(
+  () => route.params.workspaceId || workspacesStore.currentWorkspace?.id || null,
+)
+const currentWorkspace = computed(
+  () =>
+    workspacesStore.workspaces.find((ws) => ws.id === workspaceId.value) ||
+    workspacesStore.currentWorkspace,
 )
 
 /** @param {string} path */
@@ -327,7 +334,7 @@ watch(
         v-if="workspaceId"
         class="nav-item"
         :class="{ active: route.name === 'SettingsGeneral' }"
-        @click="navigate(`/workspaces/${workspaceId}/settings/general`)"
+        @click="navigate(`/workspaces/${workspaceId}/settings`)"
       >
         <Settings class="nav-icon" :size="15" :stroke-width="1.7" />
         General
@@ -337,7 +344,7 @@ watch(
         v-if="workspaceId"
         class="nav-item"
         :class="{ active: route.name === 'SettingsMembers' }"
-        @click="navigate(`/workspaces/${workspaceId}/settings/members`)"
+        @click="navigate(`/workspaces/${workspaceId}/members`)"
       >
         <Users class="nav-icon" :size="15" :stroke-width="1.7" />
         Members
@@ -347,7 +354,7 @@ watch(
         v-if="workspaceId"
         class="nav-item"
         :class="{ active: route.name === 'SettingsRoles' }"
-        @click="navigate(`/workspaces/${workspaceId}/settings/roles`)"
+        @click="navigate(`/workspaces/${workspaceId}/roles`)"
       >
         <Star class="nav-icon" :size="15" :stroke-width="1.7" />
         Roles
@@ -384,7 +391,7 @@ watch(
 
     <!-- Footer: user + dark toggle -->
     <div class="rail-footer">
-      <AppUserMenu :workspace-id="workspaceId" />
+      <AppUserMenu />
       <button
         class="icon-btn"
         :title="theme === 'dark' ? 'Light mode' : 'Dark mode'"

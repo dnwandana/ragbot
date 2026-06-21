@@ -66,7 +66,7 @@ function handleDiscard() {
   <div class="section-wrap">
     <div class="section-hd">
       <div class="section-title">Profile</div>
-      <div class="section-sub">How you appear to other members of this workspace.</div>
+      <div class="section-sub">Your name and timezone, used across the app.</div>
     </div>
 
     <div class="settings-card">

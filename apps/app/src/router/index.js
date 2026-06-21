@@ -56,38 +56,40 @@ const routes = [
     component: () => import("@/views/workspaces/WorkspacesListView.vue"),
     meta: { requiresAuth: true },
   },
+  // ── Workspace settings (flattened) ───────────────────────────────────
   {
-    path: "/workspaces/:workspaceId/settings",
-    component: () => import("@/views/settings/WorkspaceSettingsView.vue"),
-    redirect: { name: "SettingsGeneral" },
+    path: "/workspaces/:workspaceId",
+    component: () => import("@/views/settings/WorkspaceSettingsLayout.vue"),
     meta: { requiresAuth: true },
+    redirect: (to) => ({ name: "SettingsGeneral", params: to.params }),
     children: [
       {
-        path: "general",
+        path: "settings",
         name: "SettingsGeneral",
         component: () => import("@/views/settings/SettingsGeneral.vue"),
+        props: true,
       },
       {
         path: "members",
         name: "SettingsMembers",
         component: () => import("@/views/settings/SettingsMembers.vue"),
+        props: true,
       },
       {
         path: "roles",
         name: "SettingsRoles",
         component: () => import("@/views/settings/SettingsRoles.vue"),
-      },
-      {
-        path: "profile",
-        name: "SettingsProfile",
-        component: () => import("@/views/settings/SettingsProfile.vue"),
-      },
-      {
-        path: "account",
-        name: "SettingsAccount",
-        component: () => import("@/views/settings/SettingsAccount.vue"),
+        props: true,
       },
     ],
+  },
+
+  // ── User account settings (workspace-independent) ────────────────────
+  {
+    path: "/settings",
+    name: "AccountSettings",
+    component: () => import("@/views/settings/AccountSettingsView.vue"),
+    meta: { requiresAuth: true, skipWorkspaceGuard: true },
   },
   {
     path: "/workspaces/:workspaceId/datasets",

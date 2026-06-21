@@ -159,7 +159,7 @@ function goToItem(key) {
       router.push("/workspaces")
       break
     case "invites":
-      router.push(`/workspaces/${wid}/settings/members`)
+      router.push(`/workspaces/${wid}/members`)
       break
     case "source":
       router.push(`/workspaces/${wid}/datasets/${createdDatasetId.value}`)

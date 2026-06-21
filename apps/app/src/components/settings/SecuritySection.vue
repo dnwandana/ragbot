@@ -1,4 +1,4 @@
-<!-- apps/app/src/views/settings/SettingsAccount.vue -->
+<!-- apps/app/src/components/settings/SecuritySection.vue -->
 <script setup>
 import { ref, computed, onMounted } from "vue"
 import { useAuthStore } from "@/stores/auth"
