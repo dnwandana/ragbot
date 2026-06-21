@@ -16,3 +16,13 @@ vi.mock("../src/queues/file-processing.js", () => ({
   },
   addProcessingJob: vi.fn().mockResolvedValue({ id: "mock-job-id" }),
 }))
+
+vi.mock("../src/utils/session-denylist.js", () => ({
+  denySession: vi.fn().mockResolvedValue(undefined),
+  isSessionDenied: vi.fn().mockResolvedValue(false),
+}))
+
+vi.mock("../src/middlewares/rate-limit.js", () => ({
+  authLimiter: (req, res, next) => next(),
+  generalLimiter: (req, res, next) => next(),
+}))

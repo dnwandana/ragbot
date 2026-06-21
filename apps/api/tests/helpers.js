@@ -44,18 +44,21 @@ export async function createTestUser(overrides = {}) {
 }
 
 export async function getAuthHeaders(userId) {
-  const accessToken = generateAccessToken(userId)
+  const sessionId = crypto.randomUUID()
   const refreshToken = generateRefreshToken(userId)
   const tokenHash = hashToken(refreshToken)
 
   await db("refresh_tokens").insert({
-    id: crypto.randomUUID(),
+    id: sessionId,
     user_id: userId,
     token_hash: tokenHash,
     expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    last_used_at: new Date(),
     created_at: new Date(),
     updated_at: new Date(),
   })
+
+  const accessToken = generateAccessToken(userId, sessionId)
 
   return { Cookie: `access_token=${accessToken}; refresh_token=${refreshToken}` }
 }

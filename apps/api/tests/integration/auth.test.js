@@ -10,6 +10,7 @@ import {
   addWorkspaceMember,
 } from "../helpers.js"
 import * as emailTokenModel from "../../src/models/email-tokens.js"
+import db from "../../src/config/database.js"
 
 // Mock email service to avoid real Brevo calls.
 // After vi.mock, any import of the module returns the mocked functions.
@@ -237,6 +238,20 @@ describe("POST /api/auth/signin", () => {
       .send({ email: "resetlock@example.com", password: "Password123!" })
 
     expect(res.status).toBe(200)
+  })
+
+  it("signin creates a session row carrying the request User-Agent", async () => {
+    const password = "Password123!"
+    const user = await createTestUser({ password, email_verified: true })
+
+    const res = await (await request())
+      .post("/api/auth/signin")
+      .set("User-Agent", "PlanTest/9.9")
+      .send({ email: user.email, password })
+
+    expect(res.status).toBe(200)
+    const session = await db("refresh_tokens").where({ user_id: user.id }).first()
+    expect(session.user_agent).toBe("PlanTest/9.9")
   })
 })
 

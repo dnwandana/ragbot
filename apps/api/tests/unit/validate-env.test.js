@@ -126,6 +126,22 @@ describe("validateEnv — default propagation", () => {
     validateEnv()
     expect(process.env.EMAIL_FROM_NAME).toBe("Custom Sender")
   })
+
+  it("writes Joi default for IP_GEOLOCATION_ENABLED as 'false' when absent", () => {
+    delete process.env.IP_GEOLOCATION_ENABLED
+
+    validateEnv()
+
+    expect(process.env.IP_GEOLOCATION_ENABLED).toBe("false")
+  })
+
+  it("writes Joi default for IPGEOLOCATION_TIMEOUT_MS as '5000' when absent", () => {
+    delete process.env.IPGEOLOCATION_TIMEOUT_MS
+
+    validateEnv()
+
+    expect(process.env.IPGEOLOCATION_TIMEOUT_MS).toBe("5000")
+  })
 })
 
 describe("validateEnv — CORS production guard", () => {
@@ -164,5 +180,43 @@ describe("validateEnv — CORS production guard", () => {
     delete process.env.CORS_ALLOWED_ORIGINS
     validateEnv()
     expect(process.env.CORS_ALLOWED_ORIGINS).toBe("http://localhost:8080")
+  })
+})
+
+describe("validateEnv — geolocation guard", () => {
+  let snapshot, exitSpy, errSpy
+
+  beforeEach(() => {
+    snapshot = { ...process.env }
+    Object.assign(process.env, REQUIRED_ENV)
+    exitSpy = vi.spyOn(process, "exit").mockImplementation(() => {
+      throw new Error("process.exit called")
+    })
+    errSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    exitSpy.mockRestore()
+    errSpy.mockRestore()
+    for (const key of Object.keys(process.env)) delete process.env[key]
+    Object.assign(process.env, snapshot)
+  })
+
+  it("fails fast when IP_GEOLOCATION_ENABLED=true but IPGEOLOCATION_API_KEY is missing", () => {
+    process.env.IP_GEOLOCATION_ENABLED = "true"
+    delete process.env.IPGEOLOCATION_API_KEY
+    expect(() => validateEnv()).toThrow("process.exit called")
+  })
+
+  it("passes when IP_GEOLOCATION_ENABLED=true and IPGEOLOCATION_API_KEY is set", () => {
+    process.env.IP_GEOLOCATION_ENABLED = "true"
+    process.env.IPGEOLOCATION_API_KEY = "geo-test-key"
+    expect(() => validateEnv()).not.toThrow()
+  })
+
+  it("does not require IPGEOLOCATION_API_KEY when geolocation is disabled", () => {
+    process.env.IP_GEOLOCATION_ENABLED = "false"
+    delete process.env.IPGEOLOCATION_API_KEY
+    expect(() => validateEnv()).not.toThrow()
   })
 })
