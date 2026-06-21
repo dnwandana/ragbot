@@ -4,26 +4,38 @@ title: Your profile & account
 
 # Your profile & account
 
-<p class="lede">Your profile and account settings travel with you across every workspace. They live under <strong>Workspace settings</strong>, in the <strong>Profile</strong> and <strong>Account</strong> tabs.</p>
+<p class="lede">Your profile and account settings are personal to you and stay the same in every workspace. Open them from your name at the bottom of the sidebar and choose <strong>Account settings</strong>.</p>
 
 ## Profile
 
-The **Profile** tab holds the details other people see and the preferences that shape how dates and times appear to you.
+**Profile** holds the details other people see and the preferences that shape how dates and times appear to you.
 
 - **Name** — how you're shown to teammates in members lists and on your messages.
 - **Timezone** — set your IANA timezone (for example `Europe/London`) and every date and time in the app is shown in your local zone. Leave it unset and times fall back to UTC.
 
-<Shot src="/screenshots/settings/profile.png" label="Settings · Profile" caption="The Profile tab: your display name and timezone. Timezone drives how all dates and times render across the app." />
+<Shot src="/screenshots/settings/profile.png" label="Settings · Profile" caption="Profile: your display name and timezone. Timezone drives how all dates and times render across the app." />
 
 ## Account
 
-The **Account** tab is where you manage credentials and close your account.
+**Account** is where you manage your sign-in credentials, review where you're signed in, and close your account.
 
 ### Change your password
 
 Enter your current password, then your new one (8–72 characters). For your safety, changing your password signs you out of every **other** session — handy if you suspect someone else had access.
 
-<Shot src="/screenshots/settings/account.png" label="Settings · Account" caption="The Account tab: change your password or delete your account." />
+### Active sessions
+
+**Active sessions** lists every device currently signed in to your account, so you can spot anything you don't recognize. Each row shows:
+
+- **Device** — the browser and operating system (for example "Chrome on Windows"). The one you're using now is marked **This device**.
+- **Location** — an approximate city and country, when available.
+- **Last active** — when that session was last seen.
+
+To sign out a single device, choose **Revoke** on its row. To sign out everywhere except where you are now, choose **Log out all other sessions**. Either takes effect right away: the next time that device tries to do anything, it's signed out and has to log in again.
+
+Signing out isn't the only thing that ends other sessions — changing or [resetting your password](/getting-started/signing-in) and deleting your account also sign out every other device.
+
+<Shot src="/screenshots/settings/account.png" label="Settings · Account" caption="Change your password, review the devices signed in to your account, and revoke any you don't recognize." />
 
 ### Delete your account
 

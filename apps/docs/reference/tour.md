@@ -94,11 +94,11 @@ Open a role to see its permissions. Built-in roles are read-only; create a custo
 
 <Shot src="/screenshots/settings/role-permissions.png" label="Role permissions" caption="The permission matrix, grouped by resource. Destructive permissions are flagged." />
 
-**Profile** and **Account** hold your personal settings — name, timezone, password — covered in [Your profile & account](/concepts/account).
+**Profile** and **Account** hold your personal settings — name, timezone, password, and the devices signed in to your account — covered in [Your profile & account](/concepts/account).
 
 <Shot src="/screenshots/settings/profile.png" label="Settings · Profile" caption="Your profile: display name and timezone." />
 
-<Shot src="/screenshots/settings/account.png" label="Settings · Account" caption="Your account: change your password or delete your account." />
+<Shot src="/screenshots/settings/account.png" label="Settings · Account" caption="Your account: change your password, manage the devices signed in to your account, or delete your account." />
 
 ## Audit logs
 

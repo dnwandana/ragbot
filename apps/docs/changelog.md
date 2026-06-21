@@ -7,6 +7,39 @@ description: What's new in RAGBot — new features and improvements by version.
 
 What's new in RAGBot. The newest release is listed first.
 
+## 1.2.0 — 21 June 2026
+
+This release puts you in control of where your account is signed in. You can
+now see every device that's logged in, sign out the ones you don't recognize,
+and trust that signing out or changing your password takes effect right away.
+
+### New
+
+**See and manage your signed-in devices**
+
+- A new **active sessions** list in [your account settings](/concepts/account)
+  shows every device signed into your account — its browser and operating
+  system, IP address, approximate location when available, and when it was last
+  active — and marks the one you're using now.
+- Sign out a single device, or sign out all your other devices at once while
+  staying logged in where you are — handy if you ever sign in on a shared or
+  public computer.
+
+### Improvements
+
+**Sign-out and password changes take effect immediately**
+
+- Signing out, changing or resetting your password, deleting your account, or
+  signing out another device now ends access right away, instead of leaving a
+  short window where an old session could still be used.
+- The app version is now shown on the sign-in screen, so you always know which
+  release you're on.
+
+### Fixes
+
+- The sign-in, sign-up, and password screens are now vertically centered on the
+  page.
+
 ## 1.1.0 — 20 June 2026
 
 A small update to the RAGBot website. The documentation site is now linked
