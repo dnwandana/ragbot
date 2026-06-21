@@ -62,7 +62,7 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 
 - Auth views (Login, Signup, VerifyEmail, ForgotPassword, ResetPassword)
 - Workspaces views (WorkspacesListView, WorkspaceFormModal) + store/composable/API module
-- Workspace settings views (general, members, roles, profile, account) under `views/settings/`
+- Workspace settings views (general, members, roles) under `views/settings/` (flat paths `…/settings`, `…/members`, `…/roles` under `WorkspaceSettingsLayout.vue`); user account settings at `/settings` (`AccountSettingsView.vue`) composing `components/settings/ProfileSection.vue` + `SecuritySection.vue`
 - Invitations view (MyInvitationsView) — partial: the sidebar pending-count badge was removed and `fetchMyInvitations` is a no-op stub (backend not yet wired), so the view currently renders empty
 - Onboarding flow (OnboardingView + step wizard under `views/onboarding/steps/`)
 - AppLayout, AppSidebar, AppUserMenu, RoleEditor, InviteFormModal, MembersTable, InvitationsTable

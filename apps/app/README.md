@@ -140,7 +140,7 @@ src/
 ├── views/         # Page components - *View.vue naming
 │   ├── auth/            # LoginView, SignupView, VerifyEmailView, ForgotPasswordView, ResetPasswordView
 │   ├── workspaces/      # WorkspacesListView
-│   ├── settings/        # WorkspaceSettingsView + SettingsGeneral/Members/Roles/Profile/Account
+│   ├── settings/        # WorkspaceSettingsLayout + SettingsGeneral/Members/Roles, AccountSettingsView (/settings)
 │   ├── datasets/        # DatasetsListView, DatasetDetailView
 │   ├── agents/          # AgentsListView
 │   ├── conversations/   # ConversationsListView, ChatView
