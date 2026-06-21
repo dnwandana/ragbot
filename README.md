@@ -29,7 +29,7 @@ Workspace (tenant boundary)
 
 - **Multi-tenancy**: Shared PostgreSQL database, tenant-scoped via `workspace_id` columns with composite foreign keys enforcing isolation at the DB level
 - **RBAC**: 4 system roles (owner / admin / editor / viewer) + custom roles, 31 granular permissions across 8 resources
-- **Auth**: Dual-token JWT via httpOnly cookies, Argon2 password hashing, account lockout after 5 failed attempts
+- **Auth**: Dual-token JWT via httpOnly cookies, Argon2 password hashing, account lockout after 5 failed attempts, listable/revocable sessions with instant access-token revocation (Redis denylist)
 - **RAG pipeline**: File upload → parsing (LlamaIndex) → chunking (LangChain) → embedding (OpenRouter) → vector search (pgvector HNSW)
 - **AI chat**: ReAct loop with OpenRouter, SSE streaming, citation tracking back to source chunks
 
@@ -97,6 +97,9 @@ DEFAULT_CHAT_MODEL=openai/gpt-5.4-mini
 LLAMAINDEX_PARSE_TIER=cost_effective  # fast | cost_effective | agentic | agentic_plus
 S3_REGION=auto
 EMAIL_FROM_NAME=RAGBot
+IP_GEOLOCATION_ENABLED=false           # resolve session IPs to "City, CC" on the sessions list
+IPGEOLOCATION_API_KEY=                 # required only when IP_GEOLOCATION_ENABLED=true (ipgeolocation.io)
+IPGEOLOCATION_TIMEOUT_MS=5000
 ```
 
 ### App (`apps/app`)
@@ -180,6 +183,9 @@ Append `:api`, `:app`, `:web`, or `:docs` to target a single workspace (e.g. `pn
 | PUT    | `/api/auth/password`            | Access Token  | Change password                                          |
 | POST   | `/api/auth/refresh`             | Refresh Token | Rotate tokens via httpOnly cookie                        |
 | POST   | `/api/auth/logout`              | Refresh Token | Revoke refresh token, clear cookies                      |
+| GET    | `/api/auth/sessions`            | Access Token  | List active sessions                                     |
+| DELETE | `/api/auth/sessions`            | Access Token  | Revoke all sessions except the current one               |
+| DELETE | `/api/auth/sessions/:id`        | Access Token  | Revoke a single session by id                            |
 
 ### Permissions
 
@@ -325,7 +331,7 @@ cp apps/api/.env.example apps/api/.env.test
 # Update PORT (e.g. 3001), LOG_LEVEL=error, LOG_TO_FILE=false
 ```
 
-The test suite uses real PostgreSQL (no mocks). Vitest runs migrations once before the session, and `cleanAllTables()` truncates between tests. Auth tests mock the Brevo email service; queue tests mock BullMQ so no Redis is required locally. 280 static test cases — run `corepack pnpm test:api` for the live passing count. Integration groups: agents, agents-default-conflict, auth, chat, conversations, dataset-file-chunks, dataset-file-questions, dataset-questions, dataset-files, datasets, file-processing, health, members, permissions, roles, workspaces. Unit groups: allowed-models, consume-stream, email-render, file-processing-worker, http-error, llamaindex-poll, pagination, redis, request-id, sanitize, ssrf, test-users-seed, url-slug, validate-env.
+The test suite uses real PostgreSQL (no mocks). Vitest runs migrations once before the session, and `cleanAllTables()` truncates between tests. Auth tests mock the Brevo email service; the BullMQ queue, session denylist, and rate limiter are mocked so no Redis is required locally (the real denylist is unit-tested with `ioredis` mocked). Run `corepack pnpm test:api` for the live passing count. Integration groups: agents, agents-default-conflict, auth, chat, conversations, dataset-file-chunks, dataset-file-questions, dataset-questions, dataset-files, datasets, file-processing, health, members, permissions, roles, workspaces. Unit groups: allowed-models, consume-stream, email-render, file-processing-worker, http-error, ip-geolocation, llamaindex-poll, pagination, redis, request-id, sanitize, session-denylist, ssrf, test-users-seed, url-slug, validate-env. Session management (in `tests/`): sessions, session-revocation, jwt-sid, refresh-tokens-model.
 
 The frontend app (`apps/app`) has its own Vitest suite (`corepack pnpm --filter app test`, jsdom environment): unit tests for API wrappers and composables, plus component-render tests via `@vue/test-utils`. No database or network is required — API modules and composables are mocked.
 
@@ -458,6 +464,9 @@ docker compose run --rm api sh -c "node_modules/.bin/knex seed:run"
 | `S3_ENDPOINT`           | Yes      | R2 endpoint URL                                                                                     |
 | `LLAMAINDEX_API_KEY`    | Yes      | API key for LlamaIndex (document parsing)                                                           |
 | `FIRECRAWL_API_KEY`     | Yes      | API key for Firecrawl (URL scraping)                                                                |
+| `IP_GEOLOCATION_ENABLED` | No       | Set `true` to resolve session IPs to a "City, CC" label on the sessions list. Default `false`.      |
+| `IPGEOLOCATION_API_KEY` | Cond.    | Required only when `IP_GEOLOCATION_ENABLED=true` — ipgeolocation.io API key.                        |
+| `IPGEOLOCATION_TIMEOUT_MS` | No       | Geolocation lookup timeout. Defaults to 5000.                                                       |
 | `LLAMAINDEX_PARSE_TIER` | No       | LlamaParse tier: `fast`, `cost_effective`, `agentic`, `agentic_plus`. Defaults to `cost_effective`. |
 | `CORS_ALLOWED_ORIGINS`  | No       | Defaults to `http://localhost:8080`. Set to `https://app.<DOMAIN>` in production (SPA origin).      |
 
@@ -486,19 +495,20 @@ ragbot/
 │   │   │   │   │                    #     roles, permissions, workspaces, workspace-members,
 │   │   │   │   │                    #     datasets, dataset-files/-chunks/-questions, agents,
 │   │   │   │   │                    #     conversations(+datasets/messages/citations), audit-logs
-│   │   │   ├── services/           # 8: email (Brevo), openrouter (LLM + streaming),
+│   │   │   ├── services/           # 9: email (Brevo), openrouter (LLM + streaming),
 │   │   │   │   │                    #     rag, firecrawl, llamaindex, question-generator,
-│   │   │   │   │                    #     storage (S3/R2), text-splitter
+│   │   │   │   │                    #     storage (S3/R2), text-splitter, ip-geolocation
 │   │   │   ├── routes/             # per-resource routers aggregated in index.js
 │   │   │   ├── middlewares/        # 7: request-id, authorization, resolve-workspace,
 │   │   │   │   │                    #     require-permission, rate-limit, logger, error
 │   │   │   ├── queues/             # file-processing (BullMQ queue + addProcessingJob)
 │   │   │   ├── workers/            # file-processing (split → embed → store → questions)
-│   │   │   └── utils/              # 15: argon2, jwt, cookies, http-error, response,
+│   │   │   └── utils/              # 16: argon2, jwt, cookies, http-error, response,
 │   │   │                            #     pagination, sanitize, constant, logger, redis,
-│   │   │                            #     allowed-models, audit, system-agent, url-slug, validate-env
+│   │   │                            #     allowed-models, audit, system-agent, url-slug, validate-env,
+│   │   │                            #     session-denylist
 │   │   ├── database/
-│   │   │   ├── migrations/         # 9 Knex migrations (18-table workspace-based RAG schema)
+│   │   │   ├── migrations/         # 10 Knex migrations (18-table workspace-based RAG schema)
 │   │   │   └── seeds/
 │   │   │       ├── 01_permissions.js  # 31 permissions across 8 resources
 │   │   │       └── 02_test_users.js   # 2 test users (alice, bob)
@@ -506,9 +516,10 @@ ragbot/
 │   │   └── tests/
 │   │       ├── helpers.js          # createTestUser, createTestWorkspace, getAuthHeaders, cleanAllTables
 │   │       ├── global-setup.js
-│   │       ├── setup.js            # mocks the BullMQ queue (no Redis needed)
+│   │       ├── setup.js            # mocks BullMQ queue + session denylist + rate limiter
 │   │       ├── integration/        # 16 files (agents, auth, chat, conversations, datasets, …)
-│   │       └── unit/               # 14 files (allowed-models, pagination, ssrf, validate-env, …)
+│   │       ├── unit/               # 16 files (allowed-models, ip-geolocation, session-denylist, ssrf, …)
+│   │       └── *.test.js           # session mgmt: sessions, session-revocation, jwt-sid, refresh-tokens-model
 │   │
 │   └── app/
 │       └── src/

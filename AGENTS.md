@@ -28,11 +28,12 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 ## Key architectural facts
 
 - **Auth cookies**: `access_token` and `refresh_token` — httpOnly, Secure, SameSite=Strict cookies set by the server
+- **Sessions & instant revocation**: each access token carries a `sid` claim bound to its `refresh_tokens` session row; `requireAccessToken` checks a Redis denylist (`src/utils/session-denylist.js`, fail-open) so logout, password change/reset, account delete, and per-session revoke kill live access tokens within one token TTL. Sessions are listable/revocable via `/api/auth/sessions`
 - **Multi-tenancy**: Shared database, tenant isolation via `workspace_id` columns with composite foreign keys enforcing isolation at the DB level
 - **RBAC**: `requirePermission(name)` middleware, permissions resolved on `req.permissions`. 31 permissions across 8 resources (workspace, role, member, audit, dataset, file, agent, conversation)
 - **Request context**: `req.id` (request ID), `req.user` (from JWT). `req.workspace` and `req.permissions` are set by `resolveWorkspace` (`src/middlewares/resolve-workspace.js`), mounted via `router.use("/:workspace_id", resolveWorkspace)` in `routes/workspaces.js` — it loads the workspace and resolves the caller's permissions for RBAC
 - **Error handling**: Controllers throw `HttpError(status, msg)`, caught by centralized `errorHandler`
-- **Env validation**: API fails fast at startup if required vars are missing (expected behavior). The authoritative schema is `src/utils/validate-env.js` — 35 validated env vars (16 required; the rest have defaults), including `REDIS_URL`, scheme `redis://` or `rediss://`, covering OpenRouter, Brevo, S3/R2, LlamaIndex, Firecrawl, and Redis
+- **Env validation**: API fails fast at startup if required vars are missing (expected behavior). The authoritative schema is `src/utils/validate-env.js` — 38 validated env vars (16 always required, plus `IPGEOLOCATION_API_KEY` required only when `IP_GEOLOCATION_ENABLED=true`; the rest have defaults), including `REDIS_URL`, scheme `redis://` or `rediss://`, covering OpenRouter, Brevo, S3/R2, LlamaIndex, Firecrawl, Redis, and IP geolocation
 - **Async processing**: BullMQ job queue backed by Redis — dataset file processing (upload, scrape, reprocess) runs in an inline worker started alongside Express
 
 ## Current implementation state
@@ -42,11 +43,12 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 **Wired and working:**
 
 - Authentication — email-based signup with verification, signin (email + password), refresh, logout, me, forgot/reset password, resend verification. Brevo sends inline HTML emails via `sendTransacEmail`
+- Session management — list/revoke active sessions (`/api/auth/sessions`) with device/IP/optional-geo metadata, plus instant access-token revocation via a Redis denylist (kills tokens on logout, password change/reset, and account delete). Optional IP→location lookup (`ip-geolocation.js`, off by default)
 - Permissions (read-only reference endpoint)
 - Health check (database connectivity, request ID)
 - Roles CRUD (workspace-scoped)
 - Full middleware stack (helmet, CORS, rate limiting, request ID, cookie parser, error handling)
-- Database schema — 9 migrations, 18 tables, pgvector HNSW index, `search_chunks()` SQL function
+- Database schema — 10 migrations, 18 tables, pgvector HNSW index, `search_chunks()` SQL function
 - Workspace CRUD + RBAC + member management (F3)
 - Datasets + file upload (LlamaIndex) + URL scraping (Firecrawl) + BullMQ processing pipeline (F4)
 - Agent management — CRUD with system agent protection (F5)
@@ -72,6 +74,7 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 - Conversation views (ConversationsListView), store, composable, and API module (F6)
 - Chat view (ChatView) with SSE streaming, chat store, composable, and API module (F7)
 - Audit-logs view (AuditLogsView) with store, composable, and API module
+- Active-sessions management in Settings → Account — list signed-in devices and revoke individually or all-others (sessions store, `useSessions` composable, and API module)
 
 ### Web (`apps/web`)
 
@@ -86,12 +89,12 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 
 ### Tests
 
-**280 static test cases** (live passing count via `corepack pnpm test:api`). Integration: agents, agents-default-conflict, auth, chat, conversations, dataset-file-chunks, dataset-file-questions, dataset-questions, dataset-files, datasets, file-processing, health, members, permissions, roles, workspaces. Unit: allowed-models, consume-stream, email-render, file-processing-worker, http-error, llamaindex-poll, pagination, redis, request-id, sanitize, ssrf, test-users-seed, url-slug, validate-env.
+Static test cases across 37 files (live passing count via `corepack pnpm test:api`). Integration: agents, agents-default-conflict, auth, chat, conversations, dataset-file-chunks, dataset-file-questions, dataset-questions, dataset-files, datasets, file-processing, health, members, permissions, roles, workspaces. Unit: allowed-models, consume-stream, email-render, file-processing-worker, http-error, ip-geolocation, llamaindex-poll, pagination, redis, request-id, sanitize, session-denylist, ssrf, test-users-seed, url-slug, validate-env. Session management (in `tests/`): sessions, session-revocation, jwt-sid, refresh-tokens-model.
 **No Redis required locally:** queue module mocked via `tests/setup.js`
 
 ### Database schema
 
-18 tables across 9 migrations. Key entity tree:
+18 tables across 10 migrations. Key entity tree:
 
 ```
 workspaces (tenant root)

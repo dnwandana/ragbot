@@ -328,7 +328,7 @@
       "post": {
         "tags": ["Authentication"],
         "summary": "Reset password",
-        "description": "Resets the user's password using the token from the reset email.",
+        "description": "Resets the user's password using the token from the reset email, then denylists all of the user's active sessions and revokes all refresh tokens — signing the user out everywhere immediately.",
         "operationId": "resetPassword",
         "security": [],
         "requestBody": {
@@ -416,7 +416,7 @@
       "post": {
         "tags": ["Authentication"],
         "summary": "Refresh tokens",
-        "description": "Rotates the token pair — revokes the old refresh token and issues a new access_token and refresh_token. Requires the refresh_token cookie.",
+        "description": "Rotates the token pair in place on the same session row — the session id (sid) stays stable and last_used_at is refreshed, so the session remains listable; the old refresh-token hash no longer matches, preventing reuse. Requires the refresh_token cookie.",
         "operationId": "refreshTokens",
         "security": [
           {
@@ -485,7 +485,7 @@
       "post": {
         "tags": ["Authentication"],
         "summary": "Logout",
-        "description": "Revokes the refresh token and clears auth cookies. Idempotent — succeeds even if the token is already revoked.",
+        "description": "Denylists the session (sid) so its access token stops working immediately, revokes the refresh token, and clears auth cookies. Idempotent — succeeds even if the token is already revoked.",
         "operationId": "logout",
         "security": [
           {
@@ -587,7 +587,7 @@
       "delete": {
         "tags": ["Authentication"],
         "summary": "Delete account",
-        "description": "Soft-delete the authenticated user's account, revoke all refresh tokens, and clear auth cookies.",
+        "description": "Soft-delete the authenticated user's account, denylist all active sessions (instant access-token revocation), revoke all refresh tokens, and clear auth cookies.",
         "operationId": "deleteProfile",
         "security": [
           {
@@ -637,7 +637,7 @@
       "put": {
         "tags": ["Authentication"],
         "summary": "Change password",
-        "description": "Change the authenticated user's password. Requires the current password for verification; revokes all existing refresh tokens (signing out other devices), then re-issues a fresh token pair so the current session stays valid.",
+        "description": "Change the authenticated user's password. Requires the current password for verification; denylists all active sessions and revokes all existing refresh tokens (instantly signing out other devices), then issues a fresh session so the current device stays signed in.",
         "operationId": "changePassword",
         "security": [
           {
@@ -669,6 +669,162 @@
                 },
                 "example": {
                   "message": "Password updated",
+                  "data": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/auth/sessions": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "List active sessions",
+        "description": "Lists the authenticated user's active sessions (one per active refresh token), newest activity first. Each session carries a parsed device label, IP address, optional resolved location, last-active timestamp, and an is_current flag marking the session that backs this request.",
+        "operationId": "listSessions",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active sessions",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Session"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Authentication"],
+        "summary": "Revoke all other sessions",
+        "description": "Revokes every active session for the user except the one backing this request, and denylists each revoked session so its access token stops working immediately. Requires the request to carry a session id (sid claim) — returns 400 otherwise.",
+        "operationId": "revokeOtherSessions",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Other sessions revoked",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "revoked": {
+                              "type": "integer",
+                              "description": "Number of sessions revoked",
+                              "example": 2
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/auth/sessions/{id}": {
+      "delete": {
+        "tags": ["Authentication"],
+        "summary": "Revoke a session",
+        "description": "Revokes one of the authenticated user's sessions by id and denylists it so its access token stops working immediately. Returns 404 when the session does not exist or belongs to another user.",
+        "operationId": "revokeSession",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Session id (refresh_tokens row id)",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session revoked",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "message": "Session revoked",
                   "data": null
                 }
               }
@@ -5292,6 +5448,47 @@
         "type": "string",
         "description": "Returned when Accept: text/event-stream. The connection streams standard SSE frames until the done event closes it.\n\nEvent types and payloads:\n- token: {\"text\":\"...\"} — append to UI response\n- thought: {\"text\":\"...\"} — internal ReAct reasoning (show in collapsible)\n- observation: {\"text\":\"...\"} — RAG search result summary\n- citation: {\"chunk_id\":\"uuid\",\"citation_number\":1,\"cited_text\":\"...\",\"filename\":\"doc.pdf\",\"relevance_score\":0.91}\n- done: {\"message_id\":\"uuid\",\"prompt_tokens\":312,\"completion_tokens\":88,\"latency_ms\":1420}",
         "example": "event: thought\ndata: {\"text\":\"I need to search the dataset.\"}\n\nevent: citation\ndata: {\"chunk_id\":\"...\",\"citation_number\":1,\"cited_text\":\"...\",\"filename\":\"doc.pdf\",\"relevance_score\":0.91}\n\nevent: token\ndata: {\"text\":\"Based on the document, \"}\n\nevent: done\ndata: {\"message_id\":\"...\",\"prompt_tokens\":312,\"completion_tokens\":88,\"latency_ms\":1420}"
+      },
+      "Session": {
+        "type": "object",
+        "description": "An active sign-in session, backed by a refresh_tokens row.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Session id (refresh_tokens row id; matches the access token's sid claim)"
+          },
+          "device": {
+            "type": "string",
+            "description": "Human label parsed from the User-Agent, e.g. \"Chrome on macOS\". Falls back to \"Unknown device\".",
+            "example": "Chrome on macOS"
+          },
+          "ip_address": {
+            "type": "string",
+            "nullable": true,
+            "description": "IP address captured when the session was created",
+            "example": "203.0.113.5"
+          },
+          "location": {
+            "type": "string",
+            "nullable": true,
+            "description": "Resolved \"City, CC\" label when IP geolocation is enabled; null otherwise",
+            "example": "Berlin, DE"
+          },
+          "last_used_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last time the session's tokens were rotated (refreshed)"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "is_current": {
+            "type": "boolean",
+            "description": "True for the session backing the current request"
+          }
+        }
       },
       "AuditLog": {
         "type": "object",

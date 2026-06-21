@@ -101,27 +101,33 @@ req.permissions // [] of permission names (populated by resolveWorkspace)
 - POST `/api/auth/resend-verification` → resends verification email (always returns 200 to prevent enumeration)
 - POST `/api/auth/signin` → requires verified email, stores refresh token hash in DB, sets `access_token` and `refresh_token` as httpOnly cookies, returns `{ id, email, full_name }`
 - POST `/api/auth/forgot-password` → sends reset password email (always returns 200 to prevent enumeration)
-- POST `/api/auth/reset-password` → validates reset token, updates password, revokes all refresh tokens for the user
-- POST `/api/auth/refresh` → **token rotation**: revokes old refresh token, stores new hash, sets new `access_token` and `refresh_token` cookies
-- POST `/api/auth/logout` → revokes the refresh token in DB, clears cookies. Idempotent (succeeds even if token already revoked).
+- POST `/api/auth/reset-password` → validates reset token, updates password, denylists all of the user's active sessions, then revokes all refresh tokens for the user
+- POST `/api/auth/refresh` → **token rotation in place**: rotates the session's `token_hash`/`expires_at` on the same `refresh_tokens` row, so the session id (`sid`) stays stable and the session remains listable; sets new `access_token` and `refresh_token` cookies
+- POST `/api/auth/logout` → denylists the session (`sid`) for instant access-token revocation and revokes the refresh token in DB, clears cookies. Idempotent (succeeds even if token already revoked).
 - PUT `/api/auth/profile` → updates the authenticated user's `full_name` and `timezone` (must be a valid IANA zone), returns the updated user
-- DELETE `/api/auth/profile` → soft-deletes the account, revokes all refresh tokens, clears cookies. Rejects with 409 if the user is the sole owner of any workspace
-- PUT `/api/auth/password` → verifies `current_password`, sets `new_password` (8–72 chars), revokes all existing refresh tokens (signing out other devices), then re-issues a fresh token pair so the current session stays valid
+- DELETE `/api/auth/profile` → soft-deletes the account, denylists all active sessions, revokes all refresh tokens, clears cookies. Rejects with 409 if the user is the sole owner of any workspace
+- PUT `/api/auth/password` → verifies `current_password`, sets `new_password` (8–72 chars), denylists all active sessions and revokes all existing refresh tokens (signing out other devices), then issues a fresh session so the current device stays signed in
+- GET `/api/auth/sessions` → lists the caller's active sessions (one per active refresh token) with a parsed device label, IP, optional location, last-active and created timestamps, and an `is_current` flag (requireAccessToken + authLimiter)
+- DELETE `/api/auth/sessions` → revokes every session except the current one, denylisting each; returns `{ revoked }`. 400 if the request carries no `sid`
+- DELETE `/api/auth/sessions/:id` → revokes one session by id and denylists it; 404 if it is not the caller's
 
 Token cookies: `access_token` and `refresh_token` (httpOnly cookies set by server). JWT algorithm pinned to HS256 with explicit verification.
+
+**Instant access-token revocation**: each access token carries a `sid` claim bound to its `refresh_tokens` session row. `requireAccessToken` (now async) checks a Redis **session denylist** (`utils/session-denylist.js`) on every request and rejects revoked sessions with 401, then sets `req.sessionId`. Revoking a session (single, others, logout, password change/reset, account delete) calls `denySession(sid)`, so a live access token stops working within one access-token TTL even though it hasn't expired. The denylist **fails open** (auth still works if Redis is down) and its TTL is derived from `ACCESS_TOKEN_EXPIRES_IN` so it always outlives the access token. Tokens minted before this feature carry no `sid` and skip the check for one access-token TTL after deploy.
 
 Validation: email (required, lowercase, valid format), password 8–72 chars (72 is Argon2's input limit), full_name 1–100 chars. Email tokens use SHA-256 hashing with configurable expiration (verify: 24h, reset: 1h). Auth routes are rate-limited via `authLimiter` (default 10 req/15min, cap at 50).
 
 ### Refresh Token Architecture
 
-**Table**: `refresh_tokens` — UUID PK, `user_id` FK CASCADE, `token_hash` (64-char SHA-256), `expires_at`, `revoked_at` (nullable). Index on `user_id` and unique on `token_hash`.
+**Table**: `refresh_tokens` — UUID PK, `user_id` FK CASCADE, `token_hash` (64-char SHA-256), `expires_at`, `revoked_at` (nullable), plus session metadata `user_agent`, `ip_address`, `last_used_at`, `location` (migration 010 — each active, non-expired row is a listable session). Index on `user_id` and unique on `token_hash`.
 
 **Lifecycle**:
 
-- **Signin**: Controller generates refresh token, hashes with SHA-256 (`refresh-tokens.hashToken`), stores hash in DB, sets tokens as httpOnly cookies.
-- **Refresh**: Controller finds active token by hash (`findActiveByHash`), revokes old token (`revokeById`), creates new token hash, sets new token cookies via rotation. Prevents reuse — if a revoked token is used again, it's rejected.
-- **Logout**: Controller revokes token by ID (`revokeById`), clears cookies. Idempotent — no error if token missing or already revoked.
-- **Model functions**: `hashToken`, `create`, `findActiveByHash`, `revokeById`, `revokeAllForUser` (unused), `purgeOld` (unused — no cron job yet).
+- **Signin**: Controller generates refresh token, hashes with SHA-256 (`refresh-tokens.hashToken`), stores hash + request metadata (UA, IP, optional geo) in DB, sets tokens as httpOnly cookies.
+- **Refresh**: Controller finds the active token by hash (`findActiveByHash`), then **rotates in place** (`rotate`) — the same row gets a new `token_hash`/`expires_at` and a refreshed `last_used_at`, keeping the session id (`sid`) stable. Reuse is still prevented: the old hash no longer matches, so a replayed token is rejected.
+- **Logout**: Controller denylists the session (`denySession`), revokes the token by ID (`revokeById`), clears cookies. Idempotent — no error if token missing or already revoked.
+- **Sessions**: `controllers/sessions.js` lists (`findManyActiveByUserId`) and revokes sessions; every revoke path also calls `denySession(sid)` for instant access-token revocation. `revokeAllForUserExcept` (and the controller) refuse to mass-revoke without an explicit current-session id, so "log out others" can never sign out the caller.
+- **Model functions**: `hashToken`, `create` (persists session metadata), `findActiveByHash`, `revokeById`, `revokeAllForUser`, `rotate`, `findManyActiveByUserId`, `findActiveIdsByUserId`, `findActiveByIdForUser`, `revokeAllForUserExcept`, `purgeOld` (unused — no cron job yet).
 
 ### Multi-Tenancy Architecture
 
@@ -187,6 +193,9 @@ The chat feature uses a server-side ReAct (Reason-Act-Observe) loop with dual-mo
 | PUT    | `/api/auth/password`            | `authentication.changePassword`     | requireAccessToken  | authLimiter         |
 | POST   | `/api/auth/refresh`             | `authentication.refreshAccessToken` | requireRefreshToken | authLimiter         |
 | POST   | `/api/auth/logout`              | `authentication.logout`             | requireRefreshToken | authLimiter         |
+| GET    | `/api/auth/sessions`            | `sessions.listSessions`             | requireAccessToken  | authLimiter         |
+| DELETE | `/api/auth/sessions`            | `sessions.revokeOtherSessions`      | requireAccessToken  | authLimiter         |
+| DELETE | `/api/auth/sessions/:id`        | `sessions.revokeSession`            | requireAccessToken  | authLimiter         |
 
 ### Authenticated (requireAccessToken)
 
@@ -218,31 +227,32 @@ Audit logging is implemented and wired (not planned). `src/utils/audit.js` expor
 
 ## Model Catalog
 
-| File                                | Exports                                                                                                         |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `users.js`                          | `create`, `findOne`, `findOneWithPassword`, `update`, `softDelete`                                              |
-| `email-tokens.js`                   | `hashToken`, `create`, `findActiveByHash`, `markUsed`, `deleteExpired`, `deleteByUser`                          |
-| `refresh-tokens.js`                 | `hashToken`, `create`, `findActiveByHash`, `revokeById`, `revokeAllForUser`, `purgeOld`                         |
-| `roles.js`                          | `create`, `findOne`, `findMany`, `update`, `remove`, `findPermissionsByRoleId`, `setPermissions`                |
-| `permissions.js`                    | `findAll`, `findOne`, `findByIds`                                                                               |
-| `agents.js`                         | `create`, `findOne`, `findSystemAgent`, `count`, `findManyPaginated`, `update`, `softDelete`                    |
-| `conversations.js`                  | `create`, `findOne`, `count`, `findManyPaginated`, `update`, `softDelete`                                       |
-| `conversation-datasets.js`          | `create`, `findByConversationId`, `findDatasetIds`, `remove`, `removeByConversationId`                          |
-| `conversation-messages.js`          | `create`, `findOne`, `findByConversationId`, `findVisibleByConversationId`                                      |
-| `conversation-message-citations.js` | `bulkInsert`, `findByMessageId`, `findByConversationId`                                                         |
-| `workspaces.js`                     | `create`, `findOne`, `findManyByUserId`, `update`, `softDelete`                                                 |
-| `workspace-members.js`              | `create`, `findOne`, `findManyByWorkspaceId`, `getPermissions`, `countActiveOwners`, `updateRole`, `softDelete` |
-| `datasets.js`                       | `create`, `findOne`, `count`, `findManyPaginated`, `update`, `softDelete`                                       |
-| `dataset-files.js`                  | `create`, `findOne`, `count`, `findManyPaginated`, `update`, `softDelete`, `softDeleteByDataset`                |
-| `dataset-file-chunks.js`            | `bulkInsert`, `deleteByFileId`, `countByDatasetFileId`, `deleteByDatasetId`, `count`, `findManyPaginated`       |
-| `dataset-file-questions.js`         | `bulkInsert`, `findByFileId`, `deleteByFileId`, `deleteByDatasetId`                                             |
-| `audit-logs.js`                     | `findMany`, `count`                                                                                             |
+| File                                | Exports                                                                                                                                                                                                 |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `users.js`                          | `create`, `findOne`, `findOneWithPassword`, `update`, `softDelete`                                                                                                                                      |
+| `email-tokens.js`                   | `hashToken`, `create`, `findActiveByHash`, `markUsed`, `deleteExpired`, `deleteByUser`                                                                                                                  |
+| `refresh-tokens.js`                 | `hashToken`, `create`, `findActiveByHash`, `revokeById`, `revokeAllForUser`, `rotate`, `findManyActiveByUserId`, `findActiveIdsByUserId`, `findActiveByIdForUser`, `revokeAllForUserExcept`, `purgeOld` |
+| `roles.js`                          | `create`, `findOne`, `findMany`, `update`, `remove`, `findPermissionsByRoleId`, `setPermissions`                                                                                                        |
+| `permissions.js`                    | `findAll`, `findOne`, `findByIds`                                                                                                                                                                       |
+| `agents.js`                         | `create`, `findOne`, `findSystemAgent`, `count`, `findManyPaginated`, `update`, `softDelete`                                                                                                            |
+| `conversations.js`                  | `create`, `findOne`, `count`, `findManyPaginated`, `update`, `softDelete`                                                                                                                               |
+| `conversation-datasets.js`          | `create`, `findByConversationId`, `findDatasetIds`, `remove`, `removeByConversationId`                                                                                                                  |
+| `conversation-messages.js`          | `create`, `findOne`, `findByConversationId`, `findVisibleByConversationId`                                                                                                                              |
+| `conversation-message-citations.js` | `bulkInsert`, `findByMessageId`, `findByConversationId`                                                                                                                                                 |
+| `workspaces.js`                     | `create`, `findOne`, `findManyByUserId`, `update`, `softDelete`                                                                                                                                         |
+| `workspace-members.js`              | `create`, `findOne`, `findManyByWorkspaceId`, `getPermissions`, `countActiveOwners`, `updateRole`, `softDelete`                                                                                         |
+| `datasets.js`                       | `create`, `findOne`, `count`, `findManyPaginated`, `update`, `softDelete`                                                                                                                               |
+| `dataset-files.js`                  | `create`, `findOne`, `count`, `findManyPaginated`, `update`, `softDelete`, `softDeleteByDataset`                                                                                                        |
+| `dataset-file-chunks.js`            | `bulkInsert`, `deleteByFileId`, `countByDatasetFileId`, `deleteByDatasetId`, `count`, `findManyPaginated`                                                                                               |
+| `dataset-file-questions.js`         | `bulkInsert`, `findByFileId`, `deleteByFileId`, `deleteByDatasetId`                                                                                                                                     |
+| `audit-logs.js`                     | `findMany`, `count`                                                                                                                                                                                     |
 
 ## Controller Catalog
 
 | File                | Exports                                                                                                                                                                                 |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `authentication.js` | `signup`, `verifyEmail`, `resendVerification`, `signin`, `forgotPassword`, `resetPassword`, `getMe`, `updateProfile`, `deleteProfile`, `changePassword`, `refreshAccessToken`, `logout` |
+| `sessions.js`       | `listSessions`, `revokeSession`, `revokeOtherSessions`                                                                                                                                  |
 | `permissions.js`    | `getPermissions`                                                                                                                                                                        |
 | `roles.js`          | `createRole`, `getRoles`, `getRole`, `updateRole`, `deleteRole`                                                                                                                         |
 | `agents.js`         | `createAgent`, `listAgents`, `getAgent`, `updateAgent`, `deleteAgent`                                                                                                                   |
@@ -259,7 +269,7 @@ Audit logging is implemented and wired (not planned). `src/utils/audit.js` expor
 | File                    | Exports                                                                                                  |
 | ----------------------- | -------------------------------------------------------------------------------------------------------- |
 | `request-id.js`         | `requestId`                                                                                              |
-| `authorization.js`      | `requireAccessToken`, `requireRefreshToken`                                                              |
+| `authorization.js`      | `requireAccessToken` (async — checks the session denylist, sets `req.sessionId`), `requireRefreshToken`  |
 | `resolve-workspace.js`  | `resolveWorkspace` — validates `workspace_id`, loads workspace, sets `req.workspace` + `req.permissions` |
 | `require-permission.js` | `requirePermission`                                                                                      |
 | `rate-limit.js`         | `authLimiter`, `generalLimiter`                                                                          |
@@ -270,34 +280,36 @@ Audit logging is implemented and wired (not planned). `src/utils/audit.js` expor
 
 ## Utility Catalog
 
-| File                | Exports                                                                                  |
-| ------------------- | ---------------------------------------------------------------------------------------- |
-| `argon2.js`         | `hashPassword`, `verifyPassword`                                                         |
-| `jwt.js`            | `generateAccessToken`, `generateRefreshToken`, `verifyAccessToken`, `verifyRefreshToken` |
-| `cookies.js`        | `setAccessTokenCookie`, `setRefreshTokenCookie`, `clearAuthCookies`                      |
-| `http-error.js`     | `HttpError` (default)                                                                    |
-| `response.js`       | `apiResponse` (default)                                                                  |
-| `pagination.js`     | `validatePaginationQuery`, `buildPaginationMeta`, `executePaginatedQuery`                |
-| `sanitize.js`       | `escapeIlike`                                                                            |
-| `constant.js`       | `HTTP_STATUS_CODE`, `HTTP_STATUS_MESSAGE`                                                |
-| `logger.js`         | `logger` (default, Winston instance)                                                     |
-| `redis.js`          | `parseRedisUrl`                                                                          |
-| `allowed-models.js` | `ALLOWED_MODELS`, `DEFAULT_MODEL` — agent model allowlist and default chat model         |
-| `audit.js`          | `logAuditEvent` — inserts an immutable audit_logs row for a workspace-scoped action      |
-| `validate-env.js`   | `validateEnv` (default)                                                                  |
+| File                  | Exports                                                                                                               |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `argon2.js`           | `hashPassword`, `verifyPassword`                                                                                      |
+| `jwt.js`              | `generateAccessToken`, `generateRefreshToken`, `verifyAccessToken`, `verifyRefreshToken`                              |
+| `cookies.js`          | `setAccessTokenCookie`, `setRefreshTokenCookie`, `clearAuthCookies`                                                   |
+| `http-error.js`       | `HttpError` (default)                                                                                                 |
+| `response.js`         | `apiResponse` (default)                                                                                               |
+| `pagination.js`       | `validatePaginationQuery`, `buildPaginationMeta`, `executePaginatedQuery`                                             |
+| `sanitize.js`         | `escapeIlike`                                                                                                         |
+| `constant.js`         | `HTTP_STATUS_CODE`, `HTTP_STATUS_MESSAGE`                                                                             |
+| `logger.js`           | `logger` (default, Winston instance)                                                                                  |
+| `redis.js`            | `parseRedisUrl`                                                                                                       |
+| `session-denylist.js` | `denySession`, `isSessionDenied` — Redis access-token denylist; fail-open, TTL derived from `ACCESS_TOKEN_EXPIRES_IN` |
+| `allowed-models.js`   | `ALLOWED_MODELS`, `DEFAULT_MODEL` — agent model allowlist and default chat model                                      |
+| `audit.js`            | `logAuditEvent` — inserts an immutable audit_logs row for a workspace-scoped action                                   |
+| `validate-env.js`     | `validateEnv` (default)                                                                                               |
 
 ## Service Catalog
 
-| File                    | Exports                                                             | Description                                                              |
-| ----------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `email.js`              | `sendEmail`                                                         | Brevo transactional email via inline HTML templates                      |
-| `openrouter.js`         | `embedText`, `embedBatch`, `chatCompletion`, `chatCompletionStream` | OpenRouter LLM inference for embeddings, chat, and streaming             |
-| `rag.js`                | `searchChunks`, `buildSystemMessage`                                | RAG pipeline: embed query, vector search, build context                  |
-| `firecrawl.js`          | `scrapeUrl`                                                         | Scrape a URL to markdown via the Firecrawl API                           |
-| `llamaindex.js`         | `submitParseJob`, `pollForMarkdown`                                 | Submit files to LlamaIndex Cloud for async parsing and poll for markdown |
-| `question-generator.js` | `generateQuestions`                                                 | Generate 5–10 exploration questions for a document via OpenRouter chat   |
-| `storage.js`            | `uploadFile`, `deleteFile`, `getSignedDownloadUrl`                  | S3/R2 object storage: upload, delete, presigned download URLs            |
-| `text-splitter.js`      | `splitText`                                                         | Recursive character text splitting into overlapping chunks (LangChain)   |
+| File                    | Exports                                                             | Description                                                                                               |
+| ----------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `email.js`              | `sendEmail`                                                         | Brevo transactional email via inline HTML templates                                                       |
+| `openrouter.js`         | `embedText`, `embedBatch`, `chatCompletion`, `chatCompletionStream` | OpenRouter LLM inference for embeddings, chat, and streaming                                              |
+| `rag.js`                | `searchChunks`, `buildSystemMessage`                                | RAG pipeline: embed query, vector search, build context                                                   |
+| `firecrawl.js`          | `scrapeUrl`                                                         | Scrape a URL to markdown via the Firecrawl API                                                            |
+| `llamaindex.js`         | `submitParseJob`, `pollForMarkdown`                                 | Submit files to LlamaIndex Cloud for async parsing and poll for markdown                                  |
+| `question-generator.js` | `generateQuestions`                                                 | Generate 5–10 exploration questions for a document via OpenRouter chat                                    |
+| `storage.js`            | `uploadFile`, `deleteFile`, `getSignedDownloadUrl`                  | S3/R2 object storage: upload, delete, presigned download URLs                                             |
+| `text-splitter.js`      | `splitText`                                                         | Recursive character text splitting into overlapping chunks (LangChain)                                    |
+| `ip-geolocation.js`     | `lookupLocation`                                                    | Resolve an IP to a "City, CC" label via ipgeolocation.io (opt-in via `IP_GEOLOCATION_ENABLED`, fail-soft) |
 
 ## Queue & Worker Catalog
 
@@ -321,14 +333,16 @@ Audit logging is implemented and wired (not planned). `src/utils/audit.js` expor
 
 Required: `DATABASE_URL`, `REDIS_URL` (Redis connection string — `redis://localhost:6379` locally, `rediss://` for TLS), `ACCESS_TOKEN_SECRET` (≥32 chars), `REFRESH_TOKEN_SECRET` (≥32 chars, must differ), `JWT_ISSUER`, `JWT_AUDIENCE`, `OPENROUTER_API_KEY`, `BREVO_API_KEY`, `EMAIL_FROM_ADDRESS`, `APP_URL`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_ENDPOINT`, `LLAMAINDEX_API_KEY`, `FIRECRAWL_API_KEY`
 
-Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_EXPIRES_IN` (15m), `REFRESH_TOKEN_EXPIRES_IN` (7d), `LOG_LEVEL` (info), `LOG_TO_FILE` (true), `CORS_ALLOWED_ORIGINS` (http://localhost:8080), `RATE_LIMIT_AUTH_MAX` (10, capped at 50), `RATE_LIMIT_GENERAL_MAX` (100), `DEFAULT_EMBEDDINGS_MODEL` (openai/text-embedding-3-small), `DEFAULT_CHAT_MODEL` (openai/gpt-5.4-mini), `S3_REGION` (auto), `EMAIL_FROM_NAME` ("RAGBot"), `LLAMAINDEX_PARSE_TIER` (cost_effective), `OPENROUTER_STREAM_TIMEOUT_MS` (60000), `OPENROUTER_TIMEOUT_MS` (30000), `FIRECRAWL_TIMEOUT_MS` (60000), `LLAMAINDEX_TIMEOUT_MS` (30000), `S3_TIMEOUT_MS` (10000)
+Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_EXPIRES_IN` (15m), `REFRESH_TOKEN_EXPIRES_IN` (7d), `LOG_LEVEL` (info), `LOG_TO_FILE` (true), `CORS_ALLOWED_ORIGINS` (http://localhost:8080), `RATE_LIMIT_AUTH_MAX` (10, capped at 50), `RATE_LIMIT_GENERAL_MAX` (100), `DEFAULT_EMBEDDINGS_MODEL` (openai/text-embedding-3-small), `DEFAULT_CHAT_MODEL` (openai/gpt-5.4-mini), `S3_REGION` (auto), `EMAIL_FROM_NAME` ("RAGBot"), `LLAMAINDEX_PARSE_TIER` (cost_effective), `OPENROUTER_STREAM_TIMEOUT_MS` (60000), `OPENROUTER_TIMEOUT_MS` (30000), `FIRECRAWL_TIMEOUT_MS` (60000), `LLAMAINDEX_TIMEOUT_MS` (30000), `S3_TIMEOUT_MS` (10000), `IP_GEOLOCATION_ENABLED` (false), `IPGEOLOCATION_TIMEOUT_MS` (5000)
+
+> Session geolocation: when `IP_GEOLOCATION_ENABLED=true`, `IPGEOLOCATION_API_KEY` is **required** (`validateEnv` exits otherwise) and session IPs are resolved to a "City, CC" label shown in the sessions list. Lookups are skipped (location stays `null`) for private/loopback IPs, so locally-originated sessions never resolve a location even when enabled. The denylist's TTL is not a separate env var — it is derived from `ACCESS_TOKEN_EXPIRES_IN`.
 
 > `CORS_ALLOWED_ORIGINS` is **required** when `NODE_ENV=production` and must not be a localhost/loopback origin (`validateEnv` exits otherwise); it defaults to `http://localhost:8080` only outside production.
 
 ## Database
 
 - **Config**: `knexfile.js` — loads `.env.test` when `NODE_ENV=test`, connection pool min 2, max 10
-- **Migrations**: `database/migrations/` — 9 migration files using raw SQL:
+- **Migrations**: `database/migrations/` — 10 migration files using raw SQL:
   - 001: Extensions (pgcrypto, vector) + 5 ENUM types
   - 002: Core tenancy (workspaces, users, email_tokens, refresh_tokens)
   - 003: Roles & permissions (permissions, roles, role_permissions, workspace_members with `invited_email` for unregistered-invite binding)
@@ -338,6 +352,7 @@ Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_E
   - 007: Functions (trigger_set_updated_at on 9 tables, search_chunks SQL function)
   - 008: Audit logs (append-only, immutable)
   - 009: Expiry indexes (email_tokens, refresh_tokens)
+  - 010: Session metadata on refresh_tokens (`user_agent`, `ip_address`, `last_used_at`, `location`)
 - **Seeds**: `database/seeds/` — 2 seed files:
   - 01: 31 permissions across 8 resources (workspace, role, member, audit, dataset, file, agent, conversation)
   - 02: 2 test users (alice@example.com, bob@example.com, password: "Password123!")
@@ -352,7 +367,7 @@ Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_E
 - **Database**: Real PostgreSQL test database (configured in `.env.test`)
 - **Config**: `vitest.config.js` — `fileParallelism: false` (integration tests share DB state), 10s timeout
 - **Setup**: `tests/global-setup.js` — creates Knex client, runs migrations, seeds permissions, destroys client
-- **Setup file**: `tests/setup.js` — mocks `src/queues/file-processing.js` (no-op stubs) so tests run without Redis
+- **Setup file**: `tests/setup.js` — mocks `src/queues/file-processing.js`, `src/utils/session-denylist.js`, and `src/middlewares/rate-limit.js` with no-op stubs so tests run without Redis and without rate-limit interference (the real denylist is covered in isolation by `tests/unit/session-denylist.test.js`)
 - **Helpers**: `tests/helpers.js`:
   - `getApp()`, `request()` — app bootstrapping
   - `createTestUser(overrides)` — inserts user with Argon2-hashed password, returns `{ id, email, full_name, plainPassword }`
@@ -361,11 +376,12 @@ Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_E
   - `addWorkspaceMember(workspaceId, userId, roleId)` — adds member with active status
   - `cleanAllTables()` — truncates all 18 tables in dependency order
   - `seedPermissions()` — seeds 31 RAG permissions
-- **Current test status** — 280 test cases total (static count from the test files; live passing count comes from `corepack pnpm test:api`):
-  - Integration: agents (28), agents-default-conflict (2), auth (38), chat (8), conversations (11), dataset-file-chunks (2), dataset-file-questions (6), dataset-questions (5), dataset-files (23), datasets (14), file-processing (3), health (5), members (8), permissions (13), roles (15), workspaces (7)
-  - Unit: allowed-models (2), consume-stream (3), email-render (4), file-processing-worker (3), http-error (3), llamaindex-poll (6), pagination (12), redis (5), request-id (4), sanitize (6), ssrf (18), test-users-seed (2), url-slug (9), validate-env (15)
+- **Current test status** — static count from the test files; live passing count comes from `corepack pnpm test:api`:
+  - Integration: agents (28), agents-default-conflict (2), auth (41), chat (8), conversations (11), dataset-file-chunks (2), dataset-file-questions (6), dataset-questions (5), dataset-files (23), datasets (14), file-processing (3), health (5), members (8), permissions (13), roles (15), workspaces (7)
+  - Unit: allowed-models (2), consume-stream (3), email-render (4), file-processing-worker (3), http-error (3), ip-geolocation (4), llamaindex-poll (6), pagination (12), redis (5), request-id (4), sanitize (6), session-denylist (10), ssrf (18), test-users-seed (2), url-slug (9), validate-env (22)
+  - Session management (in `tests/`): sessions (5), session-revocation (3), jwt-sid (1), refresh-tokens-model (5)
   - Skipped (0)
-  - No Redis required for local test runs (queue module mocked via `tests/setup.js`)
+  - No Redis required for local test runs (queue + session-denylist modules mocked via `tests/setup.js`; the real denylist is unit-tested with `ioredis` mocked)
 
 ## Adding a New Resource
 
