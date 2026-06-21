@@ -3937,16 +3937,20 @@
                           "type": "string",
                           "format": "date-time"
                         },
+                        "version": {
+                          "type": "string",
+                          "description": "App version from package.json. Present in all environments."
+                        },
                         "uptime": {
                           "type": "number",
-                          "description": "Server uptime in seconds"
+                          "description": "Server uptime in seconds. Non-production only."
                         },
                         "database": {
                           "type": "string",
                           "enum": ["ok"]
                         }
                       },
-                      "required": ["status", "timestamp", "uptime", "database"]
+                      "required": ["status", "timestamp", "version"]
                     }
                   }
                 },
@@ -3955,6 +3959,7 @@
                   "data": {
                     "status": "healthy",
                     "timestamp": "2026-05-20T05:00:00.000Z",
+                    "version": "1.1.0",
                     "uptime": 3600.5,
                     "database": "ok"
                   }
@@ -3989,6 +3994,10 @@
                           "type": "string",
                           "format": "date-time"
                         },
+                        "version": {
+                          "type": "string",
+                          "description": "App version from package.json. Present in all environments."
+                        },
                         "uptime": {
                           "type": "number"
                         },
@@ -3997,7 +4006,7 @@
                           "enum": ["error"]
                         }
                       },
-                      "required": ["status", "timestamp", "uptime", "database"]
+                      "required": ["status", "timestamp", "version"]
                     }
                   }
                 }

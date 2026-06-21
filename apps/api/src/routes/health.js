@@ -1,6 +1,7 @@
 import { Router } from "express"
 import db from "../config/database.js"
 import apiResponse from "../utils/response.js"
+import pkg from "../../package.json" with { type: "json" }
 
 const router = Router()
 
@@ -23,6 +24,7 @@ router.get("/", (req, res, next) => {
           data: {
             status: statusLabel,
             timestamp: new Date().toISOString(),
+            version: pkg.version,
             ...(process.env.NODE_ENV !== "production" && {
               uptime: process.uptime(),
               database: dbStatus,

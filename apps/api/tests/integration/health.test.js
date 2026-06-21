@@ -23,6 +23,16 @@ describe("GET /health", () => {
     expect(res.body.data.timestamp).toBeDefined()
   })
 
+  it("should include the app version from package.json", async () => {
+    const { default: pkg } = await import("../../package.json", {
+      with: { type: "json" },
+    })
+    const res = await (await request()).get("/health")
+
+    expect(res.status).toBe(200)
+    expect(res.body.data.version).toBe(pkg.version)
+  })
+
   it("should include X-Request-Id header in response", async () => {
     const res = await (await request()).get("/health")
 
