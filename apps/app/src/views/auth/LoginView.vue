@@ -5,6 +5,7 @@ import { useAuth } from "@/composables/useAuth"
 
 const route = useRoute()
 const { formState, error, loading, emailRules, passwordRules, handleSignin } = useAuth()
+const version = __APP_VERSION__
 </script>
 
 <template>
@@ -60,6 +61,7 @@ const { formState, error, loading, emailRules, passwordRules, handleSignin } = u
         New to RAGBot? <router-link to="/signup">Create an account</router-link>
       </div>
     </div>
+    <span class="login-version">v{{ version }}</span>
   </AuthShell>
 </template>
 
@@ -90,5 +92,17 @@ const { formState, error, loading, emailRules, passwordRules, handleSignin } = u
   outline: 2px solid var(--brand-3);
   outline-offset: 2px;
   border-radius: 2px;
+}
+
+/* Fixed app-version badge, pinned to the bottom-right of the viewport */
+.login-version {
+  position: fixed;
+  right: 12px;
+  bottom: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-4);
+  pointer-events: none;
+  user-select: none;
 }
 </style>
