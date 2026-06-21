@@ -1,13 +1,33 @@
 <!-- apps/app/src/views/settings/SettingsAccount.vue -->
 <script setup>
-import { ref, computed } from "vue"
+import { ref, computed, onMounted } from "vue"
 import { useAuthStore } from "@/stores/auth"
 import { useAccount } from "@/composables/useAccount"
+import { useSessions } from "@/composables/useSessions"
+import { useFormattedTime } from "@/composables/useFormattedTime"
 import StrengthMeter from "@/components/StrengthMeter.vue"
 
 const authStore = useAuthStore()
 const { changingPassword, deletingAccount, submitChangePassword, submitDeleteAccount } =
   useAccount()
+
+const {
+  sessions,
+  loading: sessionsLoading,
+  hasOtherSessions,
+  revokingId,
+  showRevokeAll,
+  revokingAll,
+  fetchSessions,
+  confirmRevoke,
+  openRevokeAll,
+  closeRevokeAll,
+  confirmRevokeAll,
+} = useSessions()
+
+const { relativeTime } = useFormattedTime()
+
+onMounted(fetchSessions)
 
 const currentUser = computed(() => authStore.currentUser)
 
@@ -139,6 +159,97 @@ async function handleDeleteAccount() {
         </div>
       </div>
     </div>
+
+    <!-- Active sessions -->
+    <div class="section-hd" style="margin-top: 8px">
+      <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 16px">
+        <div>
+          <div class="section-title">Active sessions</div>
+          <div class="section-sub">Devices and browsers currently signed in to your account.</div>
+        </div>
+        <button
+          v-if="hasOtherSessions"
+          class="btn-secondary"
+          style="color: var(--err); border-color: var(--err-border)"
+          @click="openRevokeAll"
+        >
+          Log out all other sessions
+        </button>
+      </div>
+    </div>
+
+    <div class="settings-card" style="margin-bottom: 24px">
+      <a-table
+        :data-source="sessions"
+        :loading="sessionsLoading"
+        :pagination="false"
+        row-key="id"
+        size="middle"
+      >
+        <a-table-column key="device" title="Device" data-index="device">
+          <template #default="{ record }">
+            <span>{{ record.device }}</span>
+            <span v-if="record.is_current" class="badge-verified" style="margin-left: 8px">
+              This device
+            </span>
+          </template>
+        </a-table-column>
+        <a-table-column
+          key="where"
+          :title="sessions.some((s) => s.location) ? 'Location' : 'IP address'"
+        >
+          <template #default="{ record }">
+            <div v-if="record.location">
+              {{ record.location }}
+              <div
+                style="font-family: var(--font-mono); font-size: var(--t-xs); color: var(--ink-3)"
+              >
+                {{ record.ip_address }}
+              </div>
+            </div>
+            <span v-else style="font-family: var(--font-mono)">{{ record.ip_address || "—" }}</span>
+          </template>
+        </a-table-column>
+        <a-table-column key="last_used_at" title="Last active" data-index="last_used_at">
+          <template #default="{ record }">{{ relativeTime(record.last_used_at) }}</template>
+        </a-table-column>
+        <a-table-column key="action" title="" align="right">
+          <template #default="{ record }">
+            <a-popconfirm
+              v-if="!record.is_current"
+              title="Revoke this session? The device will be signed out immediately and must log in again."
+              ok-text="Revoke"
+              cancel-text="Cancel"
+              :ok-button-props="{ danger: true }"
+              @confirm="confirmRevoke(record.id)"
+            >
+              <button class="btn-secondary" :disabled="revokingId === record.id">
+                {{ revokingId === record.id ? "Revoking…" : "Revoke" }}
+              </button>
+            </a-popconfirm>
+          </template>
+        </a-table-column>
+      </a-table>
+    </div>
+
+    <!-- Log out all other sessions confirm -->
+    <a-modal
+      v-model:open="showRevokeAll"
+      title="Log out all other sessions?"
+      :footer="null"
+      @cancel="closeRevokeAll"
+    >
+      <p style="color: var(--ink-2); margin-bottom: 14px">
+        This signs out every other device immediately. This device stays signed in. Anyone using
+        those devices will need to log in again.
+      </p>
+      <div style="display: flex; justify-content: flex-end; gap: 8px">
+        <button class="btn-ghost" @click="closeRevokeAll">Cancel</button>
+        <button class="btn-danger" :disabled="revokingAll" @click="confirmRevokeAll">
+          {{ revokingAll ? "Signing out…" : "Log out other sessions" }}
+        </button>
+      </div>
+    </a-modal>
 
     <!-- Danger zone -->
     <div class="danger-zone">
