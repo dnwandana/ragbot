@@ -13,7 +13,7 @@
 .auth-shell {
   min-height: 100vh;
   display: grid;
-  place-items: start center;
+  place-items: center;
   padding: 36px 24px 64px;
   background: var(--bg);
 }
