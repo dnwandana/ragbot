@@ -4,13 +4,13 @@ import { mount, flushPromises } from "@vue/test-utils"
 
 // ── Hoisted mocks ─────────────────────────────────────────────────────────────
 
-const { mockFetchConversations, mockUpdateConversation, mockDeleteConversation } = vi.hoisted(
-  () => ({
+const { mockFetchConversations, mockUpdateConversation, mockDeleteConversation, mockPush } =
+  vi.hoisted(() => ({
     mockFetchConversations: vi.fn(),
     mockUpdateConversation: vi.fn(),
     mockDeleteConversation: vi.fn(),
-  }),
-)
+    mockPush: vi.fn(),
+  }))
 
 vi.mock("@/stores/auth", () => ({
   useAuthStore: () => ({
@@ -55,7 +55,7 @@ vi.mock("vue-router", async (importOriginal) => {
   return {
     ...actual,
     useRoute: () => ({ path: "/workspaces/ws1/conversations", params: { workspaceId: "ws1" } }),
-    useRouter: () => ({ push: vi.fn() }),
+    useRouter: () => ({ push: mockPush }),
   }
 })
 
@@ -395,6 +395,46 @@ describe("AppSidebar — rename/delete a-modal flows", () => {
 
     expect(mockDeleteConversation).not.toHaveBeenCalled()
     expect(q(".a-modal-stub[data-wrap='convo-delete-wrap']")).toBe(null)
+    wrapper.unmount()
+  })
+})
+
+describe("AppSidebar — workspace nav targets", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    document.body.innerHTML = ""
+  })
+
+  /** Click the workspace nav button whose label contains `label`. */
+  function clickNav(label) {
+    const btn = [...document.querySelectorAll("button.nav-item")].find((b) =>
+      b.textContent.trim().includes(label),
+    )
+    if (!btn) throw new Error(`nav-item not found: ${label}`)
+    btn.click()
+  }
+
+  it("General navigates to the flattened /settings path", async () => {
+    const { wrapper } = mountSidebar()
+    await wrapper.vm.$nextTick()
+    clickNav("General")
+    expect(mockPush).toHaveBeenCalledWith("/workspaces/ws1/settings")
+    wrapper.unmount()
+  })
+
+  it("Members navigates to /members", async () => {
+    const { wrapper } = mountSidebar()
+    await wrapper.vm.$nextTick()
+    clickNav("Members")
+    expect(mockPush).toHaveBeenCalledWith("/workspaces/ws1/members")
+    wrapper.unmount()
+  })
+
+  it("Roles navigates to /roles", async () => {
+    const { wrapper } = mountSidebar()
+    await wrapper.vm.$nextTick()
+    clickNav("Roles")
+    expect(mockPush).toHaveBeenCalledWith("/workspaces/ws1/roles")
     wrapper.unmount()
   })
 })

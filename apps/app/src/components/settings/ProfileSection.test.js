@@ -13,7 +13,7 @@ vi.mock("@/composables/useProfile", () => ({
   useProfile: () => ({ saving: ref(false), saveProfile: vi.fn() }),
 }))
 
-import SettingsProfile from "@/views/settings/SettingsProfile.vue"
+import ProfileSection from "@/components/settings/ProfileSection.vue"
 
 // Stub the Ant Design Vue select primitives; the filter predicate is tested in
 // isolation via the exposed `filterTimezone` binding.
@@ -25,10 +25,10 @@ const STUBS = {
 }
 
 function mountView() {
-  return mount(SettingsProfile, { global: { stubs: STUBS } })
+  return mount(ProfileSection, { global: { stubs: STUBS } })
 }
 
-describe("SettingsProfile timezone filter", () => {
+describe("ProfileSection timezone filter", () => {
   it("matches options whose value contains the input, case-insensitively", () => {
     const { filterTimezone } = mountView().vm
     expect(filterTimezone("london", { value: "Europe/London" })).toBe(true)

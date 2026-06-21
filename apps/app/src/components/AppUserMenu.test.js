@@ -4,7 +4,7 @@ import { mount } from "@vue/test-utils"
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
-const { mockLogout } = vi.hoisted(() => ({ mockLogout: vi.fn() }))
+const { mockLogout, mockPush } = vi.hoisted(() => ({ mockLogout: vi.fn(), mockPush: vi.fn() }))
 
 vi.mock("@/stores/auth", () => ({
   useAuthStore: () => ({
@@ -15,7 +15,7 @@ vi.mock("@/stores/auth", () => ({
 
 vi.mock("vue-router", async (importOriginal) => {
   const actual = await importOriginal()
-  return { ...actual, useRouter: () => ({ push: vi.fn() }) }
+  return { ...actual, useRouter: () => ({ push: mockPush }) }
 })
 
 import AppUserMenu from "@/components/AppUserMenu.vue"
@@ -146,21 +146,24 @@ describe("AppUserMenu — overlay", () => {
     wrapper.unmount()
   })
 
-  it("shows Profile and Security items when workspaceId is set", async () => {
-    const { wrapper, q, openMenu } = mountMenu({ workspaceId: "ws1" })
+  it("always shows an Account settings item", async () => {
+    const { wrapper, q, openMenu } = mountMenu()
     await wrapper.vm.$nextTick()
     await openMenu()
-    expect(q(".user-menu-overlay").textContent).toContain("Profile")
-    expect(q(".user-menu-overlay").textContent).toContain("Security")
+    expect(q(".user-menu-overlay").textContent).toContain("Account settings")
     wrapper.unmount()
   })
 
-  it("hides Profile and Security items when workspaceId is null", async () => {
-    const { wrapper, q, openMenu } = mountMenu({ workspaceId: null })
+  it("navigates to /settings when Account settings is clicked", async () => {
+    const { wrapper, q, openMenu } = mountMenu()
     await wrapper.vm.$nextTick()
     await openMenu()
-    expect(q(".user-menu-overlay").textContent).not.toContain("Profile")
-    expect(q(".user-menu-overlay").textContent).not.toContain("Security")
+    const items = [...q(".user-menu-overlay").querySelectorAll(".a-menu-item-stub")]
+    const accountItem = items.find((el) => el.textContent.includes("Account settings"))
+    expect(accountItem).not.toBe(null)
+    accountItem.click()
+    await wrapper.vm.$nextTick()
+    expect(mockPush).toHaveBeenCalledWith("/settings")
     wrapper.unmount()
   })
 
