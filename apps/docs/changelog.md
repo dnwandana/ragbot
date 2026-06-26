@@ -7,6 +7,26 @@ description: What's new in RAGBot — new features and improvements by version.
 
 What's new in RAGBot. The newest release is listed first.
 
+## 1.3.0 — 26 June 2026
+
+You can now build datasets from YouTube videos, not just files and web pages.
+Paste a video link and RAGBot reads what's said in it, so you can chat with a
+talk, tutorial, or lecture the same way you chat with your documents.
+
+### New
+
+**YouTube videos as a source**
+
+- Add a YouTube video to a [dataset](/concepts/datasets) by pasting its link, and
+  RAGBot indexes the video's words so you can ask about it and get cited answers,
+  just like any other source. It uses the video's captions when they're available
+  and transcribes the audio automatically when they aren't.
+- The Add source panel now has a single **Link** field that recognizes whether
+  you've pasted a web page or a YouTube video and tells you which it detected
+  before you add it.
+- Only the transcript is stored — not the video or audio. Add videos one at a
+  time; playlists and channels aren't supported.
+
 ## 1.2.0 — 21 June 2026
 
 This release puts you in control of where your account is signed in. You can
