@@ -30,7 +30,7 @@ Workspace (tenant boundary)
 - **Multi-tenancy**: Shared PostgreSQL database, tenant-scoped via `workspace_id` columns with composite foreign keys enforcing isolation at the DB level
 - **RBAC**: 4 system roles (owner / admin / editor / viewer) + custom roles, 31 granular permissions across 8 resources
 - **Auth**: Dual-token JWT via httpOnly cookies, Argon2 password hashing, account lockout after 5 failed attempts, listable/revocable sessions with instant access-token revocation (Redis denylist)
-- **RAG pipeline**: File upload → parsing (LlamaIndex) → chunking (LangChain) → embedding (OpenRouter) → vector search (pgvector HNSW)
+- **RAG pipeline**: File upload → parsing (LlamaIndex) → chunking (LangChain) → embedding (OpenRouter) → vector search (pgvector HNSW). Sources can be uploaded files, scraped web pages, or YouTube videos (captions via yt-dlp, else audio transcription via OpenRouter Whisper)
 - **AI chat**: ReAct loop with OpenRouter, SSE streaming, citation tracking back to source chunks
 
 ## Prerequisites
@@ -95,6 +95,15 @@ LOG_TO_FILE=true
 DEFAULT_EMBEDDINGS_MODEL=openai/text-embedding-3-small
 DEFAULT_CHAT_MODEL=openai/gpt-5.4-mini
 LLAMAINDEX_PARSE_TIER=cost_effective  # fast | cost_effective | agentic | agentic_plus
+WHISPER_MODEL=openai/whisper-large-v3-turbo  # YouTube audio transcription model
+OPENROUTER_TRANSCRIBE_TIMEOUT_MS=120000      # Whisper request timeout
+YTDLP_PATH=yt-dlp                            # yt-dlp binary (installed in the API image)
+FFMPEG_PATH=ffmpeg                           # ffmpeg binary (installed in the API image)
+YOUTUBE_AUDIO_SEGMENT_SECONDS=600            # split long audio into N-second chunks
+YOUTUBE_WORKER_CONCURRENCY=1                 # parallel YouTube transcription jobs
+YOUTUBE_DOWNLOAD_TIMEOUT_MS=600000           # yt-dlp download + ffmpeg segmentation timeout
+YOUTUBE_MAX_DURATION_SECONDS=7200            # reject audio+Whisper for videos longer than this
+YOUTUBE_MAX_FILESIZE=150M                    # yt-dlp --max-filesize cap (binary units)
 S3_REGION=auto
 EMAIL_FROM_NAME=RAGBot
 IP_GEOLOCATION_ENABLED=false           # resolve session IPs to "City, CC" on the sessions list
@@ -256,6 +265,7 @@ Append `:api`, `:app`, `:web`, or `:docs` to target a single workspace (e.g. `pn
 | GET    | `/api/workspaces/:id/datasets/:did/files/:fid`           | `file:read`      |
 | POST   | `/api/workspaces/:id/datasets/:did/files/upload`         | `file:upload`    |
 | POST   | `/api/workspaces/:id/datasets/:did/files/scrape-url`     | `file:upload`    |
+| POST   | `/api/workspaces/:id/datasets/:did/files/youtube`        | `file:upload`    |
 | PUT    | `/api/workspaces/:id/datasets/:did/files/:fid`           | `file:update`    |
 | DELETE | `/api/workspaces/:id/datasets/:did/files/:fid`           | `file:delete`    |
 | POST   | `/api/workspaces/:id/datasets/:did/files/:fid/reprocess` | `file:reprocess` |
@@ -430,6 +440,8 @@ docker compose build
 docker compose up -d
 ```
 
+> **yt-dlp upkeep:** YouTube ingestion uses a pinned `yt-dlp` (`YT_DLP_VERSION` in `apps/api/Dockerfile`) for reproducible builds. YouTube periodically changes its site in ways that break older yt-dlp releases, so bump `YT_DLP_VERSION` and rebuild the API image if YouTube imports start failing extraction.
+
 ### Useful commands
 
 ```bash
@@ -446,29 +458,29 @@ docker compose run --rm api sh -c "node_modules/.bin/knex seed:run"
 
 ### Environment variables
 
-| Variable                | Required | Description                                                                                         |
-| ----------------------- | -------- | --------------------------------------------------------------------------------------------------- |
-| `DOMAIN`                | Yes      | Registrable domain for the prod stack. Compose derives `app.<DOMAIN>` and `api.<DOMAIN>`.           |
-| `VITE_API_BASE_URL`     | No       | Build-time API base URL. In the prod stack it is derived from `DOMAIN` (`https://api.<DOMAIN>`).    |
-| `DATABASE_URL`          | Yes      | PostgreSQL connection string                                                                        |
-| `REDIS_URL`             | Yes      | Redis connection string (`redis://localhost:6379` or `redis://:pass@host:6379`)                     |
-| `ACCESS_TOKEN_SECRET`   | Yes      | JWT secret, min 32 chars                                                                            |
-| `REFRESH_TOKEN_SECRET`  | Yes      | JWT secret, min 32 chars, must differ from access secret                                            |
-| `JWT_ISSUER`            | Yes      | API origin that issues tokens, e.g. `https://api.<DOMAIN>`                                          |
-| `JWT_AUDIENCE`          | Yes      | SPA origin the tokens are for, e.g. `https://app.<DOMAIN>`                                          |
-| `OPENROUTER_API_KEY`    | Yes      | API key for OpenRouter (LLM + embedding inference)                                                  |
-| `BREVO_API_KEY`         | Yes      | API key for Brevo (transactional email)                                                             |
-| `S3_BUCKET`             | Yes      | Cloudflare R2 bucket name for file storage                                                          |
-| `S3_ACCESS_KEY`         | Yes      | R2 access key                                                                                       |
-| `S3_SECRET_KEY`         | Yes      | R2 secret key                                                                                       |
-| `S3_ENDPOINT`           | Yes      | R2 endpoint URL                                                                                     |
-| `LLAMAINDEX_API_KEY`    | Yes      | API key for LlamaIndex (document parsing)                                                           |
-| `FIRECRAWL_API_KEY`     | Yes      | API key for Firecrawl (URL scraping)                                                                |
-| `IP_GEOLOCATION_ENABLED` | No       | Set `true` to resolve session IPs to a "City, CC" label on the sessions list. Default `false`.      |
-| `IPGEOLOCATION_API_KEY` | Cond.    | Required only when `IP_GEOLOCATION_ENABLED=true` — ipgeolocation.io API key.                        |
+| Variable                   | Required | Description                                                                                         |
+| -------------------------- | -------- | --------------------------------------------------------------------------------------------------- |
+| `DOMAIN`                   | Yes      | Registrable domain for the prod stack. Compose derives `app.<DOMAIN>` and `api.<DOMAIN>`.           |
+| `VITE_API_BASE_URL`        | No       | Build-time API base URL. In the prod stack it is derived from `DOMAIN` (`https://api.<DOMAIN>`).    |
+| `DATABASE_URL`             | Yes      | PostgreSQL connection string                                                                        |
+| `REDIS_URL`                | Yes      | Redis connection string (`redis://localhost:6379` or `redis://:pass@host:6379`)                     |
+| `ACCESS_TOKEN_SECRET`      | Yes      | JWT secret, min 32 chars                                                                            |
+| `REFRESH_TOKEN_SECRET`     | Yes      | JWT secret, min 32 chars, must differ from access secret                                            |
+| `JWT_ISSUER`               | Yes      | API origin that issues tokens, e.g. `https://api.<DOMAIN>`                                          |
+| `JWT_AUDIENCE`             | Yes      | SPA origin the tokens are for, e.g. `https://app.<DOMAIN>`                                          |
+| `OPENROUTER_API_KEY`       | Yes      | API key for OpenRouter (LLM + embedding inference)                                                  |
+| `BREVO_API_KEY`            | Yes      | API key for Brevo (transactional email)                                                             |
+| `S3_BUCKET`                | Yes      | Cloudflare R2 bucket name for file storage                                                          |
+| `S3_ACCESS_KEY`            | Yes      | R2 access key                                                                                       |
+| `S3_SECRET_KEY`            | Yes      | R2 secret key                                                                                       |
+| `S3_ENDPOINT`              | Yes      | R2 endpoint URL                                                                                     |
+| `LLAMAINDEX_API_KEY`       | Yes      | API key for LlamaIndex (document parsing)                                                           |
+| `FIRECRAWL_API_KEY`        | Yes      | API key for Firecrawl (URL scraping)                                                                |
+| `IP_GEOLOCATION_ENABLED`   | No       | Set `true` to resolve session IPs to a "City, CC" label on the sessions list. Default `false`.      |
+| `IPGEOLOCATION_API_KEY`    | Cond.    | Required only when `IP_GEOLOCATION_ENABLED=true` — ipgeolocation.io API key.                        |
 | `IPGEOLOCATION_TIMEOUT_MS` | No       | Geolocation lookup timeout. Defaults to 5000.                                                       |
-| `LLAMAINDEX_PARSE_TIER` | No       | LlamaParse tier: `fast`, `cost_effective`, `agentic`, `agentic_plus`. Defaults to `cost_effective`. |
-| `CORS_ALLOWED_ORIGINS`  | No       | Defaults to `http://localhost:8080`. Set to `https://app.<DOMAIN>` in production (SPA origin).      |
+| `LLAMAINDEX_PARSE_TIER`    | No       | LlamaParse tier: `fast`, `cost_effective`, `agentic`, `agentic_plus`. Defaults to `cost_effective`. |
+| `CORS_ALLOWED_ORIGINS`     | No       | Defaults to `http://localhost:8080`. Set to `https://app.<DOMAIN>` in production (SPA origin).      |
 
 See `apps/api/.env.example` for the full list with defaults.
 

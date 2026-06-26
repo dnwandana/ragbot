@@ -21,7 +21,7 @@ Smaller, focused datasets give sharper answers than one giant pile of everything
 Open a dataset and choose **Add source**. A panel slides in with two tabs:
 
 - **Upload files** — drag documents into the drop zone, or browse to select them. You can add several at once.
-- **Web URL** — paste the address of a public web page and RAGBot fetches its readable text.
+- **Link** — paste a web page or YouTube link. RAGBot detects which it is: a web page is scraped for its readable text, and a YouTube link is indexed from its transcript.
 
 Either way, each new source uploads and then begins processing automatically — there's nothing else to press.
 
@@ -40,6 +40,14 @@ Text-based documents work best. A PDF that's really a photo of a page (a scan wi
 ### When to use a URL instead of a file
 
 Use **Web URL** when the canonical version lives on the web and changes rarely — a help article, a product page, a published policy. If a page sits behind a login or renders entirely from scripts, upload an exported copy (PDF or text) instead — RAGBot only reads what a public visitor would see.
+
+### Adding a YouTube video
+
+Paste a YouTube video URL (a `youtube.com/watch?v=…` or `youtu.be/…` link). RAGBot
+uses the video's human-written captions when they exist; otherwise it transcribes
+the audio automatically. Only the transcript is stored — not the video or audio.
+Longer videos take longer to finish indexing. Playlists and channels aren't
+supported — add videos one at a time.
 
 ## What "processing" and "indexing" mean
 

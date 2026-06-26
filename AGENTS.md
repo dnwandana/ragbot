@@ -34,7 +34,7 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 - **Request context**: `req.id` (request ID), `req.user` (from JWT). `req.workspace` and `req.permissions` are set by `resolveWorkspace` (`src/middlewares/resolve-workspace.js`), mounted via `router.use("/:workspace_id", resolveWorkspace)` in `routes/workspaces.js` — it loads the workspace and resolves the caller's permissions for RBAC
 - **Error handling**: Controllers throw `HttpError(status, msg)`, caught by centralized `errorHandler`
 - **Env validation**: API fails fast at startup if required vars are missing (expected behavior). The authoritative schema is `src/utils/validate-env.js` — 38 validated env vars (16 always required, plus `IPGEOLOCATION_API_KEY` required only when `IP_GEOLOCATION_ENABLED=true`; the rest have defaults), including `REDIS_URL`, scheme `redis://` or `rediss://`, covering OpenRouter, Brevo, S3/R2, LlamaIndex, Firecrawl, Redis, and IP geolocation
-- **Async processing**: BullMQ job queue backed by Redis — dataset file processing (upload, scrape, reprocess) runs in an inline worker started alongside Express
+- **Async processing**: BullMQ job queue backed by Redis — dataset file processing (upload, scrape, reprocess) runs in an inline worker started alongside Express. A dedicated youtube-processing queue/worker resolves YouTube transcripts (manual captions via yt-dlp, else audio + OpenRouter Whisper) and reuses the shared runProcessingPipeline; YouTube files are marked by metadata.source_type === "youtube".
 
 ## Current implementation state
 
@@ -50,7 +50,7 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 - Full middleware stack (helmet, CORS, rate limiting, request ID, cookie parser, error handling)
 - Database schema — 10 migrations, 18 tables, pgvector HNSW index, `search_chunks()` SQL function
 - Workspace CRUD + RBAC + member management (F3)
-- Datasets + file upload (LlamaIndex) + URL scraping (Firecrawl) + BullMQ processing pipeline (F4)
+- Datasets + file upload (LlamaIndex) + URL scraping (Firecrawl) + BullMQ processing pipeline (F4) + YouTube video import (yt-dlp captions / Whisper transcription)
 - Agent management — CRUD with system agent protection (F5)
 - Conversation CRUD + dataset linking + dataset shortcut endpoint (F6)
 - Chat with ReAct loop + SSE streaming (F7) — RAG search, message persistence, citations

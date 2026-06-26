@@ -54,6 +54,7 @@ You can still run package-local commands from `apps/api` with `pnpm`.
 - **Cloudflare R2**: S3-compatible file storage
 - **LlamaIndex**: Document parsing via polling
 - **Firecrawl**: URL content scraping
+- **YouTube ingestion** — yt-dlp resolves manual captions, else audio is downloaded and transcribed via OpenRouter Whisper; processed on a dedicated `youtube-processing` BullMQ worker
 - **LangChain**: Text splitting for chunking
 
 ## Tech Stack
@@ -111,6 +112,8 @@ Create a `.env` file from `.env.example`. See `.env.example` for the full list w
 **Required variables**: `DATABASE_URL`, `REDIS_URL`, `ACCESS_TOKEN_SECRET`, `REFRESH_TOKEN_SECRET`, `JWT_ISSUER`, `JWT_AUDIENCE`, `OPENROUTER_API_KEY`, `BREVO_API_KEY`, `EMAIL_FROM_ADDRESS`, `APP_URL`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_ENDPOINT`, `LLAMAINDEX_API_KEY`, `FIRECRAWL_API_KEY`
 
 **Optional with defaults**: `OPENROUTER_STREAM_TIMEOUT_MS` (60000) — abort an OpenRouter stream if no data arrives within this many ms. See `.env.example` for the full list.
+
+For YouTube imports, `YOUTUBE_MAX_FILESIZE` (150M) caps the `yt-dlp` audio download. It is passed verbatim to `yt-dlp --max-filesize`, whose format is `<number><optional single-letter unit>` (case-insensitive, **binary/1024-based** units): no suffix = bytes (`157286400`), `K` = KiB (`150K`), `M` = MiB (`150M`), `G` = GiB (`1.5G`), plus `T`/`P`/`E`/`Z`/`Y`. Decimals are allowed (`44.6M`); only a single-letter suffix parses — `150MB`, `150MiB`, or a trailing `B` are rejected.
 
 Generate secrets with:
 
@@ -251,6 +254,7 @@ Authentication uses **httpOnly cookies** set by the server. Tokens are never exp
 | ------ | -------------------------------------------------------- | -------------------------- | -------------- |
 | POST   | `/api/workspaces/:id/datasets/:did/files/upload`         | Upload file                | file:upload    |
 | POST   | `/api/workspaces/:id/datasets/:did/files/scrape-url`     | Scrape URL                 | file:upload    |
+| POST   | `/api/workspaces/:id/datasets/:did/files/youtube`        | Add YouTube video          | file:upload    |
 | GET    | `/api/workspaces/:id/datasets/:did/files`                | List files                 | file:read      |
 | PUT    | `/api/workspaces/:id/datasets/:did/files/:fid`           | Update file                | file:update    |
 | DELETE | `/api/workspaces/:id/datasets/:did/files/:fid`           | Delete file                | file:delete    |
@@ -363,11 +367,15 @@ apps/api/
 │   │   ├── question-generator.js # Generate exploration questions for a document
 │   │   ├── rag.js               # RAG pipeline: embed query, vector search, build context
 │   │   ├── storage.js           # S3/R2 upload, delete, presigned download URLs
-│   │   └── text-splitter.js     # Recursive character chunking (LangChain)
+│   │   ├── text-splitter.js     # Recursive character chunking (LangChain)
+│   │   ├── youtube.js           # Resolve YouTube transcripts (yt-dlp captions or Whisper)
+│   │   └── processing-pipeline.js # Shared split → embed → store → questions pipeline
 │   ├── queues/
-│   │   └── file-processing.js   # BullMQ queue + addProcessingJob
+│   │   ├── file-processing.js   # BullMQ queue + addProcessingJob
+│   │   └── youtube-processing.js # BullMQ queue + addYoutubeJob (transcript resolution)
 │   ├── workers/
-│   │   └── file-processing.js   # BullMQ worker: split → embed → store → questions pipeline
+│   │   ├── file-processing.js   # BullMQ worker: split → embed → store → questions pipeline
+│   │   └── youtube-processing.js # BullMQ worker: resolve transcript, run processing pipeline
 │   ├── routes/
 │   │   ├── agents.js
 │   │   ├── audit-logs.js        # GET workspace audit logs

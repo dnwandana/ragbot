@@ -22,7 +22,7 @@ You can still run package-local commands from `apps/app` with `pnpm`.
 - **RBAC-Aware UI**: Permission-gated components via `can()` / `canAny()` composables
 - **Workspaces & Members**: Workspace CRUD, member management, role editor with a permission matrix, and invitations (send/accept; the "My Invitations" list is a frontend stub — `fetchMyInvitations` is a no-op until the backend list endpoint is wired)
 - **Onboarding**: Guided multi-step wizard (workspace → source → agent → invite) for new users
-- **Datasets**: Dataset list and detail views with file upload and URL-scrape sources
+- **Datasets**: Dataset list and detail views with file upload, URL-scrape, and YouTube-link sources (the "Add source" drawer auto-detects web vs. YouTube links)
 - **Agents**: Agent CRUD via a side drawer with model configuration
 - **Conversations & Chat**: Conversation list plus a chat view with SSE streaming, citations, and a linked-datasets drawer
 - **Audit Logs**: Filterable workspace audit-log view with a detail drawer

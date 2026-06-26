@@ -2448,6 +2448,50 @@
         }
       }
     },
+    "/api/workspaces/{workspace_id}/datasets/{dataset_id}/files/youtube": {
+      "post": {
+        "tags": ["Files"],
+        "summary": "Add YouTube video",
+        "description": "**Permission required**: `file:upload`. Imports a YouTube video's transcript (manual captions when available, otherwise audio transcription) and adds it as a dataset file. Processing is async.",
+        "operationId": "addYouTube",
+        "security": [{ "AccessToken": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/WorkspaceIdParam" },
+          { "$ref": "#/components/parameters/DatasetIdParam" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/YoutubeRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "YouTube import queued",
+            "headers": { "X-Request-Id": { "$ref": "#/components/headers/X-Request-Id" } },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/ApiResponse" },
+                    {
+                      "type": "object",
+                      "properties": { "data": { "$ref": "#/components/schemas/DatasetFile" } }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
     "/api/workspaces/{workspace_id}/datasets/{dataset_id}/files": {
       "get": {
         "tags": ["Files"],
@@ -5055,6 +5099,17 @@
           "url": {
             "type": "string",
             "format": "uri"
+          }
+        },
+        "required": ["url"]
+      },
+      "YoutubeRequest": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "A YouTube video URL (youtube.com/watch?v=… or youtu.be/…)."
           }
         },
         "required": ["url"]
