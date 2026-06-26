@@ -2,12 +2,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { mount, flushPromises } from "@vue/test-utils"
 
-const { uploadFile, scrapeUrl } = vi.hoisted(() => ({
+const { uploadFile, scrapeUrl, addYouTube } = vi.hoisted(() => ({
   uploadFile: vi.fn(),
   scrapeUrl: vi.fn(),
+  addYouTube: vi.fn(),
 }))
 vi.mock("@/stores/datasetFiles", () => ({
-  useDatasetFilesStore: () => ({ uploadFile, scrapeUrl }),
+  useDatasetFilesStore: () => ({ uploadFile, scrapeUrl, addYouTube }),
 }))
 
 import AddSourceDrawer from "@/components/datasets/AddSourceDrawer.vue"
@@ -115,7 +116,7 @@ describe("AddSourceDrawer a-tabs panes", () => {
     document.body.innerHTML = ""
   })
 
-  it("renders both tab panes — Upload files and Scrape URL", async () => {
+  it("renders both tab panes — Upload files and Link", async () => {
     const { wrapper, qq } = mountDrawer()
     await wrapper.vm.$nextTick()
     const panes = qq(".a-tab-pane-stub")
@@ -130,7 +131,7 @@ describe("AddSourceDrawer a-tabs panes", () => {
     wrapper.unmount()
   })
 
-  it("Scrape URL pane contains the url-input", async () => {
+  it("Link pane contains the url-input", async () => {
     const { wrapper, q } = mountDrawer()
     await wrapper.vm.$nextTick()
     expect(q(".url-input")).not.toBe(null)
@@ -280,6 +281,69 @@ describe("AddSourceDrawer Upload flow", () => {
     expect(wrapper.emitted("uploaded")).toHaveLength(1)
     expect(qq(".status-ok").length).toBe(1)
     expect(qq(".status-err").length).toBe(1)
+    wrapper.unmount()
+  })
+})
+
+describe("AddSourceDrawer Link detection", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    document.body.innerHTML = ""
+    addYouTube.mockResolvedValue({ id: "f1" })
+    scrapeUrl.mockResolvedValue({})
+  })
+
+  it("shows the supported-sources row when the field is empty", async () => {
+    const { wrapper, q } = mountDrawer()
+    await wrapper.vm.$nextTick()
+    expect(q(".supported-row")).not.toBe(null)
+    wrapper.unmount()
+  })
+
+  it("shows the YouTube cue when a YouTube URL is typed", async () => {
+    const { wrapper, q } = mountDrawer()
+    await wrapper.vm.$nextTick()
+
+    const input = q(".url-input")
+    input.value = "https://youtu.be/aircAruvnKk"
+    input.dispatchEvent(new Event("input"))
+    await wrapper.vm.$nextTick()
+
+    expect(q(".source-cue--youtube")).not.toBe(null)
+    expect(q(".supported-row")).toBe(null)
+    wrapper.unmount()
+  })
+
+  it("shows the web cue when a plain URL is typed", async () => {
+    const { wrapper, q } = mountDrawer()
+    await wrapper.vm.$nextTick()
+
+    const input = q(".url-input")
+    input.value = "https://example.com/article"
+    input.dispatchEvent(new Event("input"))
+    await wrapper.vm.$nextTick()
+
+    expect(q(".source-cue--web")).not.toBe(null)
+    wrapper.unmount()
+  })
+
+  it("submitting a YouTube URL calls addYouTube, emits 'youtube', and clears the input", async () => {
+    const { wrapper, q } = mountDrawer()
+    await wrapper.vm.$nextTick()
+
+    const input = q(".url-input")
+    input.value = "https://youtu.be/aircAruvnKk"
+    input.dispatchEvent(new Event("input"))
+    await wrapper.vm.$nextTick()
+
+    q(".btn-primary").click()
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    expect(addYouTube).toHaveBeenCalledWith("ws1", "ds1", "https://youtu.be/aircAruvnKk")
+    expect(scrapeUrl).not.toHaveBeenCalled()
+    expect(wrapper.emitted().youtube).toBeTruthy()
+    expect(q(".url-input").value).toBe("")
     wrapper.unmount()
   })
 })

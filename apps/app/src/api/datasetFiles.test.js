@@ -5,7 +5,7 @@ vi.mock("@/utils/http", () => ({
 }))
 
 import { request } from "@/utils/http"
-import { listFileQuestions, listFileChunks, updateFile } from "@/api/datasetFiles"
+import { listFileQuestions, listFileChunks, updateFile, addYouTube } from "@/api/datasetFiles"
 
 describe("datasetFiles api", () => {
   beforeEach(() => {
@@ -33,6 +33,16 @@ describe("datasetFiles api", () => {
     expect(request.put).toHaveBeenCalledWith(
       "/workspaces/ws1/datasets/ds1/files/f1",
       { filename: "renamed.pdf" },
+      { silent: true },
+    )
+  })
+
+  it("addYouTube posts to the youtube endpoint with the url", async () => {
+    request.post.mockResolvedValue({ data: { data: { id: "f1" } } })
+    await addYouTube("ws1", "ds1", "https://youtu.be/aircAruvnKk")
+    expect(request.post).toHaveBeenCalledWith(
+      "/workspaces/ws1/datasets/ds1/files/youtube",
+      { url: "https://youtu.be/aircAruvnKk" },
       { silent: true },
     )
   })
