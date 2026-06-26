@@ -142,6 +142,35 @@ describe("validateEnv — default propagation", () => {
 
     expect(process.env.IPGEOLOCATION_TIMEOUT_MS).toBe("5000")
   })
+
+  it("applies YouTube + Whisper defaults when unset", () => {
+    delete process.env.YTDLP_PATH
+    delete process.env.FFMPEG_PATH
+    delete process.env.WHISPER_MODEL
+    delete process.env.YOUTUBE_AUDIO_SEGMENT_SECONDS
+    delete process.env.YOUTUBE_WORKER_CONCURRENCY
+    delete process.env.YOUTUBE_DOWNLOAD_TIMEOUT_MS
+    delete process.env.OPENROUTER_TRANSCRIBE_TIMEOUT_MS
+
+    const value = validateEnv()
+
+    expect(process.env.YTDLP_PATH).toBe("yt-dlp")
+    expect(process.env.FFMPEG_PATH).toBe("ffmpeg")
+    expect(process.env.WHISPER_MODEL).toBe("openai/whisper-large-v3-turbo")
+    expect(Number(process.env.YOUTUBE_AUDIO_SEGMENT_SECONDS)).toBe(600)
+    expect(Number(process.env.YOUTUBE_WORKER_CONCURRENCY)).toBe(1)
+    expect(value.OPENROUTER_TRANSCRIBE_TIMEOUT_MS).toBe(120000)
+  })
+
+  it("applies YouTube size/duration caps when unset", () => {
+    delete process.env.YOUTUBE_MAX_DURATION_SECONDS
+    delete process.env.YOUTUBE_MAX_FILESIZE
+
+    validateEnv()
+
+    expect(Number(process.env.YOUTUBE_MAX_DURATION_SECONDS)).toBe(7200)
+    expect(process.env.YOUTUBE_MAX_FILESIZE).toBe("150M")
+  })
 })
 
 describe("validateEnv — CORS production guard", () => {

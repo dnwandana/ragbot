@@ -8,6 +8,12 @@ process.env.OPENROUTER_TIMEOUT_MS ??= "30000"
 process.env.FIRECRAWL_TIMEOUT_MS ??= "60000"
 process.env.LLAMAINDEX_TIMEOUT_MS ??= "30000"
 process.env.S3_TIMEOUT_MS ??= "10000"
+process.env.OPENROUTER_TRANSCRIBE_TIMEOUT_MS ??= "120000"
+process.env.YOUTUBE_AUDIO_SEGMENT_SECONDS ??= "600"
+process.env.YOUTUBE_DOWNLOAD_TIMEOUT_MS ??= "600000"
+process.env.YOUTUBE_MAX_DURATION_SECONDS ??= "7200"
+process.env.YOUTUBE_MAX_FILESIZE ??= "150M"
+process.env.WHISPER_MODEL ??= "openai/whisper-large-v3-turbo"
 
 vi.mock("../src/queues/file-processing.js", () => ({
   fileProcessingQueue: {
@@ -15,6 +21,14 @@ vi.mock("../src/queues/file-processing.js", () => ({
     close: vi.fn().mockResolvedValue(undefined),
   },
   addProcessingJob: vi.fn().mockResolvedValue({ id: "mock-job-id" }),
+}))
+
+vi.mock("../src/queues/youtube-processing.js", () => ({
+  youtubeProcessingQueue: {
+    add: vi.fn().mockResolvedValue({ id: "mock-yt-job-id" }),
+    close: vi.fn().mockResolvedValue(undefined),
+  },
+  addYoutubeJob: vi.fn().mockResolvedValue({ id: "mock-yt-job-id" }),
 }))
 
 vi.mock("../src/utils/session-denylist.js", () => ({
