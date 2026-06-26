@@ -48,6 +48,17 @@ const envSchema = joi
     FIRECRAWL_TIMEOUT_MS: joi.number().default(60000),
     LLAMAINDEX_TIMEOUT_MS: joi.number().default(30000),
     S3_TIMEOUT_MS: joi.number().default(10000),
+    WHISPER_MODEL: joi.string().default("openai/whisper-large-v3-turbo"),
+    OPENROUTER_TRANSCRIBE_TIMEOUT_MS: joi.number().default(120000),
+
+    // YouTube ingestion
+    YTDLP_PATH: joi.string().default("yt-dlp"),
+    FFMPEG_PATH: joi.string().default("ffmpeg"),
+    YOUTUBE_AUDIO_SEGMENT_SECONDS: joi.number().default(600),
+    YOUTUBE_WORKER_CONCURRENCY: joi.number().default(1),
+    YOUTUBE_DOWNLOAD_TIMEOUT_MS: joi.number().default(600000),
+    YOUTUBE_MAX_DURATION_SECONDS: joi.number().default(7200),
+    YOUTUBE_MAX_FILESIZE: joi.string().default("150M"),
 
     // Email
     BREVO_API_KEY: joi.string().required(),

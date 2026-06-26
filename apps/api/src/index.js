@@ -10,6 +10,9 @@ const { default: logger } = await import("./utils/logger.js")
 const { default: db } = await import("./config/database.js")
 const { startWorker } = await import("./workers/file-processing.js")
 const { fileProcessingQueue } = await import("./queues/file-processing.js")
+const { startYoutubeWorker } = await import("./workers/youtube-processing.js")
+const { youtubeProcessingQueue } = await import("./queues/youtube-processing.js")
+const { killActiveChildren } = await import("./services/youtube.js")
 
 const PORT = process.env.PORT
 
@@ -25,6 +28,9 @@ const server = app.listen(PORT, () => {
 const worker = startWorker()
 logger.info("File processing worker started")
 
+const youtubeWorker = startYoutubeWorker()
+logger.info("YouTube processing worker started")
+
 // graceful shutdown
 const gracefulShutdown = async (signal) => {
   logger.info(`Received ${signal}, starting graceful shutdown`)
@@ -32,6 +38,12 @@ const gracefulShutdown = async (signal) => {
   logger.info("File processing worker closed")
   await fileProcessingQueue.close()
   logger.info("File processing queue closed")
+  await youtubeWorker.close()
+  logger.info("YouTube processing worker closed")
+  killActiveChildren()
+  logger.info("Killed in-flight YouTube subprocesses")
+  await youtubeProcessingQueue.close()
+  logger.info("YouTube processing queue closed")
   server.close(async () => {
     logger.info("HTTP server closed")
     try {

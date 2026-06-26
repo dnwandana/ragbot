@@ -15,6 +15,8 @@ import * as questionModel from "../models/dataset-file-questions.js"
 import * as storageService from "../services/storage.js"
 import * as llamaindexService from "../services/llamaindex.js"
 import { addProcessingJob } from "../queues/file-processing.js"
+import { parseYouTubeUrl } from "../services/youtube.js"
+import { addYoutubeJob } from "../queues/youtube-processing.js"
 
 /** Extensions LlamaIndex can parse; uploads outside this set are rejected. */
 const ALLOWED_UPLOAD_EXTENSIONS = new Set([
@@ -48,8 +50,8 @@ export const upload = multer({
   },
 })
 
-/** @type {import('joi').ObjectSchema} Validation schema for scrape-url requests. */
-const scrapeSchema = joi
+/** @type {import('joi').ObjectSchema} Shared body schema for URL-based ingestion (scrape + YouTube). */
+const urlBodySchema = joi
   .object({
     url: joi
       .string()
@@ -151,7 +153,7 @@ export const uploadFile = async (req, res, next) => {
  */
 export const scrapeUrl = async (req, res, next) => {
   try {
-    const { error, value } = scrapeSchema.validate(req.body)
+    const { error, value } = urlBodySchema.validate(req.body)
     if (error) throw new HttpError(HTTP_STATUS_CODE.BAD_REQUEST, error.details[0].message)
 
     await assertPublicHttpUrl(value.url)
@@ -194,6 +196,77 @@ export const scrapeUrl = async (req, res, next) => {
     return res
       .status(HTTP_STATUS_CODE.CREATED)
       .json(apiResponse({ message: "Scrape started", data: file }))
+  } catch (error) {
+    return next(error)
+  }
+}
+
+/**
+ * POST /api/workspaces/:workspace_id/datasets/:dataset_id/files/youtube — Add a YouTube video to a dataset.
+ *
+ * Validates the URL is a supported YouTube video, creates a dataset_file record with
+ * status 'processing' and youtube source metadata, logs the audit event, then enqueues
+ * a job on the youtube-processing queue. The worker resolves the transcript (manual
+ * captions or Whisper), runs the pipeline, and updates status asynchronously.
+ *
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next middleware function
+ * @returns {Promise<void>}
+ */
+export const addYouTube = async (req, res, next) => {
+  try {
+    const { error, value } = urlBodySchema.validate(req.body)
+    if (error) throw new HttpError(HTTP_STATUS_CODE.BAD_REQUEST, error.details[0].message)
+
+    let parsed
+    try {
+      parsed = parseYouTubeUrl(value.url)
+    } catch (err) {
+      throw new HttpError(HTTP_STATUS_CODE.BAD_REQUEST, err.message)
+    }
+
+    const dataset = await datasetModel.findOne({
+      id: req.params.dataset_id,
+      workspace_id: req.workspace.id,
+    })
+    if (!dataset) throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "Dataset not found")
+
+    const fileId = crypto.randomUUID()
+    const [file] = await datasetFileModel.create({
+      id: fileId,
+      dataset_id: dataset.id,
+      workspace_id: req.workspace.id,
+      filename: parsed.canonicalUrl,
+      mime_type: "text/markdown",
+      file_size_bytes: 0,
+      storage_provider: null,
+      storage_path: null,
+      status: "processing",
+      metadata: JSON.stringify({
+        source_type: "youtube",
+        video_id: parsed.videoId,
+        source_url: value.url,
+        canonical_url: parsed.canonicalUrl,
+      }),
+      created_at: new Date(),
+      updated_at: new Date(),
+    })
+
+    await logAuditEvent({
+      workspace_id: req.workspace.id,
+      user_id: req.user.id,
+      entity_type: "dataset_file",
+      entity_id: file.id,
+      action: "uploaded",
+      context: { request_id: req.id, source_url: value.url },
+    })
+
+    await addYoutubeJob({ datasetFileId: file.id, datasetId: dataset.id })
+
+    return res
+      .status(HTTP_STATUS_CODE.CREATED)
+      .json(apiResponse({ message: "YouTube import started", data: file }))
   } catch (error) {
     return next(error)
   }
@@ -433,7 +506,13 @@ export const reprocessFile = async (req, res, next) => {
       updated_at: new Date(),
     })
 
-    await addProcessingJob({ datasetFileId: file.id, datasetId: file.dataset_id })
+    const metadata =
+      typeof file.metadata === "string" ? JSON.parse(file.metadata) : (file.metadata ?? {})
+    if (metadata.source_type === "youtube") {
+      await addYoutubeJob({ datasetFileId: file.id, datasetId: file.dataset_id })
+    } else {
+      await addProcessingJob({ datasetFileId: file.id, datasetId: file.dataset_id })
+    }
 
     return res.json(apiResponse({ message: "Reprocessing started", data: null }))
   } catch (error) {

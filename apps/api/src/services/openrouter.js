@@ -140,3 +140,27 @@ export const chatCompletionStream = async (messages, options = {}) => {
   }
   return res.body
 }
+
+/**
+ * Transcribe a base64-encoded audio clip via OpenRouter's Whisper endpoint.
+ *
+ * @param {string} base64Audio - Base64-encoded audio bytes
+ * @param {string} format - Audio container/extension (e.g. "mp3", "wav")
+ * @param {string} [model] - Transcription model ID; defaults to WHISPER_MODEL env var
+ * @returns {Promise<string>} The transcript text ("" if the response carries none)
+ * @throws {Error} If the OpenRouter API returns a non-2xx status
+ */
+export const transcribeAudio = async (base64Audio, format, model = process.env.WHISPER_MODEL) => {
+  const res = await fetch(`${BASE}/audio/transcriptions`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({ model, input_audio: { data: base64Audio, format } }),
+    signal: AbortSignal.timeout(Number(process.env.OPENROUTER_TRANSCRIBE_TIMEOUT_MS)),
+  })
+  if (!res.ok) {
+    const errorText = await res.text()
+    throw new Error(`OpenRouter transcription error ${res.status}: ${errorText}`)
+  }
+  const json = await res.json()
+  return json.text || ""
+}
