@@ -567,9 +567,11 @@ const visiblePages = computed(() => {
             />
           </div>
           <div>
-            <span class="type-badge" :class="`type-${fileType(file.filename)}`">{{
-              fileType(file.filename)
-            }}</span>
+            <span
+              class="type-badge"
+              :class="`type-${fileType(file.filename, file.metadata?.source_type)}`"
+              >{{ fileType(file.filename, file.metadata?.source_type) }}</span
+            >
           </div>
           <div class="col-name">
             <span class="file-name">{{ file.filename }}</span>
@@ -646,6 +648,7 @@ const visiblePages = computed(() => {
       @close="drawerOpen = false"
       @uploaded="fetchFiles()"
       @scraped="fetchFiles()"
+      @youtube="fetchFiles()"
     />
 
     <!-- File detail panel -->
@@ -1132,6 +1135,12 @@ const visiblePages = computed(() => {
   background: var(--brand-tint);
   color: var(--brand-3);
   border-color: rgba(255, 107, 53, 0.2);
+}
+
+.type-youtube {
+  background: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
+  border-color: rgba(220, 38, 38, 0.2);
 }
 
 .type-docx {

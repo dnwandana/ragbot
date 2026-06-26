@@ -14,6 +14,10 @@ export function scrapeUrl(workspaceId, datasetId, url) {
   return request.post(`${base(workspaceId, datasetId)}/scrape-url`, { url }, { silent: true })
 }
 
+export function addYouTube(workspaceId, datasetId, url) {
+  return request.post(`${base(workspaceId, datasetId)}/youtube`, { url }, { silent: true })
+}
+
 export function deleteFile(workspaceId, datasetId, id) {
   return request.del(`${base(workspaceId, datasetId)}/${id}`, { silent: true })
 }

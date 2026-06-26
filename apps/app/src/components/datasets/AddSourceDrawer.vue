@@ -1,8 +1,9 @@
 <script setup>
-import { ref } from "vue"
-import { Check, CloudUpload, FileText, Globe, Upload, X } from "lucide-vue-next"
+import { ref, computed } from "vue"
+import { Check, CloudUpload, FileText, Link2, Upload, X } from "lucide-vue-next"
 import { useDatasetFilesStore } from "@/stores/datasetFiles"
 import { humanSize } from "@/utils/files"
+import { SOURCE_DETECTORS, detectSource } from "@/components/datasets/sourceDetectors"
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -10,7 +11,7 @@ const props = defineProps({
   datasetId: { type: String, required: true },
 })
 
-const emit = defineEmits(["close", "uploaded", "scraped"])
+const emit = defineEmits(["close", "uploaded", "scraped", "youtube"])
 
 const store = useDatasetFilesStore()
 const activeTab = ref("upload")
@@ -19,6 +20,28 @@ const uploadItems = ref([]) // { id, name, size, status: 'uploading'|'done'|'fai
 const urlInput = ref("")
 const urlError = ref("")
 const urlLoading = ref(false)
+
+/**
+ * Per-source submit dispatch keyed by detector key. Each entry calls the right
+ * store action and names the event the drawer emits so the parent refreshes.
+ */
+const SOURCE_ACTIONS = {
+  youtube: {
+    call: (url) => store.addYouTube(props.workspaceId, props.datasetId, url),
+    event: "youtube",
+  },
+  web: {
+    call: (url) => store.scrapeUrl(props.workspaceId, props.datasetId, url),
+    event: "scraped",
+  },
+}
+
+/** The detector for the current input, or null until the input is a valid http(s) URL. */
+const detected = computed(() => {
+  const raw = urlInput.value.trim()
+  if (!/^https?:\/\//i.test(raw)) return null
+  return detectSource(raw)
+})
 
 /** @param {FileList|File[]} fileList */
 async function processFiles(fileList) {
@@ -60,7 +83,7 @@ function onFileInput(e) {
   e.target.value = ""
 }
 
-async function submitUrl() {
+async function submitLink() {
   const raw = urlInput.value.trim()
   if (!raw) {
     urlError.value = "Enter a URL."
@@ -72,12 +95,15 @@ async function submitUrl() {
   }
   urlError.value = ""
   urlLoading.value = true
+  // Fall back to the web action so adding a detector without a matching
+  // SOURCE_ACTIONS entry degrades to scraping instead of crashing.
+  const action = SOURCE_ACTIONS[detectSource(raw).key] ?? SOURCE_ACTIONS.web
   try {
-    await store.scrapeUrl(props.workspaceId, props.datasetId, raw)
-    emit("scraped", raw)
+    await action.call(raw)
+    emit(action.event, raw)
     urlInput.value = ""
   } catch (err) {
-    urlError.value = err?.response?.data?.message || "Failed to add URL"
+    urlError.value = err?.response?.data?.message || "Failed to add source"
   } finally {
     urlLoading.value = false
   }
@@ -174,32 +200,47 @@ function onClose() {
           </div>
         </a-tab-pane>
 
-        <!-- Scrape URL tab -->
+        <!-- Link tab (web page or YouTube, auto-detected) -->
         <a-tab-pane key="url">
           <template #tab>
             <span class="tab-label">
-              <Globe :size="12" :stroke-width="1.8" />
-              Web URL
+              <Link2 :size="12" :stroke-width="1.8" />
+              Link
             </span>
           </template>
           <div class="drawer-body">
-            <p class="url-hint">Scrape a public web page and index its content.</p>
+            <p class="url-hint">Paste a web page or YouTube link.</p>
+
+            <div v-if="!detected" class="supported-row">
+              <span class="supported-label">Works with:</span>
+              <span v-for="d in SOURCE_DETECTORS" :key="d.key" class="supported-item">
+                <component :is="d.icon" :size="13" :stroke-width="1.8" />
+                {{ d.label }}
+              </span>
+            </div>
+
             <div class="url-field">
               <input
                 v-model="urlInput"
                 class="url-input"
                 aria-label="Source URL"
                 placeholder="https://…"
-                @keydown.enter="submitUrl"
+                @keydown.enter="submitLink"
               />
               <p v-if="urlError" class="url-error">{{ urlError }}</p>
             </div>
+
+            <div v-if="detected" class="source-cue" :class="detected.cueClass">
+              <component :is="detected.icon" :size="14" :stroke-width="1.8" />
+              <span>{{ detected.cue }}</span>
+            </div>
+
             <button
               class="btn-primary"
               :disabled="urlLoading || !urlInput.trim()"
-              @click="submitUrl"
+              @click="submitLink"
             >
-              {{ urlLoading ? "Adding…" : "Add URL" }}
+              {{ urlLoading ? "Adding…" : "Add source" }}
             </button>
           </div>
         </a-tab-pane>
@@ -532,5 +573,57 @@ function onClose() {
 .add-source-drawer-root .btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.add-source-drawer-root .supported-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 11.5px;
+  color: var(--ink-4);
+}
+
+.add-source-drawer-root .supported-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.add-source-drawer-root .source-cue {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line-2);
+}
+
+.add-source-drawer-root .source-cue span {
+  min-width: 0;
+}
+
+.add-source-drawer-root .source-cue--youtube {
+  color: #c4302b;
+  background: rgba(196, 48, 43, 0.08);
+  border-color: rgba(196, 48, 43, 0.2);
+}
+
+.add-source-drawer-root .source-cue--youtube svg {
+  color: #c4302b;
+  flex-shrink: 0;
+}
+
+.add-source-drawer-root .source-cue--web {
+  color: var(--ink-2);
+  background: var(--bg-2);
+  border-color: var(--line-2);
+}
+
+.add-source-drawer-root .source-cue--web svg {
+  color: var(--ink-3);
+  flex-shrink: 0;
 }
 </style>

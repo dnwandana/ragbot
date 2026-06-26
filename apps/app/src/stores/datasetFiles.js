@@ -30,6 +30,11 @@ export const useDatasetFilesStore = defineStore("datasetFiles", () => {
     return res.data.data
   }
 
+  async function addYouTube(workspaceId, datasetId, url) {
+    const res = await filesApi.addYouTube(workspaceId, datasetId, url)
+    return res.data.data
+  }
+
   async function deleteFile(workspaceId, datasetId, id) {
     await filesApi.deleteFile(workspaceId, datasetId, id)
     files.value = files.value.filter((f) => f.id !== id)
@@ -76,6 +81,7 @@ export const useDatasetFilesStore = defineStore("datasetFiles", () => {
     fetchFiles,
     uploadFile,
     scrapeUrl,
+    addYouTube,
     deleteFile,
     reprocessFile,
     renameFile,

@@ -5,7 +5,7 @@ import { useDatasetFilesStore } from "@/stores/datasetFiles"
 /**
  * @param {string} workspaceId
  * @param {string} datasetId
- * @returns {{ files: import("vue").ComputedRef, filteredFiles: import("vue").ComputedRef, loading: import("vue").ComputedRef, searchQuery: import("vue").Ref<string>, filterStatus: import("vue").Ref<string>, fetchFiles: Function, handleUpload: Function, handleScrape: Function, handleDelete: Function, handleReprocess: Function, handleRename: Function, bulkDelete: Function }}
+ * @returns {{ files: import("vue").ComputedRef, filteredFiles: import("vue").ComputedRef, loading: import("vue").ComputedRef, searchQuery: import("vue").Ref<string>, filterStatus: import("vue").Ref<string>, fetchFiles: Function, handleUpload: Function, handleScrape: Function, handleYouTube: Function, handleDelete: Function, handleReprocess: Function, handleRename: Function, bulkDelete: Function }}
  */
 export function useDatasetFiles(workspaceId, datasetId) {
   const store = useDatasetFilesStore()
@@ -41,6 +41,10 @@ export function useDatasetFiles(workspaceId, datasetId) {
 
   async function handleScrape(url) {
     await store.scrapeUrl(workspaceId, datasetId, url)
+  }
+
+  async function handleYouTube(url) {
+    await store.addYouTube(workspaceId, datasetId, url)
   }
 
   async function handleDelete(id) {
@@ -84,6 +88,7 @@ export function useDatasetFiles(workspaceId, datasetId) {
     fetchFiles: (params) => store.fetchFiles(workspaceId, datasetId, params),
     handleUpload,
     handleScrape,
+    handleYouTube,
     handleDelete,
     handleReprocess,
     handleRename,

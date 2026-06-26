@@ -6,9 +6,27 @@ export function humanSize(bytes) {
   return `${(bytes / 1048576).toFixed(1)} MB`
 }
 
-/** @param {string} filename @returns {string} */
-export function fileType(filename) {
+/** @param {string} url @returns {boolean} */
+export function isYouTubeUrl(url) {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "")
+    return ["youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"].includes(host)
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Classify a dataset file's source type for display.
+ * `sourceType` (from `metadata.source_type`) is authoritative: a YouTube file's
+ * filename is promoted to the video title once processed, so it is no longer a
+ * URL and cannot be recognised by the filename alone.
+ * @param {string} filename @param {string} [sourceType] @returns {string}
+ */
+export function fileType(filename, sourceType) {
+  if (sourceType === "youtube") return "youtube"
   if (!filename) return "file"
+  if (isYouTubeUrl(filename)) return "youtube"
   if (/^https?:\/\//i.test(filename)) return "url"
   const ext = filename.split(".").pop()?.toLowerCase()
   if (ext === "pdf") return "pdf"

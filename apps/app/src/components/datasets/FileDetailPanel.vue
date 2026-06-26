@@ -37,7 +37,7 @@ const isActive = computed(
 )
 const isCompleted = computed(() => props.file?.status === "completed")
 const isFailed = computed(() => props.file?.status === "failed")
-const type = computed(() => fileType(props.file?.filename))
+const type = computed(() => fileType(props.file?.filename, props.file?.metadata?.source_type))
 
 /** Number of exploration questions shown at once. */
 const QUESTION_DISPLAY_SIZE = 5
