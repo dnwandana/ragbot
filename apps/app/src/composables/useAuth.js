@@ -44,7 +44,11 @@ export function useAuth() {
   async function handleSignin() {
     error.value = ""
     try {
-      await authStore.signin(formState.email, formState.password)
+      const { mfaRequired } = await authStore.signin(formState.email, formState.password)
+      if (mfaRequired) {
+        router.push("/login/2fa")
+        return
+      }
       const redirect = router.currentRoute.value.query.redirect || "/workspaces"
       router.push(redirect)
     } catch (e) {

@@ -4,17 +4,28 @@ import db from "../config/database.js"
 import HttpError from "../utils/http-error.js"
 import apiResponse from "../utils/response.js"
 import { HTTP_STATUS_CODE } from "../utils/constant.js"
+import { assertNotLocked, recordFailedAttempt, recordSuccess } from "../utils/account-lockout.js"
 import { hashPassword, verifyPassword } from "../utils/argon2.js"
-import { generateAccessToken, generateRefreshToken } from "../utils/jwt.js"
-import { setAccessTokenCookie, setRefreshTokenCookie, clearAuthCookies } from "../utils/cookies.js"
+import { generateAccessToken, generateRefreshToken, generateChallengeToken } from "../utils/jwt.js"
+import {
+  setAccessTokenCookie,
+  setRefreshTokenCookie,
+  clearAuthCookies,
+  setChallengeCookie,
+  clearChallengeCookie,
+} from "../utils/cookies.js"
+import { getMatchedStep } from "../utils/totp.js"
+import { decryptSecret } from "../utils/totp-crypto.js"
 import * as userModel from "../models/users.js"
 import * as refreshTokenModel from "../models/refresh-tokens.js"
 import * as emailTokenModel from "../models/email-tokens.js"
+import * as backupCodeModel from "../models/mfa-backup-codes.js"
 import * as emailService from "../services/email.js"
+import * as emailOtp from "../utils/mfa-email-otp.js"
+import * as mfaAttempts from "../utils/mfa-attempts.js"
+import * as totpReplay from "../utils/mfa-totp-replay.js"
 import { lookupLocation } from "../services/ip-geolocation.js"
 import { denySession } from "../utils/session-denylist.js"
-const MAX_FAILED_ATTEMPTS = 5
-const LOCKOUT_DURATION_MS = 15 * 60 * 1000
 
 // Pre-computed dummy hash for timing-safe signin.
 // Ensures verifyPassword always runs, even when the user doesn't exist,
@@ -55,6 +66,14 @@ const signinSchema = joi
   .object({
     email: joi.string().email().lowercase().required(),
     password: joi.string().required(),
+  })
+  .options({ stripUnknown: true })
+
+/** Joi schema for the sign-in second-factor body. */
+const signinTwoFactorSchema = joi
+  .object({
+    method: joi.string().valid("totp", "backup", "email").default("totp"),
+    code: joi.string().required(),
   })
   .options({ stripUnknown: true })
 
@@ -339,18 +358,10 @@ export const signin = async (req, res, next) => {
     const isPasswordValid = await verifyPassword(hashToVerify, value.password)
 
     // Check account lockout (only for existing users)
-    if (user?.locked_until && new Date(user.locked_until) > new Date()) {
-      throw new HttpError(HTTP_STATUS_CODE.UNAUTHORIZED, "Invalid credentials")
-    }
+    assertNotLocked(user)
 
     if (!user || !isPasswordValid) {
-      // Increment failed login attempts for existing users
-      if (user) {
-        const [updated] = await userModel.incrementFailedAttempts(user.id)
-        if (updated.failed_login_attempts >= MAX_FAILED_ATTEMPTS) {
-          await userModel.lockAccount(user.id, new Date(Date.now() + LOCKOUT_DURATION_MS))
-        }
-      }
+      if (user) await recordFailedAttempt(user)
       throw new HttpError(HTTP_STATUS_CODE.UNAUTHORIZED, "Invalid credentials")
     }
 
@@ -359,7 +370,15 @@ export const signin = async (req, res, next) => {
     }
 
     // Successful login — reset lockout fields
-    await userModel.resetLoginState(user.id)
+    await recordSuccess(user.id)
+
+    const with2fa = await userModel.findOneWith2fa({ id: user.id })
+    if (with2fa?.totp_enabled) {
+      setChallengeCookie(res, generateChallengeToken(user.id))
+      return res.json(
+        apiResponse({ message: "Second factor required", data: { mfa_required: true } }),
+      )
+    }
 
     await issueTokenPair({ req, res, userId: user.id })
 
@@ -369,6 +388,89 @@ export const signin = async (req, res, next) => {
         data: { id: user.id, email: user.email, full_name: user.full_name },
       }),
     )
+  } catch (error) {
+    return next(error)
+  }
+}
+
+/**
+ * POST /api/auth/signin/2fa — Complete a 2FA sign-in by verifying the second factor.
+ *
+ * Reads the 2fa_challenge cookie (requireChallengeToken sets req.challengeUserId),
+ * verifies the chosen factor, then issues the real session and clears the challenge.
+ *
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next middleware function
+ */
+export const verifySigninTwoFactor = async (req, res, next) => {
+  try {
+    const { error, value } = signinTwoFactorSchema.validate(req.body)
+    if (error) throw new HttpError(HTTP_STATUS_CODE.BAD_REQUEST, error.details[0].message)
+
+    const userId = req.challengeUserId
+    const user = await userModel.findOneWith2fa({ id: userId })
+    if (!user?.totp_enabled) {
+      throw new HttpError(HTTP_STATUS_CODE.UNAUTHORIZED, "Two-factor is not enabled")
+    }
+
+    const attempts = await mfaAttempts.record(userId)
+    if (attempts > mfaAttempts.MAX_ATTEMPTS) {
+      clearChallengeCookie(res)
+      throw new HttpError(HTTP_STATUS_CODE.UNAUTHORIZED, "Too many attempts. Please sign in again.")
+    }
+
+    let ok = false
+    if (value.method === "totp") {
+      const step = getMatchedStep({ secret: decryptSecret(user.totp_secret), token: value.code })
+      ok = step !== null && (await totpReplay.consumeStep(userId, step))
+    } else if (value.method === "backup") {
+      ok = await backupCodeModel.consume(userId, value.code)
+    } else if (value.method === "email") {
+      ok = await emailOtp.verify(userId, value.code)
+    }
+
+    if (!ok) throw new HttpError(HTTP_STATUS_CODE.UNAUTHORIZED, "Invalid verification code")
+
+    await mfaAttempts.reset(userId)
+    clearChallengeCookie(res)
+    await issueTokenPair({ req, res, userId })
+
+    return res.json(
+      apiResponse({
+        message: "OK",
+        data: { id: user.id, email: user.email, full_name: user.full_name },
+      }),
+    )
+  } catch (error) {
+    return next(error)
+  }
+}
+
+/**
+ * POST /api/auth/signin/2fa/email — Email a one-time code for the in-progress sign-in.
+ *
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next middleware function
+ */
+export const requestSigninEmailCode = async (req, res, next) => {
+  try {
+    const user = await userModel.findOneWith2fa({ id: req.challengeUserId })
+    if (!user?.totp_enabled) {
+      throw new HttpError(HTTP_STATUS_CODE.UNAUTHORIZED, "Two-factor is not enabled")
+    }
+    if (await emailOtp.cooldownRemaining(user.id)) {
+      // Silent success to avoid leaking timing; client shows its own cooldown.
+      return res.json(apiResponse({ message: "OK", data: null }))
+    }
+    const code = await emailOtp.issue(user.id)
+    await emailService.sendTwoFactorCodeEmail({
+      toEmail: user.email,
+      fullName: user.full_name,
+      code,
+    })
+    return res.json(apiResponse({ message: "Code sent", data: null }))
   } catch (error) {
     return next(error)
   }

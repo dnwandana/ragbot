@@ -40,3 +40,19 @@ vi.mock("../src/middlewares/rate-limit.js", () => ({
   authLimiter: (req, res, next) => next(),
   generalLimiter: (req, res, next) => next(),
 }))
+
+vi.mock("../src/utils/mfa-email-otp.js", () => ({
+  issue: vi.fn().mockResolvedValue("000000"),
+  verify: vi.fn().mockResolvedValue(false),
+  cooldownRemaining: vi.fn().mockResolvedValue(0),
+}))
+
+vi.mock("../src/utils/mfa-attempts.js", () => ({
+  MAX_ATTEMPTS: 5,
+  record: vi.fn().mockResolvedValue(1),
+  reset: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock("../src/utils/mfa-totp-replay.js", () => ({
+  consumeStep: vi.fn().mockResolvedValue(true),
+}))

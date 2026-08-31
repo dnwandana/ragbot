@@ -9,6 +9,7 @@ import { useDatasetsStore } from "./datasets.js"
 import { useDatasetFilesStore } from "./datasetFiles.js"
 import { useAuditLogsStore } from "./auditLogs.js"
 import { useSessionsStore } from "./sessions.js"
+import { useTwoFactorStore } from "./twoFactor.js"
 
 /**
  * Reset every non-auth Pinia store to its initial state. Called on logout so a
@@ -26,4 +27,5 @@ export function resetAllStores() {
   useDatasetFilesStore().reset()
   useAuditLogsStore().reset()
   useSessionsStore().reset()
+  useTwoFactorStore().reset()
 }

@@ -49,3 +49,18 @@ describe("ProfileSection timezone filter", () => {
     expect(filterTimezone("london", { label: "Europe", options: [] })).toBe(false)
   })
 })
+
+describe("ProfileSection card layout", () => {
+  it("renders as a titled card with name and timezone rows", () => {
+    const wrapper = mountView()
+    expect(wrapper.find(".card-head .head-title").text()).toBe("Profile")
+    expect(wrapper.text()).toContain("Full name")
+    expect(wrapper.text()).toContain("Timezone")
+  })
+
+  it("disables Save when the draft is pristine", () => {
+    const wrapper = mountView()
+    const save = wrapper.findAll("button").find((b) => b.text().includes("Save changes"))
+    expect(save.attributes("disabled")).toBeDefined()
+  })
+})

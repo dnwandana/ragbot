@@ -29,11 +29,12 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 
 - **Auth cookies**: `access_token` and `refresh_token` — httpOnly, Secure, SameSite=Strict cookies set by the server
 - **Sessions & instant revocation**: each access token carries a `sid` claim bound to its `refresh_tokens` session row; `requireAccessToken` checks a Redis denylist (`src/utils/session-denylist.js`, fail-open) so logout, password change/reset, account delete, and per-session revoke kill live access tokens within one token TTL. Sessions are listable/revocable via `/api/auth/sessions`
+- **Two-factor auth**: 2FA (TOTP + one-time backup codes + email-OTP fallback, per-user opt-in) gates sign-in. A user with 2FA enabled gets a short-lived (5-min) `2fa_challenge` cookie from `/signin` instead of tokens, then completes via `/api/auth/signin/2fa` (TOTP/backup code) or `/api/auth/signin/2fa/email`. TOTP secrets are AES-encrypted at rest (`TOTP_ENCRYPTION_KEY`); email codes and attempt counters live in Redis
 - **Multi-tenancy**: Shared database, tenant isolation via `workspace_id` columns with composite foreign keys enforcing isolation at the DB level
 - **RBAC**: `requirePermission(name)` middleware, permissions resolved on `req.permissions`. 31 permissions across 8 resources (workspace, role, member, audit, dataset, file, agent, conversation)
 - **Request context**: `req.id` (request ID), `req.user` (from JWT). `req.workspace` and `req.permissions` are set by `resolveWorkspace` (`src/middlewares/resolve-workspace.js`), mounted via `router.use("/:workspace_id", resolveWorkspace)` in `routes/workspaces.js` — it loads the workspace and resolves the caller's permissions for RBAC
 - **Error handling**: Controllers throw `HttpError(status, msg)`, caught by centralized `errorHandler`
-- **Env validation**: API fails fast at startup if required vars are missing (expected behavior). The authoritative schema is `src/utils/validate-env.js` — 38 validated env vars (16 always required, plus `IPGEOLOCATION_API_KEY` required only when `IP_GEOLOCATION_ENABLED=true`; the rest have defaults), including `REDIS_URL`, scheme `redis://` or `rediss://`, covering OpenRouter, Brevo, S3/R2, LlamaIndex, Firecrawl, Redis, and IP geolocation
+- **Env validation**: API fails fast at startup if required vars are missing (expected behavior). The authoritative schema is `src/utils/validate-env.js` — 40 validated env vars (17 always required, plus `IPGEOLOCATION_API_KEY` required only when `IP_GEOLOCATION_ENABLED=true`; the rest have defaults), including `REDIS_URL`, scheme `redis://` or `rediss://`, and `TOTP_ENCRYPTION_KEY`, covering OpenRouter, Brevo, S3/R2, LlamaIndex, Firecrawl, Redis, two-factor auth, and IP geolocation
 - **Async processing**: BullMQ job queue backed by Redis — dataset file processing (upload, scrape, reprocess) runs in an inline worker started alongside Express. A dedicated youtube-processing queue/worker resolves YouTube transcripts (manual captions via yt-dlp, else audio + OpenRouter Whisper) and reuses the shared runProcessingPipeline; YouTube files are marked by metadata.source_type === "youtube".
 
 ## Current implementation state
@@ -48,7 +49,7 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 - Health check (database connectivity, request ID)
 - Roles CRUD (workspace-scoped)
 - Full middleware stack (helmet, CORS, rate limiting, request ID, cookie parser, error handling)
-- Database schema — 10 migrations, 18 tables, pgvector HNSW index, `search_chunks()` SQL function
+- Database schema — 11 migrations, 19 tables, pgvector HNSW index, `search_chunks()` SQL function
 - Workspace CRUD + RBAC + member management (F3)
 - Datasets + file upload (LlamaIndex) + URL scraping (Firecrawl) + BullMQ processing pipeline (F4) + YouTube video import (yt-dlp captions / Whisper transcription)
 - Agent management — CRUD with system agent protection (F5)
@@ -89,12 +90,12 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 
 ### Tests
 
-Static test cases across 37 files (live passing count via `corepack pnpm test:api`). Integration: agents, agents-default-conflict, auth, chat, conversations, dataset-file-chunks, dataset-file-questions, dataset-questions, dataset-files, datasets, file-processing, health, members, permissions, roles, workspaces. Unit: allowed-models, consume-stream, email-render, file-processing-worker, http-error, ip-geolocation, llamaindex-poll, pagination, redis, request-id, sanitize, session-denylist, ssrf, test-users-seed, url-slug, validate-env. Session management (in `tests/`): sessions, session-revocation, jwt-sid, refresh-tokens-model.
+Static test cases across 45 files (live passing count via `corepack pnpm test:api`). Integration: agents, agents-default-conflict, auth, chat, conversations, dataset-file-chunks, dataset-file-questions, dataset-questions, dataset-files, datasets, file-processing, health, members, mfa-backup-codes-model, permissions, roles, signin-2fa, two-factor, users-2fa-model, workspaces. Unit: allowed-models, consume-stream, email-render, file-processing-worker, http-error, ip-geolocation, llamaindex-poll, mfa-email-otp, pagination, redis, request-id, sanitize, session-denylist, ssrf, test-users-seed, totp, totp-crypto, url-slug, validate-env, validate-env-2fa. Session management (in `tests/`): sessions, session-revocation, jwt-sid, refresh-tokens-model.
 **No Redis required locally:** queue module mocked via `tests/setup.js`
 
 ### Database schema
 
-18 tables across 10 migrations. Key entity tree:
+19 tables across 11 migrations. Key entity tree:
 
 ```
 workspaces (tenant root)
@@ -110,6 +111,7 @@ workspaces (tenant root)
 users (global)
   +-- email_tokens
   +-- refresh_tokens
+  +-- mfa_backup_codes (hashed one-time 2FA codes)
 ```
 
 5 custom ENUM types: `membership_status`, `file_processing_status`, `message_role`, `audit_entity_type`, `audit_action`

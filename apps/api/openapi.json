@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "RAGBot API",
-    "description": "Workspace-scoped REST API for the RAGBot platform. Multi-tenant via workspace_id isolation. Auth uses httpOnly cookies (access_token, refresh_token). RBAC enforced via 31 permissions across 8 resources.\n\nEmail verification is required before signin. Account lockout applies after 5 consecutive failed signin attempts (15 minutes).\n\n**Auth convention**: Protected routes read `access_token` cookie. Workspace-scoped routes also require valid workspace membership; the permission required is noted in each endpoint description.",
+    "description": "Workspace-scoped REST API for the RAGBot platform. Multi-tenant via workspace_id isolation. Auth uses httpOnly cookies (access_token, refresh_token). RBAC enforced via 31 permissions across 8 resources.\n\nEmail verification is required before signin. Account lockout applies after 5 consecutive failed signin attempts (15 minutes).\n\nTwo-factor auth (TOTP authenticator + one-time backup codes + email-OTP fallback) is per-user opt-in and gates sign-in: when enabled, `/signin` returns `{ mfa_required: true }` and a short-lived (5-min) `2fa_challenge` cookie instead of tokens, and sign-in is completed via `/signin/2fa`.\n\n**Auth convention**: Protected routes read `access_token` cookie. Workspace-scoped routes also require valid workspace membership; the permission required is noted in each endpoint description.",
     "version": "3.0.0"
   },
   "servers": [
@@ -15,6 +15,10 @@
     {
       "name": "Authentication",
       "description": "Signup, email verification, signin, token refresh, logout, password reset"
+    },
+    {
+      "name": "Two-Factor",
+      "description": "Per-user TOTP two-factor auth — setup/activate/disable, backup codes, and the sign-in challenge flow (TOTP, backup code, or email-OTP fallback)"
     },
     {
       "name": "Workspaces",
@@ -234,13 +238,94 @@
         },
         "responses": {
           "200": {
-            "description": "Signed in — access_token and refresh_token cookies set",
+            "description": "Signed in — access_token and refresh_token cookies set. If the account has 2FA enabled, no tokens are set: the response carries `{ mfa_required: true }` and a short-lived `2fa_challenge` cookie, and sign-in must be completed via `/api/auth/signin/2fa`.",
             "headers": {
               "X-Request-Id": {
                 "$ref": "#/components/headers/X-Request-Id"
               },
               "Set-Cookie": {
-                "description": "Sets access_token (15m) and refresh_token (7d) httpOnly cookies",
+                "description": "Sets access_token (15m) and refresh_token (7d) httpOnly cookies — or, when 2FA is enabled, a 5-minute 2fa_challenge cookie instead of the token pair",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "oneOf": [
+                            {
+                              "$ref": "#/components/schemas/UserBasic"
+                            },
+                            {
+                              "type": "object",
+                              "description": "Returned when 2FA is enabled — complete sign-in via /signin/2fa",
+                              "properties": {
+                                "mfa_required": {
+                                  "type": "boolean",
+                                  "enum": [true]
+                                }
+                              },
+                              "required": ["mfa_required"]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        }
+      }
+    },
+    "/api/auth/signin/2fa": {
+      "post": {
+        "tags": ["Two-Factor"],
+        "summary": "Complete 2FA sign-in",
+        "description": "Completes a sign-in that returned `mfa_required`. Requires the short-lived `2fa_challenge` cookie issued by `/signin`. Verifies the chosen second factor — a TOTP code (`method: totp`, replay-protected), a one-time backup code (`method: backup`), or an emailed code (`method: email`, requested first via `/signin/2fa/email`) — then clears the challenge cookie and sets access_token and refresh_token cookies. After too many failed attempts the challenge is invalidated and sign-in must be restarted. Rate limited.",
+        "operationId": "verifySigninTwoFactor",
+        "security": [{ "ChallengeToken": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SigninTwoFactorRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Second factor verified — access_token and refresh_token cookies set",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              },
+              "Set-Cookie": {
+                "description": "Clears the 2fa_challenge cookie and sets access_token (15m) and refresh_token (7d) httpOnly cookies",
                 "schema": {
                   "type": "string"
                 }
@@ -270,10 +355,53 @@
             "$ref": "#/components/responses/BadRequest"
           },
           "401": {
-            "$ref": "#/components/responses/Unauthorized"
+            "description": "Missing/expired challenge cookie, 2FA not enabled, invalid code, or too many attempts (restart sign-in)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "message": "Invalid verification code"
+                }
+              }
+            }
           },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        }
+      }
+    },
+    "/api/auth/signin/2fa/email": {
+      "post": {
+        "tags": ["Two-Factor"],
+        "summary": "Email a sign-in 2FA code",
+        "description": "Sends a one-time code to the user's email as a fallback second factor for an in-progress sign-in. Requires the `2fa_challenge` cookie. Subject to a per-user cooldown — repeated requests during the cooldown return 200 without resending. Complete the sign-in by calling `/signin/2fa` with `method: email`. Rate limited.",
+        "operationId": "requestSigninEmailCode",
+        "security": [{ "ChallengeToken": [] }],
+        "responses": {
+          "200": {
+            "description": "Code sent (or silently skipped during cooldown)",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "message": "Code sent",
+                  "data": null
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           },
           "429": {
             "$ref": "#/components/responses/TooManyRequests"
@@ -826,6 +954,283 @@
                 "example": {
                   "message": "Session revoked",
                   "data": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/auth/2fa": {
+      "get": {
+        "tags": ["Two-Factor"],
+        "summary": "Get 2FA status",
+        "description": "Returns whether the caller has TOTP two-factor enabled, when it was enabled, and how many one-time backup codes remain.",
+        "operationId": "getTwoFactorStatus",
+        "security": [{ "AccessToken": [] }],
+        "responses": {
+          "200": {
+            "description": "2FA status",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/TwoFactorStatus"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/auth/2fa/setup": {
+      "post": {
+        "tags": ["Two-Factor"],
+        "summary": "Begin 2FA setup",
+        "description": "Step 1 of two-phase activation. Re-authenticates with the account password, then generates and stores a pending (encrypted) TOTP secret — 2FA is **not** yet enabled. Returns the secret and an `otpauth://` URL for provisioning an authenticator app (e.g. via QR code). Call `/2fa/activate` with a generated code to finish. Returns 409 if 2FA is already enabled.",
+        "operationId": "setupTwoFactor",
+        "security": [{ "AccessToken": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordReauthRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Pending secret created — provision an authenticator",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/TwoFactorSetup"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "Two-factor authentication is already enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "message": "Two-factor authentication is already enabled"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/2fa/activate": {
+      "post": {
+        "tags": ["Two-Factor"],
+        "summary": "Activate 2FA",
+        "description": "Step 2 of two-phase activation. Verifies a TOTP code against the pending secret from `/2fa/setup`, enables 2FA, and returns 10 one-time backup codes **once** (store them now — they are not retrievable later).",
+        "operationId": "activateTwoFactor",
+        "security": [{ "AccessToken": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "2FA enabled — backup codes returned once",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/BackupCodes"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "example": {
+                  "message": "Two-factor authentication enabled",
+                  "data": {
+                    "backup_codes": ["a1b2c3d4", "e5f6g7h8"]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/auth/2fa/disable": {
+      "post": {
+        "tags": ["Two-Factor"],
+        "summary": "Disable 2FA",
+        "description": "Turns off 2FA and deletes the stored TOTP secret and all backup codes. Requires re-authentication with both the account password and a current second factor — a TOTP code (replay-protected) or a one-time backup code.",
+        "operationId": "disableTwoFactor",
+        "security": [{ "AccessToken": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordCodeReauthRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "2FA disabled",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "message": "Two-factor authentication disabled",
+                  "data": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/auth/2fa/backup-codes/regenerate": {
+      "post": {
+        "tags": ["Two-Factor"],
+        "summary": "Regenerate backup codes",
+        "description": "Replaces all existing backup codes with a fresh set of 10, returned **once**, invalidating the previous set. Requires re-authentication with both the account password and a current second factor (TOTP or backup code).",
+        "operationId": "regenerateBackupCodes",
+        "security": [{ "AccessToken": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordCodeReauthRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "New backup codes returned once",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/BackupCodes"
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -4074,6 +4479,12 @@
         "in": "cookie",
         "name": "refresh_token",
         "description": "JWT refresh token (httpOnly cookie set by server, expires in 7d). Used for token rotation — revokes old token and issues new pair."
+      },
+      "ChallengeToken": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "2fa_challenge",
+        "description": "Short-lived (5-min) JWT (type `2fa_challenge`, httpOnly cookie set by /signin when 2FA is enabled). Authorizes only the sign-in 2FA completion endpoints; cannot be used as an access token."
       }
     },
     "headers": {
@@ -4433,6 +4844,106 @@
           }
         },
         "required": ["email", "password"]
+      },
+      "SigninTwoFactorRequest": {
+        "type": "object",
+        "description": "Body for completing a 2FA sign-in via POST /auth/signin/2fa",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": ["totp", "backup", "email"],
+            "default": "totp",
+            "description": "Which second factor the code belongs to"
+          },
+          "code": {
+            "type": "string",
+            "description": "The TOTP, backup, or emailed one-time code"
+          }
+        },
+        "required": ["code"]
+      },
+      "PasswordReauthRequest": {
+        "type": "object",
+        "description": "Re-authentication with the account password",
+        "properties": {
+          "password": {
+            "type": "string"
+          }
+        },
+        "required": ["password"]
+      },
+      "PasswordCodeReauthRequest": {
+        "type": "object",
+        "description": "Re-authentication with the account password plus a current second factor (TOTP or one-time backup code)",
+        "properties": {
+          "password": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "description": "A current TOTP code or one-time backup code"
+          }
+        },
+        "required": ["password", "code"]
+      },
+      "CodeRequest": {
+        "type": "object",
+        "description": "A single verification code",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "TOTP code from the authenticator app"
+          }
+        },
+        "required": ["code"]
+      },
+      "TwoFactorStatus": {
+        "type": "object",
+        "description": "Returned by GET /auth/2fa",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "enabled_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "backup_codes_remaining": {
+            "type": "integer",
+            "description": "Count of unused backup codes (0 when 2FA is disabled)"
+          }
+        },
+        "required": ["enabled", "backup_codes_remaining"]
+      },
+      "TwoFactorSetup": {
+        "type": "object",
+        "description": "Returned by POST /auth/2fa/setup — provision an authenticator with these",
+        "properties": {
+          "otpauth_url": {
+            "type": "string",
+            "description": "otpauth:// URL for QR-code provisioning"
+          },
+          "secret": {
+            "type": "string",
+            "description": "Base32 TOTP secret (for manual authenticator entry)"
+          }
+        },
+        "required": ["otpauth_url", "secret"]
+      },
+      "BackupCodes": {
+        "type": "object",
+        "description": "One-time backup codes — returned only once, on activate/regenerate",
+        "properties": {
+          "backup_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "10 single-use backup codes"
+          }
+        },
+        "required": ["backup_codes"]
       },
       "VerifyEmailRequest": {
         "type": "object",

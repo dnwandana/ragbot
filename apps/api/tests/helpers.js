@@ -202,6 +202,7 @@ export async function addWorkspaceMember(workspaceId, userId, roleId) {
 export async function cleanAllTables() {
   await db.raw(`
     TRUNCATE TABLE
+      mfa_backup_codes,
       audit_logs,
       conversation_message_citations,
       conversation_messages,

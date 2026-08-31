@@ -1,6 +1,6 @@
 import HttpError from "../utils/http-error.js"
 import { HTTP_STATUS_CODE } from "../utils/constant.js"
-import { verifyAccessToken, verifyRefreshToken } from "../utils/jwt.js"
+import { verifyAccessToken, verifyRefreshToken, verifyChallengeToken } from "../utils/jwt.js"
 import logger from "../utils/logger.js"
 import * as refreshTokenModel from "../models/refresh-tokens.js"
 import { isSessionDenied } from "../utils/session-denylist.js"
@@ -130,5 +130,29 @@ export const requireRefreshToken = async (req, res, next) => {
     next()
   } catch (error) {
     return handleJwtError(error, req, next, "Refresh token authentication failed")
+  }
+}
+
+/**
+ * Express middleware requiring a valid 2FA challenge cookie (issued mid-signin).
+ * Sets req.challengeUserId on success.
+ *
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next middleware function
+ */
+export const requireChallengeToken = (req, res, next) => {
+  try {
+    const token = req.cookies?.["2fa_challenge"]
+    if (!token) throw new HttpError(HTTP_STATUS_CODE.UNAUTHORIZED, "No challenge in progress")
+
+    const decoded = verifyChallengeToken(token)
+    if (decoded.type !== "2fa_challenge") {
+      throw new HttpError(HTTP_STATUS_CODE.UNAUTHORIZED, "Invalid challenge token")
+    }
+    req.challengeUserId = decoded.id
+    next()
+  } catch (error) {
+    return handleJwtError(error, req, next, "Challenge verification failed")
   }
 }

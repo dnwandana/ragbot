@@ -86,3 +86,19 @@ export const sendInvitationEmail = ({ toEmail, inviterName, workspaceName, roleN
       year: new Date().getFullYear(),
     }),
   })
+
+/**
+ * Sends a 6-digit second-factor sign-in code.
+ *
+ * @param {Object} params
+ * @param {string} params.toEmail - Recipient email address.
+ * @param {string} params.fullName - User's full name for the greeting.
+ * @param {string} params.code - The 6-digit code.
+ * @returns {Promise<Object>} Brevo API response.
+ */
+export const sendTwoFactorCodeEmail = ({ toEmail, fullName, code }) =>
+  send({
+    to: { email: toEmail, name: fullName },
+    subject: "Your sign-in code — RAGbot",
+    html: render("mfa-code", { full_name: fullName, code, year: new Date().getFullYear() }),
+  })

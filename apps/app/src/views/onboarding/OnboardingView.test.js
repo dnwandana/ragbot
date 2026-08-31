@@ -66,6 +66,7 @@ const STUBS = {
   OnboardingToast: true,
   OnboardingWelcome: true,
   OnboardingWorkspace: true,
+  OnboardingSecure: true,
   OnboardingInvite: true,
   OnboardingSource: true,
   OnboardingAgent: AgentStepStub,
@@ -167,7 +168,7 @@ describe("OnboardingView source step", () => {
       "ragbot-onboarding-v1",
       JSON.stringify({
         view: "steps",
-        stepIdx: 2,
+        stepIdx: 3,
         completed: ["workspace"],
         createdWorkspaceId: "ws1",
         formData: {
@@ -208,7 +209,7 @@ describe("OnboardingView source step", () => {
       "ragbot-onboarding-v1",
       JSON.stringify({
         view: "steps",
-        stepIdx: 2,
+        stepIdx: 3,
         completed: ["workspace"],
         createdWorkspaceId: "ws1",
         formData: {
@@ -244,7 +245,7 @@ describe("OnboardingView agent step", () => {
       "ragbot-onboarding-v1",
       JSON.stringify({
         view: "steps",
-        stepIdx: 3,
+        stepIdx: 4,
         completed: ["workspace"],
         createdWorkspaceId: "ws1",
         formData: {
@@ -392,7 +393,7 @@ describe("OnboardingView invites step", () => {
       "ragbot-onboarding-v1",
       JSON.stringify({
         view: "steps",
-        stepIdx: 1,
+        stepIdx: 2,
         completed: ["workspace"],
         createdWorkspaceId: "ws1",
         formData: {
@@ -432,7 +433,7 @@ describe("OnboardingView invites step", () => {
 
     const saved = JSON.parse(localStorage.getItem("ragbot-onboarding-v1"))
     expect(saved.formData.invites).toEqual([{ email: "bad@x.com", role_id: "r1" }])
-    expect(saved.stepIdx).toBe(1)
+    expect(saved.stepIdx).toBe(2)
     expect(saved.completed).not.toContain("invites")
   })
 
@@ -447,6 +448,6 @@ describe("OnboardingView invites step", () => {
 
     const saved = JSON.parse(localStorage.getItem("ragbot-onboarding-v1"))
     expect(saved.completed).toContain("invites")
-    expect(saved.stepIdx).toBe(2)
+    expect(saved.stepIdx).toBe(3)
   })
 })

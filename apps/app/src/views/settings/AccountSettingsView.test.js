@@ -11,11 +11,26 @@ const STUBS = {
   SecuritySection: { template: `<div class="security-section-stub" />` },
 }
 
+// Stubs for the header test — SettingsCanvas is also stubbed so the test only
+// exercises the view's own template.
+const HEADER_STUBS = {
+  SettingsCanvas: { template: "<div><slot /></div>" },
+  ProfileSection: true,
+  SecuritySection: true,
+}
+
 describe("AccountSettingsView", () => {
   it("renders the profile and security sections inside the settings canvas", () => {
     const wrapper = mount(AccountSettingsView, { global: { stubs: STUBS } })
     expect(wrapper.find(".settings-canvas").exists()).toBe(true)
     expect(wrapper.find(".profile-section-stub").exists()).toBe(true)
     expect(wrapper.find(".security-section-stub").exists()).toBe(true)
+  })
+
+  it("renders the page header above the sections", () => {
+    const wrapper = mount(AccountSettingsView, { global: { stubs: HEADER_STUBS } })
+    expect(wrapper.find(".page-eyebrow").text()).toBe("Your account")
+    expect(wrapper.find("h1.page-title").text()).toBe("Account & security")
+    expect(wrapper.find(".page-sub").text()).toContain("profile, sign-in")
   })
 })

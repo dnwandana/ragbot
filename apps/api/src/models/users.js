@@ -45,6 +45,27 @@ export const findOneWithPassword = (conditions) =>
     .first()
 
 /**
+ * Finds an active user including their 2FA columns.
+ *
+ * @param {Object} conditions - Lookup conditions (e.g. `{ id }` or `{ email }`).
+ * @returns {Promise<Object|undefined>} The user with totp_secret/totp_enabled/totp_enabled_at, or undefined.
+ */
+export const findOneWith2fa = (conditions) =>
+  db("users")
+    .where(conditions)
+    .whereNull("deleted_at")
+    .select(
+      "id",
+      "email",
+      "full_name",
+      "email_verified",
+      "totp_secret",
+      "totp_enabled",
+      "totp_enabled_at",
+    )
+    .first()
+
+/**
  * Updates user rows matching the given conditions.
  *
  * @param {Object} conditions - Knex where conditions (e.g., { id }).

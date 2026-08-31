@@ -30,6 +30,7 @@ Workspace (tenant boundary)
 - **Multi-tenancy**: Shared PostgreSQL database, tenant-scoped via `workspace_id` columns with composite foreign keys enforcing isolation at the DB level
 - **RBAC**: 4 system roles (owner / admin / editor / viewer) + custom roles, 31 granular permissions across 8 resources
 - **Auth**: Dual-token JWT via httpOnly cookies, Argon2 password hashing, account lockout after 5 failed attempts, listable/revocable sessions with instant access-token revocation (Redis denylist)
+- **Two-factor auth**: Per-user opt-in TOTP (authenticator app) + one-time backup codes + email-OTP fallback; gates sign-in via a short-lived `2fa_challenge` cookie. TOTP secrets are AES-256-GCM encrypted at rest
 - **RAG pipeline**: File upload → parsing (LlamaIndex) → chunking (LangChain) → embedding (OpenRouter) → vector search (pgvector HNSW). Sources can be uploaded files, scraped web pages, or YouTube videos (captions via yt-dlp, else audio transcription via OpenRouter Whisper)
 - **AI chat**: ReAct loop with OpenRouter, SSE streaming, citation tracking back to source chunks
 
@@ -78,6 +79,7 @@ S3_SECRET_KEY=<key>
 S3_ENDPOINT=https://<account>.r2.cloudflarestorage.com
 LLAMAINDEX_API_KEY=<key>
 FIRECRAWL_API_KEY=<key>
+TOTP_ENCRYPTION_KEY=<at-least-32-characters>   # AES key encrypting TOTP secrets at rest
 ```
 
 Optional (with defaults):
@@ -106,6 +108,7 @@ YOUTUBE_MAX_DURATION_SECONDS=7200            # reject audio+Whisper for videos l
 YOUTUBE_MAX_FILESIZE=150M                    # yt-dlp --max-filesize cap (binary units)
 S3_REGION=auto
 EMAIL_FROM_NAME=RAGBot
+TOTP_ISSUER=RAGbot                     # issuer label shown in authenticator apps
 IP_GEOLOCATION_ENABLED=false           # resolve session IPs to "City, CC" on the sessions list
 IPGEOLOCATION_API_KEY=                 # required only when IP_GEOLOCATION_ENABLED=true (ipgeolocation.io)
 IPGEOLOCATION_TIMEOUT_MS=5000
@@ -178,23 +181,30 @@ Append `:api`, `:app`, `:web`, or `:docs` to target a single workspace (e.g. `pn
 
 ### Authentication
 
-| Method | Path                            | Auth          | Description                                              |
-| ------ | ------------------------------- | ------------- | -------------------------------------------------------- |
-| POST   | `/api/auth/signup`              | —             | Register — sends verification email                      |
-| POST   | `/api/auth/verify-email`        | —             | Verify email via token from email link                   |
-| POST   | `/api/auth/resend-verification` | —             | Resend verification email (always returns 200)           |
-| POST   | `/api/auth/signin`              | —             | Sign in — requires verified email, sets httpOnly cookies |
-| POST   | `/api/auth/forgot-password`     | —             | Request password reset email (always returns 200)        |
-| POST   | `/api/auth/reset-password`      | —             | Reset password via token, revokes all sessions           |
-| GET    | `/api/auth/me`                  | Access Token  | Return current user                                      |
-| PUT    | `/api/auth/profile`             | Access Token  | Update `full_name` and `timezone`                        |
-| DELETE | `/api/auth/profile`             | Access Token  | Delete account (soft delete, clears cookies)             |
-| PUT    | `/api/auth/password`            | Access Token  | Change password                                          |
-| POST   | `/api/auth/refresh`             | Refresh Token | Rotate tokens via httpOnly cookie                        |
-| POST   | `/api/auth/logout`              | Refresh Token | Revoke refresh token, clear cookies                      |
-| GET    | `/api/auth/sessions`            | Access Token  | List active sessions                                     |
-| DELETE | `/api/auth/sessions`            | Access Token  | Revoke all sessions except the current one               |
-| DELETE | `/api/auth/sessions/:id`        | Access Token  | Revoke a single session by id                            |
+| Method | Path                                    | Auth          | Description                                                                                                           |
+| ------ | --------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/api/auth/signup`                      | —             | Register — sends verification email                                                                                   |
+| POST   | `/api/auth/verify-email`                | —             | Verify email via token from email link                                                                                |
+| POST   | `/api/auth/resend-verification`         | —             | Resend verification email (always returns 200)                                                                        |
+| POST   | `/api/auth/signin`                      | —             | Sign in — requires verified email; sets httpOnly cookies, or returns `mfa_required` + challenge cookie when 2FA is on |
+| POST   | `/api/auth/signin/2fa`                  | Challenge     | Complete 2FA sign-in (TOTP / backup / email code)                                                                     |
+| POST   | `/api/auth/signin/2fa/email`            | Challenge     | Email a one-time code for the in-progress sign-in                                                                     |
+| POST   | `/api/auth/forgot-password`             | —             | Request password reset email (always returns 200)                                                                     |
+| POST   | `/api/auth/reset-password`              | —             | Reset password via token, revokes all sessions                                                                        |
+| GET    | `/api/auth/me`                          | Access Token  | Return current user                                                                                                   |
+| PUT    | `/api/auth/profile`                     | Access Token  | Update `full_name` and `timezone`                                                                                     |
+| DELETE | `/api/auth/profile`                     | Access Token  | Delete account (soft delete, clears cookies)                                                                          |
+| PUT    | `/api/auth/password`                    | Access Token  | Change password                                                                                                       |
+| POST   | `/api/auth/refresh`                     | Refresh Token | Rotate tokens via httpOnly cookie                                                                                     |
+| POST   | `/api/auth/logout`                      | Refresh Token | Revoke refresh token, clear cookies                                                                                   |
+| GET    | `/api/auth/sessions`                    | Access Token  | List active sessions                                                                                                  |
+| DELETE | `/api/auth/sessions`                    | Access Token  | Revoke all sessions except the current one                                                                            |
+| DELETE | `/api/auth/sessions/:id`                | Access Token  | Revoke a single session by id                                                                                         |
+| GET    | `/api/auth/2fa`                         | Access Token  | 2FA status (enabled, enabled_at, backup codes remaining)                                                              |
+| POST   | `/api/auth/2fa/setup`                   | Access Token  | Re-auth (password), store pending TOTP secret + otpauth URL                                                           |
+| POST   | `/api/auth/2fa/activate`                | Access Token  | Verify code, enable 2FA, return one-time backup codes                                                                 |
+| POST   | `/api/auth/2fa/disable`                 | Access Token  | Re-auth (password + second factor), disable 2FA                                                                       |
+| POST   | `/api/auth/2fa/backup-codes/regenerate` | Access Token  | Re-auth (password + second factor), reissue backup codes                                                              |
 
 ### Permissions
 
@@ -466,6 +476,7 @@ docker compose run --rm api sh -c "node_modules/.bin/knex seed:run"
 | `REDIS_URL`                | Yes      | Redis connection string (`redis://localhost:6379` or `redis://:pass@host:6379`)                     |
 | `ACCESS_TOKEN_SECRET`      | Yes      | JWT secret, min 32 chars                                                                            |
 | `REFRESH_TOKEN_SECRET`     | Yes      | JWT secret, min 32 chars, must differ from access secret                                            |
+| `TOTP_ENCRYPTION_KEY`      | Yes      | AES key (min 32 chars) encrypting users' TOTP secrets at rest                                       |
 | `JWT_ISSUER`               | Yes      | API origin that issues tokens, e.g. `https://api.<DOMAIN>`                                          |
 | `JWT_AUDIENCE`             | Yes      | SPA origin the tokens are for, e.g. `https://app.<DOMAIN>`                                          |
 | `OPENROUTER_API_KEY`       | Yes      | API key for OpenRouter (LLM + embedding inference)                                                  |

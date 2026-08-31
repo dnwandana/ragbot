@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, watch } from "vue"
+import { UserRound } from "lucide-vue-next"
 import { useAuthStore } from "@/stores/auth"
 import { useProfile } from "@/composables/useProfile"
 
@@ -64,12 +65,14 @@ function handleDiscard() {
 
 <template>
   <div class="section-wrap">
-    <div class="section-hd">
-      <div class="section-title">Profile</div>
-      <div class="section-sub">Your name and timezone, used across the app.</div>
-    </div>
-
     <div class="settings-card">
+      <div class="card-head">
+        <div class="tile tile-neutral"><UserRound :size="18" /></div>
+        <div class="head-body">
+          <div class="head-title">Profile</div>
+          <div class="head-sub">Your name and timezone, used across the app.</div>
+        </div>
+      </div>
       <div class="card-row">
         <div class="row-label">
           <div class="label-text">Full name</div>
@@ -102,33 +105,20 @@ function handleDiscard() {
           </a-select>
         </div>
       </div>
-    </div>
-
-    <div class="section-actions">
-      <span v-if="dirty" class="dirty-hint">You have unsaved changes.</span>
-      <button class="btn-ghost" :disabled="!dirty || saving" @click="handleDiscard">Discard</button>
-      <button class="btn-primary" :disabled="!dirty || saving" @click="handleSave">
-        {{ saving ? "Saving…" : "Save changes" }}
-      </button>
+      <div class="card-foot">
+        <span v-if="dirty" class="dirty-hint">You have unsaved changes.</span>
+        <button class="btn-ghost" :disabled="!dirty || saving" @click="handleDiscard">
+          Discard
+        </button>
+        <button class="btn-primary" :disabled="!dirty || saving" @click="handleSave">
+          {{ saving ? "Saving…" : "Save changes" }}
+        </button>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.section-hd {
-  margin-bottom: 14px;
-}
-.section-title {
-  font-size: var(--t-md);
-  font-weight: 600;
-  color: var(--ink);
-  margin-bottom: 3px;
-}
-.section-sub {
-  font-size: var(--t-sm);
-  color: var(--ink-3);
-}
-
 .settings-card {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -168,12 +158,47 @@ function handleDiscard() {
   width: 100%;
 }
 
-.section-actions {
+.card-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-top: 14px;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+}
+.tile {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.tile-neutral {
+  background: var(--bg-2);
+  color: var(--ink-3);
+}
+.head-body {
+  flex: 1;
+  min-width: 0;
+}
+.head-title {
+  font-size: var(--t-md);
+  font-weight: 600;
+  color: var(--ink);
+}
+.head-sub {
+  font-size: var(--t-sm);
+  color: var(--ink-3);
+  margin-top: 2px;
+}
+.card-foot {
+  display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--line);
 }
 .dirty-hint {
   font-size: var(--t-sm);

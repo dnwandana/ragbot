@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Your sign-in code</title>
+  </head>
+  <body
+    style="
+      margin: 0;
+      padding: 0;
+      background: #f4f1ea;
+      font-family: &quot;Inter&quot;, ui-sans-serif, system-ui, sans-serif;
+    "
+  >
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+      <tr>
+        <td align="center" style="padding: 40px 16px">
+          <table
+            role="presentation"
+            width="600"
+            cellspacing="0"
+            cellpadding="0"
+            style="
+              background: #ffffff;
+              border: 1px solid rgba(24, 18, 12, 0.1);
+              border-radius: 12px;
+              overflow: hidden;
+              box-shadow:
+                0 1px 2px rgba(24, 18, 12, 0.04),
+                0 8px 32px -8px rgba(24, 18, 12, 0.14);
+            "
+          >
+            <!-- Brand header -->
+            <tr>
+              <td
+                style="
+                  padding: 15px 32px;
+                  background: #fafaf7;
+                  border-bottom: 1px solid rgba(24, 18, 12, 0.08);
+                "
+              >
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                  <tr>
+                    <td style="vertical-align: middle">
+                      <svg
+                        width="22"
+                        height="22"
+                        viewBox="0 0 22 22"
+                        xmlns="http://www.w3.org/2000/svg"
+                        style="display: inline-block; vertical-align: middle"
+                      >
+                        <rect width="22" height="22" rx="6" fill="#18120C" />
+                        <circle cx="7" cy="7" r="4" fill="#FF6B35" />
+                        <circle cx="7" cy="7" r="2" fill="#FAFAF7" />
+                      </svg>
+                      <span
+                        style="
+                          display: inline-block;
+                          vertical-align: middle;
+                          margin-left: 9px;
+                          font-size: 13px;
+                          font-weight: 600;
+                          color: #18120c;
+                        "
+                        >RAGbot</span
+                      >
+                    </td>
+                    <td
+                      align="right"
+                      style="
+                        vertical-align: middle;
+                        font-family: &quot;JetBrains Mono&quot;, &quot;Courier New&quot;, monospace;
+                        font-size: 9px;
+                        color: #6f6356;
+                        text-transform: uppercase;
+                        letter-spacing: 0.08em;
+                      "
+                    >
+                      SECURITY
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Body -->
+            <tr>
+              <td style="padding: 24px 32px 22px">
+                <!-- Eyebrow -->
+                <table
+                  role="presentation"
+                  cellspacing="0"
+                  cellpadding="0"
+                  style="margin-bottom: 12px"
+                >
+                  <tr>
+                    <td style="width: 5px; vertical-align: middle; padding-right: 7px">
+                      <div
+                        style="width: 5px; height: 5px; border-radius: 50%; background: #ff6b35"
+                      ></div>
+                    </td>
+                    <td
+                      style="
+                        font-family: &quot;JetBrains Mono&quot;, &quot;Courier New&quot;, monospace;
+                        font-size: 10px;
+                        text-transform: uppercase;
+                        letter-spacing: 0.1em;
+                        color: #c24017;
+                      "
+                    >
+                      Sign-in code
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- Heading -->
+                <h1
+                  style="
+                    margin: 0 0 10px;
+                    font-size: 24px;
+                    font-weight: 600;
+                    color: #18120c;
+                    line-height: 1.2;
+                    letter-spacing: -0.018em;
+                    font-family: &quot;Inter&quot;, ui-sans-serif, system-ui, sans-serif;
+                  "
+                >
+                  Your sign-in code
+                </h1>
+
+                <!-- Body paragraph -->
+                <p style="margin: 0 0 18px; font-size: 13px; line-height: 1.6; color: #3a2f23">
+                  Hi <strong style="color: #18120c">{{full_name}}</strong>, use this code to finish
+                  signing in. It expires in 5 minutes.
+                </p>
+
+                <!-- Code -->
+                <p
+                  style="
+                    margin: 0 0 18px;
+                    font-family: &quot;JetBrains Mono&quot;, &quot;Courier New&quot;, monospace;
+                    font-size: 28px;
+                    font-weight: 700;
+                    letter-spacing: 6px;
+                    color: #18120c;
+                  "
+                >
+                  {{code}}
+                </p>
+
+                <!-- Info alert (blue) -->
+                <table
+                  role="presentation"
+                  cellspacing="0"
+                  cellpadding="0"
+                  style="
+                    background: #dcebfb;
+                    border: 1px solid rgba(30, 95, 168, 0.2);
+                    border-radius: 7px;
+                    width: 100%;
+                  "
+                >
+                  <tr>
+                    <td style="padding: 11px 0 11px 13px; width: 23px; vertical-align: top">
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke="#1E5FA8"
+                        stroke-width="1.5"
+                        style="display: block; margin-top: 1px"
+                      >
+                        <circle cx="8" cy="8" r="6.25" />
+                        <path d="M8 5v3.5M8 11v0.1" stroke-linecap="round" />
+                      </svg>
+                    </td>
+                    <td style="padding: 11px 13px 11px 9px; vertical-align: top">
+                      <div
+                        style="
+                          font-weight: 600;
+                          margin-bottom: 2px;
+                          font-size: 11.5px;
+                          color: #0f3460;
+                        "
+                      >
+                        Didn't try to sign in?
+                      </div>
+                      <div style="font-size: 11px; line-height: 1.5; color: #0f3460">
+                        You can ignore this email and your account stays secure.
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td
+                style="
+                  padding: 11px 32px;
+                  border-top: 1px solid rgba(24, 18, 12, 0.08);
+                  background: #fafaf7;
+                  font-family: &quot;JetBrains Mono&quot;, &quot;Courier New&quot;, monospace;
+                  font-size: 10px;
+                  color: #6f6356;
+                "
+              >
+                &copy; {{year}} RAGbot. All rights reserved.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

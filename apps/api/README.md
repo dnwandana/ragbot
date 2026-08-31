@@ -23,6 +23,7 @@ You can still run package-local commands from `apps/api` with `pnpm`.
 
 - **JWT Authentication**: Dual-token system with access tokens (15min) and refresh tokens (7 days), pinned to HS256, delivered as httpOnly cookies
 - **Email-Based Auth**: Signup with email + full_name, email verification required before signin, forgot/reset password flow
+- **Two-Factor Auth (2FA)**: Per-user opt-in TOTP (authenticator app) with one-time backup codes and an email-OTP fallback; gates sign-in via a short-lived (5-min) `2fa_challenge` cookie. TOTP secrets are AES-256-GCM encrypted at rest (`TOTP_ENCRYPTION_KEY`); email codes and attempt counters live in Redis
 - **Password Hashing**: Argon2 for secure password storage
 - **Email Tokens**: SHA-256 hashed tokens with configurable expiration (verify: 24h, reset: 1h, invitation: 7d)
 - **Security Headers**: Helmet with strict Content Security Policy, referrer protection, and HSTS (1-year max-age with preload)
@@ -109,7 +110,7 @@ The API will be available at `http://localhost:3000/api`
 
 Create a `.env` file from `.env.example`. See `.env.example` for the full list with defaults.
 
-**Required variables**: `DATABASE_URL`, `REDIS_URL`, `ACCESS_TOKEN_SECRET`, `REFRESH_TOKEN_SECRET`, `JWT_ISSUER`, `JWT_AUDIENCE`, `OPENROUTER_API_KEY`, `BREVO_API_KEY`, `EMAIL_FROM_ADDRESS`, `APP_URL`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_ENDPOINT`, `LLAMAINDEX_API_KEY`, `FIRECRAWL_API_KEY`
+**Required variables**: `DATABASE_URL`, `REDIS_URL`, `ACCESS_TOKEN_SECRET`, `REFRESH_TOKEN_SECRET`, `JWT_ISSUER`, `JWT_AUDIENCE`, `OPENROUTER_API_KEY`, `BREVO_API_KEY`, `EMAIL_FROM_ADDRESS`, `APP_URL`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_ENDPOINT`, `LLAMAINDEX_API_KEY`, `FIRECRAWL_API_KEY`, `TOTP_ENCRYPTION_KEY` (≥32 chars — AES key encrypting TOTP secrets at rest)
 
 **Optional with defaults**: `OPENROUTER_STREAM_TIMEOUT_MS` (60000) — abort an OpenRouter stream if no data arrives within this many ms. See `.env.example` for the full list.
 
@@ -177,20 +178,27 @@ npm run seed:make <name>       # Create a new seed file
 
 ### Authentication
 
-| Method | Endpoint                        | Description                                              | Auth Required |
-| ------ | ------------------------------- | -------------------------------------------------------- | ------------- |
-| POST   | `/api/auth/signup`              | Create account, sends verification email                 | No            |
-| POST   | `/api/auth/verify-email`        | Verify email via token from email link                   | No            |
-| POST   | `/api/auth/resend-verification` | Resend verification email (always returns 200)           | No            |
-| POST   | `/api/auth/signin`              | Sign in (requires verified email); sets httpOnly cookies | No            |
-| POST   | `/api/auth/forgot-password`     | Request password reset email (always returns 200)        | No            |
-| POST   | `/api/auth/reset-password`      | Reset password via token, revokes all sessions           | No            |
-| GET    | `/api/auth/me`                  | Verify cookie validity, return user                      | Access Token  |
-| PUT    | `/api/auth/profile`             | Update `full_name` and `timezone`                        | Access Token  |
-| DELETE | `/api/auth/profile`             | Delete account (soft delete, clears cookies)             | Access Token  |
-| PUT    | `/api/auth/password`            | Change password (`current_password`, `new_password`)     | Access Token  |
-| POST   | `/api/auth/refresh`             | Rotate tokens via httpOnly cookie                        | Refresh Token |
-| POST   | `/api/auth/logout`              | Revoke refresh token, clear cookies                      | Refresh Token |
+| Method | Endpoint                                | Description                                                                                                           | Auth Required   |
+| ------ | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | --------------- |
+| POST   | `/api/auth/signup`                      | Create account, sends verification email                                                                              | No              |
+| POST   | `/api/auth/verify-email`                | Verify email via token from email link                                                                                | No              |
+| POST   | `/api/auth/resend-verification`         | Resend verification email (always returns 200)                                                                        | No              |
+| POST   | `/api/auth/signin`                      | Sign in (requires verified email); sets httpOnly cookies, or returns `mfa_required` + challenge cookie when 2FA is on | No              |
+| POST   | `/api/auth/signin/2fa`                  | Complete 2FA sign-in (TOTP / backup / email code)                                                                     | Challenge Token |
+| POST   | `/api/auth/signin/2fa/email`            | Email a one-time code for the in-progress sign-in                                                                     | Challenge Token |
+| POST   | `/api/auth/forgot-password`             | Request password reset email (always returns 200)                                                                     | No              |
+| POST   | `/api/auth/reset-password`              | Reset password via token, revokes all sessions                                                                        | No              |
+| GET    | `/api/auth/me`                          | Verify cookie validity, return user                                                                                   | Access Token    |
+| PUT    | `/api/auth/profile`                     | Update `full_name` and `timezone`                                                                                     | Access Token    |
+| DELETE | `/api/auth/profile`                     | Delete account (soft delete, clears cookies)                                                                          | Access Token    |
+| PUT    | `/api/auth/password`                    | Change password (`current_password`, `new_password`)                                                                  | Access Token    |
+| POST   | `/api/auth/refresh`                     | Rotate tokens via httpOnly cookie                                                                                     | Refresh Token   |
+| POST   | `/api/auth/logout`                      | Revoke refresh token, clear cookies                                                                                   | Refresh Token   |
+| GET    | `/api/auth/2fa`                         | 2FA status (enabled, enabled_at, backup codes remaining)                                                              | Access Token    |
+| POST   | `/api/auth/2fa/setup`                   | Re-auth (password), store pending TOTP secret + otpauth URL                                                           | Access Token    |
+| POST   | `/api/auth/2fa/activate`                | Verify code, enable 2FA, return one-time backup codes                                                                 | Access Token    |
+| POST   | `/api/auth/2fa/disable`                 | Re-auth (password + second factor), disable 2FA                                                                       | Access Token    |
+| POST   | `/api/auth/2fa/backup-codes/regenerate` | Re-auth (password + second factor), reissue backup codes                                                              | Access Token    |
 
 ### Permissions
 
@@ -335,7 +343,7 @@ apps/api/
 │   │   ├── render.js            # Template loader with {{var}} substitution
 │   │   └── templates/           # verify-email.html, reset-password.html, workspace-invitation.html
 │   ├── middlewares/
-│   │   ├── authorization.js     # requireAccessToken, requireRefreshToken
+│   │   ├── authorization.js     # requireAccessToken, requireRefreshToken, requireChallengeToken
 │   │   ├── error.js             # errorHandler, notFoundHandler
 │   │   ├── logger.js            # httpLogger (Morgan), requestLogger (Winston)
 │   │   ├── rate-limit.js        # authLimiter, generalLimiter

@@ -76,3 +76,32 @@ export const verifyRefreshToken = (token) => {
     audience: process.env.JWT_AUDIENCE,
   })
 }
+
+/**
+ * Generates a short-lived second-factor challenge token (5 minutes).
+ * Signed with the access-token secret but tagged so it cannot be used as an access token.
+ *
+ * @param {string} id - The user UUID awaiting second-factor verification.
+ * @returns {string} A signed challenge JWT.
+ */
+export const generateChallengeToken = (id) =>
+  jwt.sign({ id, type: "2fa_challenge" }, process.env.ACCESS_TOKEN_SECRET, {
+    algorithm: "HS256",
+    expiresIn: "5m",
+    issuer: process.env.JWT_ISSUER,
+    audience: process.env.JWT_AUDIENCE,
+  })
+
+/**
+ * Verifies a second-factor challenge token.
+ *
+ * @param {string} token - The challenge JWT.
+ * @returns {Object} The decoded payload.
+ * @throws {Error} If verification fails.
+ */
+export const verifyChallengeToken = (token) =>
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, {
+    algorithms: ["HS256"],
+    issuer: process.env.JWT_ISSUER,
+    audience: process.env.JWT_AUDIENCE,
+  })

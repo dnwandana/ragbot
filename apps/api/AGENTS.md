@@ -111,6 +111,8 @@ req.permissions // [] of permission names (populated by resolveWorkspace)
 - DELETE `/api/auth/sessions` → revokes every session except the current one, denylisting each; returns `{ revoked }`. 400 if the request carries no `sid`
 - DELETE `/api/auth/sessions/:id` → revokes one session by id and denylists it; 404 if it is not the caller's
 
+**Two-factor (TOTP) gating** — 2FA is per-user opt-in (TOTP authenticator + one-time backup codes + email-OTP fallback). `/api/auth/2fa/*` (requireAccessToken) manage it via two-phase activation: `setup` stores the encrypted secret with `totp_enabled = false`; `activate` (after a verified code) flips it on and returns plaintext backup codes once. When a user with 2FA enabled passes `signin`, the server issues a short-lived (5-min) `2fa_challenge` cookie (signed with `ACCESS_TOKEN_SECRET`, `type: "2fa_challenge"`, path `/api/auth`, httpOnly) instead of access/refresh tokens; the client then calls `POST /api/auth/signin/2fa` (TOTP or backup code) or `POST /api/auth/signin/2fa/email` (request an emailed code) to complete sign-in. The challenge token cannot be used as an access token (type guard in `requireAccessToken`). Email OTP and per-key attempt counters live in Redis, never Postgres.
+
 Token cookies: `access_token` and `refresh_token` (httpOnly cookies set by server). JWT algorithm pinned to HS256 with explicit verification.
 
 **Instant access-token revocation**: each access token carries a `sid` claim bound to its `refresh_tokens` session row. `requireAccessToken` (now async) checks a Redis **session denylist** (`utils/session-denylist.js`) on every request and rejects revoked sessions with 401, then sets `req.sessionId`. Revoking a session (single, others, logout, password change/reset, account delete) calls `denySession(sid)`, so a live access token stops working within one access-token TTL even though it hasn't expired. The denylist **fails open** (auth still works if Redis is down) and its TTL is derived from `ACCESS_TOKEN_EXPIRES_IN` so it always outlives the access token. Tokens minted before this feature carry no `sid` and skip the check for one access-token TTL after deploy.
@@ -178,24 +180,31 @@ The chat feature uses a server-side ReAct (Reason-Act-Observe) loop with dual-mo
 
 ### Public (no authentication)
 
-| Method | Path                            | Controller                          | Auth                | Rate Limit          |
-| ------ | ------------------------------- | ----------------------------------- | ------------------- | ------------------- |
-| GET    | `/health`                       | Inline handler                      | No                  | No (before limiter) |
-| POST   | `/api/auth/signup`              | `authentication.signup`             | No                  | authLimiter         |
-| POST   | `/api/auth/verify-email`        | `authentication.verifyEmail`        | No                  | authLimiter         |
-| POST   | `/api/auth/resend-verification` | `authentication.resendVerification` | No                  | authLimiter         |
-| POST   | `/api/auth/signin`              | `authentication.signin`             | No                  | authLimiter         |
-| POST   | `/api/auth/forgot-password`     | `authentication.forgotPassword`     | No                  | authLimiter         |
-| POST   | `/api/auth/reset-password`      | `authentication.resetPassword`      | No                  | authLimiter         |
-| GET    | `/api/auth/me`                  | `authentication.getMe`              | requireAccessToken  | authLimiter         |
-| PUT    | `/api/auth/profile`             | `authentication.updateProfile`      | requireAccessToken  | authLimiter         |
-| DELETE | `/api/auth/profile`             | `authentication.deleteProfile`      | requireAccessToken  | authLimiter         |
-| PUT    | `/api/auth/password`            | `authentication.changePassword`     | requireAccessToken  | authLimiter         |
-| POST   | `/api/auth/refresh`             | `authentication.refreshAccessToken` | requireRefreshToken | authLimiter         |
-| POST   | `/api/auth/logout`              | `authentication.logout`             | requireRefreshToken | authLimiter         |
-| GET    | `/api/auth/sessions`            | `sessions.listSessions`             | requireAccessToken  | authLimiter         |
-| DELETE | `/api/auth/sessions`            | `sessions.revokeOtherSessions`      | requireAccessToken  | authLimiter         |
-| DELETE | `/api/auth/sessions/:id`        | `sessions.revokeSession`            | requireAccessToken  | authLimiter         |
+| Method | Path                                    | Controller                              | Auth                  | Rate Limit          |
+| ------ | --------------------------------------- | --------------------------------------- | --------------------- | ------------------- |
+| GET    | `/health`                               | Inline handler                          | No                    | No (before limiter) |
+| POST   | `/api/auth/signup`                      | `authentication.signup`                 | No                    | authLimiter         |
+| POST   | `/api/auth/verify-email`                | `authentication.verifyEmail`            | No                    | authLimiter         |
+| POST   | `/api/auth/resend-verification`         | `authentication.resendVerification`     | No                    | authLimiter         |
+| POST   | `/api/auth/signin`                      | `authentication.signin`                 | No                    | authLimiter         |
+| POST   | `/api/auth/signin/2fa`                  | `authentication.verifySigninTwoFactor`  | requireChallengeToken | authLimiter         |
+| POST   | `/api/auth/signin/2fa/email`            | `authentication.requestSigninEmailCode` | requireChallengeToken | authLimiter         |
+| POST   | `/api/auth/forgot-password`             | `authentication.forgotPassword`         | No                    | authLimiter         |
+| POST   | `/api/auth/reset-password`              | `authentication.resetPassword`          | No                    | authLimiter         |
+| GET    | `/api/auth/me`                          | `authentication.getMe`                  | requireAccessToken    | authLimiter         |
+| PUT    | `/api/auth/profile`                     | `authentication.updateProfile`          | requireAccessToken    | authLimiter         |
+| DELETE | `/api/auth/profile`                     | `authentication.deleteProfile`          | requireAccessToken    | authLimiter         |
+| PUT    | `/api/auth/password`                    | `authentication.changePassword`         | requireAccessToken    | authLimiter         |
+| POST   | `/api/auth/refresh`                     | `authentication.refreshAccessToken`     | requireRefreshToken   | authLimiter         |
+| POST   | `/api/auth/logout`                      | `authentication.logout`                 | requireRefreshToken   | authLimiter         |
+| GET    | `/api/auth/sessions`                    | `sessions.listSessions`                 | requireAccessToken    | authLimiter         |
+| DELETE | `/api/auth/sessions`                    | `sessions.revokeOtherSessions`          | requireAccessToken    | authLimiter         |
+| DELETE | `/api/auth/sessions/:id`                | `sessions.revokeSession`                | requireAccessToken    | authLimiter         |
+| GET    | `/api/auth/2fa`                         | `two-factor.getStatus`                  | requireAccessToken    | authLimiter         |
+| POST   | `/api/auth/2fa/setup`                   | `two-factor.setup`                      | requireAccessToken    | authLimiter         |
+| POST   | `/api/auth/2fa/activate`                | `two-factor.activate`                   | requireAccessToken    | authLimiter         |
+| POST   | `/api/auth/2fa/disable`                 | `two-factor.disable`                    | requireAccessToken    | authLimiter         |
+| POST   | `/api/auth/2fa/backup-codes/regenerate` | `two-factor.regenerateBackupCodes`      | requireAccessToken    | authLimiter         |
 
 ### Authenticated (requireAccessToken)
 
@@ -246,23 +255,25 @@ Audit logging is implemented and wired (not planned). `src/utils/audit.js` expor
 | `dataset-file-chunks.js`            | `bulkInsert`, `deleteByFileId`, `countByDatasetFileId`, `deleteByDatasetId`, `count`, `findManyPaginated`                                                                                               |
 | `dataset-file-questions.js`         | `bulkInsert`, `findByFileId`, `deleteByFileId`, `deleteByDatasetId`                                                                                                                                     |
 | `audit-logs.js`                     | `findMany`, `count`                                                                                                                                                                                     |
+| `mfa-backup-codes.js`               | `generateCodes`, `replaceForUser`, `countActive`, `consume`, `deleteForUser`                                                                                                                            |
 
 ## Controller Catalog
 
-| File                | Exports                                                                                                                                                                                 |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `authentication.js` | `signup`, `verifyEmail`, `resendVerification`, `signin`, `forgotPassword`, `resetPassword`, `getMe`, `updateProfile`, `deleteProfile`, `changePassword`, `refreshAccessToken`, `logout` |
-| `sessions.js`       | `listSessions`, `revokeSession`, `revokeOtherSessions`                                                                                                                                  |
-| `permissions.js`    | `getPermissions`                                                                                                                                                                        |
-| `roles.js`          | `createRole`, `getRoles`, `getRole`, `updateRole`, `deleteRole`                                                                                                                         |
-| `agents.js`         | `createAgent`, `listAgents`, `getAgent`, `updateAgent`, `deleteAgent`                                                                                                                   |
-| `conversations.js`  | `createConversation`, `listConversations`, `getConversation`, `updateConversation`, `deleteConversation`                                                                                |
-| `datasets.js`       | `createDataset`, `listDatasets`, `getDataset`, `listDatasetQuestions`, `updateDataset`, `deleteDataset`, `createConversationFromDataset`                                                |
-| `chat.js`           | `sendMessage`                                                                                                                                                                           |
-| `members.js`        | `listMembers`, `getMember`, `inviteMember`, `changeRole`, `removeMember`, `acceptInvitation`, `previewInvitation`                                                                       |
-| `workspaces.js`     | `createWorkspace`, `getWorkspaces`, `getWorkspace`, `updateWorkspace`, `deleteWorkspace`                                                                                                |
-| `dataset-files.js`  | `upload` (Multer middleware), `uploadFile`, `scrapeUrl`, `addYouTube`, `listFiles`, `getFile`, `updateFile`, `deleteFile`, `reprocessFile`, `listFileQuestions`, `listFileChunks`       |
-| `audit-logs.js`     | `listAuditLogs`                                                                                                                                                                         |
+| File                | Exports                                                                                                                                                                                                                                    |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `authentication.js` | `signup`, `verifyEmail`, `resendVerification`, `signin`, `verifySigninTwoFactor`, `requestSigninEmailCode`, `forgotPassword`, `resetPassword`, `getMe`, `updateProfile`, `deleteProfile`, `changePassword`, `refreshAccessToken`, `logout` |
+| `sessions.js`       | `listSessions`, `revokeSession`, `revokeOtherSessions`                                                                                                                                                                                     |
+| `two-factor.js`     | `getStatus`, `setup`, `activate`, `disable`, `regenerateBackupCodes`                                                                                                                                                                       |
+| `permissions.js`    | `getPermissions`                                                                                                                                                                                                                           |
+| `roles.js`          | `createRole`, `getRoles`, `getRole`, `updateRole`, `deleteRole`                                                                                                                                                                            |
+| `agents.js`         | `createAgent`, `listAgents`, `getAgent`, `updateAgent`, `deleteAgent`                                                                                                                                                                      |
+| `conversations.js`  | `createConversation`, `listConversations`, `getConversation`, `updateConversation`, `deleteConversation`                                                                                                                                   |
+| `datasets.js`       | `createDataset`, `listDatasets`, `getDataset`, `listDatasetQuestions`, `updateDataset`, `deleteDataset`, `createConversationFromDataset`                                                                                                   |
+| `chat.js`           | `sendMessage`                                                                                                                                                                                                                              |
+| `members.js`        | `listMembers`, `getMember`, `inviteMember`, `changeRole`, `removeMember`, `acceptInvitation`, `previewInvitation`                                                                                                                          |
+| `workspaces.js`     | `createWorkspace`, `getWorkspaces`, `getWorkspace`, `updateWorkspace`, `deleteWorkspace`                                                                                                                                                   |
+| `dataset-files.js`  | `upload` (Multer middleware), `uploadFile`, `scrapeUrl`, `addYouTube`, `listFiles`, `getFile`, `updateFile`, `deleteFile`, `reprocessFile`, `listFileQuestions`, `listFileChunks`                                                          |
+| `audit-logs.js`     | `listAuditLogs`                                                                                                                                                                                                                            |
 
 ## Middleware Catalog
 
@@ -280,28 +291,33 @@ Audit logging is implemented and wired (not planned). `src/utils/audit.js` expor
 
 ## Utility Catalog
 
-| File                  | Exports                                                                                                               |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `argon2.js`           | `hashPassword`, `verifyPassword`                                                                                      |
-| `jwt.js`              | `generateAccessToken`, `generateRefreshToken`, `verifyAccessToken`, `verifyRefreshToken`                              |
-| `cookies.js`          | `setAccessTokenCookie`, `setRefreshTokenCookie`, `clearAuthCookies`                                                   |
-| `http-error.js`       | `HttpError` (default)                                                                                                 |
-| `response.js`         | `apiResponse` (default)                                                                                               |
-| `pagination.js`       | `validatePaginationQuery`, `buildPaginationMeta`, `executePaginatedQuery`                                             |
-| `sanitize.js`         | `escapeIlike`                                                                                                         |
-| `constant.js`         | `HTTP_STATUS_CODE`, `HTTP_STATUS_MESSAGE`                                                                             |
-| `logger.js`           | `logger` (default, Winston instance)                                                                                  |
-| `redis.js`            | `parseRedisUrl`                                                                                                       |
-| `session-denylist.js` | `denySession`, `isSessionDenied` — Redis access-token denylist; fail-open, TTL derived from `ACCESS_TOKEN_EXPIRES_IN` |
-| `allowed-models.js`   | `ALLOWED_MODELS`, `DEFAULT_MODEL` — agent model allowlist and default chat model                                      |
-| `audit.js`            | `logAuditEvent` — inserts an immutable audit_logs row for a workspace-scoped action                                   |
-| `validate-env.js`     | `validateEnv` (default)                                                                                               |
+| File                  | Exports                                                                                                                   |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `argon2.js`           | `hashPassword`, `verifyPassword`                                                                                          |
+| `jwt.js`              | `generateAccessToken`, `generateRefreshToken`, `verifyAccessToken`, `verifyRefreshToken`                                  |
+| `cookies.js`          | `setAccessTokenCookie`, `setRefreshTokenCookie`, `clearAuthCookies`                                                       |
+| `http-error.js`       | `HttpError` (default)                                                                                                     |
+| `response.js`         | `apiResponse` (default)                                                                                                   |
+| `pagination.js`       | `validatePaginationQuery`, `buildPaginationMeta`, `executePaginatedQuery`                                                 |
+| `sanitize.js`         | `escapeIlike`                                                                                                             |
+| `constant.js`         | `HTTP_STATUS_CODE`, `HTTP_STATUS_MESSAGE`                                                                                 |
+| `logger.js`           | `logger` (default, Winston instance)                                                                                      |
+| `redis.js`            | `parseRedisUrl`                                                                                                           |
+| `session-denylist.js` | `denySession`, `isSessionDenied` — Redis access-token denylist; fail-open, TTL derived from `ACCESS_TOKEN_EXPIRES_IN`     |
+| `allowed-models.js`   | `ALLOWED_MODELS`, `DEFAULT_MODEL` — agent model allowlist and default chat model                                          |
+| `audit.js`            | `logAuditEvent` — inserts an immutable audit_logs row for a workspace-scoped action                                       |
+| `totp.js`             | `generateTotpSecret`, `buildOtpauthUrl`, `verifyTotp` — TOTP secret/otpauth-URL generation and code verification (otplib) |
+| `totp-crypto.js`      | `encryptSecret`, `decryptSecret` — AES-256-GCM encrypt/decrypt of the TOTP secret at rest, keyed by `TOTP_ENCRYPTION_KEY` |
+| `mfa-email-otp.js`    | `issue`, `verify`, `cooldownRemaining` — Redis-backed email one-time codes (sign-in 2FA email fallback)                   |
+| `mfa-attempts.js`     | `MAX_ATTEMPTS`, `record`, `reset` — Redis per-key 2FA attempt counters (lockout)                                          |
+| `redis-client.js`     | `getClient` — shared ioredis client for the MFA email-OTP and attempt utilities                                           |
+| `validate-env.js`     | `validateEnv` (default)                                                                                                   |
 
 ## Service Catalog
 
 | File                     | Exports                                                                                                                                         | Description                                                                                                 |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `email.js`               | `sendEmail`                                                                                                                                     | Brevo transactional email via inline HTML templates                                                         |
+| `email.js`               | `sendEmail`, `sendTwoFactorCodeEmail`                                                                                                           | Brevo transactional email via inline HTML templates (incl. sign-in 2FA email one-time code)                 |
 | `openrouter.js`          | `embedText`, `embedBatch`, `chatCompletion`, `chatCompletionStream`, `transcribeAudio`                                                          | OpenRouter LLM inference for embeddings, chat, streaming, and Whisper audio transcription                   |
 | `rag.js`                 | `searchChunks`, `buildSystemMessage`                                                                                                            | RAG pipeline: embed query, vector search, build context                                                     |
 | `firecrawl.js`           | `scrapeUrl`                                                                                                                                     | Scrape a URL to markdown via the Firecrawl API                                                              |
@@ -335,9 +351,9 @@ Audit logging is implemented and wired (not planned). `src/utils/audit.js` expor
 
 ## Environment Variables
 
-Required: `DATABASE_URL`, `REDIS_URL` (Redis connection string — `redis://localhost:6379` locally, `rediss://` for TLS), `ACCESS_TOKEN_SECRET` (≥32 chars), `REFRESH_TOKEN_SECRET` (≥32 chars, must differ), `JWT_ISSUER`, `JWT_AUDIENCE`, `OPENROUTER_API_KEY`, `BREVO_API_KEY`, `EMAIL_FROM_ADDRESS`, `APP_URL`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_ENDPOINT`, `LLAMAINDEX_API_KEY`, `FIRECRAWL_API_KEY`
+Required: `DATABASE_URL`, `REDIS_URL` (Redis connection string — `redis://localhost:6379` locally, `rediss://` for TLS), `ACCESS_TOKEN_SECRET` (≥32 chars), `REFRESH_TOKEN_SECRET` (≥32 chars, must differ), `JWT_ISSUER`, `JWT_AUDIENCE`, `OPENROUTER_API_KEY`, `BREVO_API_KEY`, `EMAIL_FROM_ADDRESS`, `APP_URL`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_ENDPOINT`, `LLAMAINDEX_API_KEY`, `FIRECRAWL_API_KEY`, `TOTP_ENCRYPTION_KEY` (≥32 chars — AES key encrypting TOTP secrets at rest)
 
-Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_EXPIRES_IN` (15m), `REFRESH_TOKEN_EXPIRES_IN` (7d), `LOG_LEVEL` (info), `LOG_TO_FILE` (true), `CORS_ALLOWED_ORIGINS` (http://localhost:8080), `RATE_LIMIT_AUTH_MAX` (10, capped at 50), `RATE_LIMIT_GENERAL_MAX` (100), `DEFAULT_EMBEDDINGS_MODEL` (openai/text-embedding-3-small), `DEFAULT_CHAT_MODEL` (openai/gpt-5.4-mini), `S3_REGION` (auto), `EMAIL_FROM_NAME` ("RAGBot"), `LLAMAINDEX_PARSE_TIER` (cost_effective), `OPENROUTER_STREAM_TIMEOUT_MS` (60000), `OPENROUTER_TIMEOUT_MS` (30000), `FIRECRAWL_TIMEOUT_MS` (60000), `LLAMAINDEX_TIMEOUT_MS` (30000), `S3_TIMEOUT_MS` (10000), `IP_GEOLOCATION_ENABLED` (false), `IPGEOLOCATION_TIMEOUT_MS` (5000), `WHISPER_MODEL` (openai/whisper-large-v3-turbo), `OPENROUTER_TRANSCRIBE_TIMEOUT_MS` (120000), `YTDLP_PATH` (yt-dlp), `FFMPEG_PATH` (ffmpeg), `YOUTUBE_AUDIO_SEGMENT_SECONDS` (600), `YOUTUBE_WORKER_CONCURRENCY` (1), `YOUTUBE_DOWNLOAD_TIMEOUT_MS` (600000), `YOUTUBE_MAX_DURATION_SECONDS` (7200), `YOUTUBE_MAX_FILESIZE` (150M)
+Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_EXPIRES_IN` (15m), `REFRESH_TOKEN_EXPIRES_IN` (7d), `LOG_LEVEL` (info), `LOG_TO_FILE` (true), `CORS_ALLOWED_ORIGINS` (http://localhost:8080), `RATE_LIMIT_AUTH_MAX` (10, capped at 50), `RATE_LIMIT_GENERAL_MAX` (100), `DEFAULT_EMBEDDINGS_MODEL` (openai/text-embedding-3-small), `DEFAULT_CHAT_MODEL` (openai/gpt-5.4-mini), `S3_REGION` (auto), `EMAIL_FROM_NAME` ("RAGBot"), `LLAMAINDEX_PARSE_TIER` (cost_effective), `OPENROUTER_STREAM_TIMEOUT_MS` (60000), `OPENROUTER_TIMEOUT_MS` (30000), `FIRECRAWL_TIMEOUT_MS` (60000), `LLAMAINDEX_TIMEOUT_MS` (30000), `S3_TIMEOUT_MS` (10000), `IP_GEOLOCATION_ENABLED` (false), `IPGEOLOCATION_TIMEOUT_MS` (5000), `WHISPER_MODEL` (openai/whisper-large-v3-turbo), `OPENROUTER_TRANSCRIBE_TIMEOUT_MS` (120000), `YTDLP_PATH` (yt-dlp), `FFMPEG_PATH` (ffmpeg), `YOUTUBE_AUDIO_SEGMENT_SECONDS` (600), `YOUTUBE_WORKER_CONCURRENCY` (1), `YOUTUBE_DOWNLOAD_TIMEOUT_MS` (600000), `YOUTUBE_MAX_DURATION_SECONDS` (7200), `YOUTUBE_MAX_FILESIZE` (150M), `TOTP_ISSUER` ("RAGbot")
 
 > Session geolocation: when `IP_GEOLOCATION_ENABLED=true`, `IPGEOLOCATION_API_KEY` is **required** (`validateEnv` exits otherwise) and session IPs are resolved to a "City, CC" label shown in the sessions list. Lookups are skipped (location stays `null`) for private/loopback IPs, so locally-originated sessions never resolve a location even when enabled. The denylist's TTL is not a separate env var — it is derived from `ACCESS_TOKEN_EXPIRES_IN`.
 
@@ -346,7 +362,7 @@ Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_E
 ## Database
 
 - **Config**: `knexfile.js` — loads `.env.test` when `NODE_ENV=test`, connection pool min 2, max 10
-- **Migrations**: `database/migrations/` — 10 migration files using raw SQL:
+- **Migrations**: `database/migrations/` — 11 migration files using raw SQL:
   - 001: Extensions (pgcrypto, vector) + 5 ENUM types
   - 002: Core tenancy (workspaces, users, email_tokens, refresh_tokens)
   - 003: Roles & permissions (permissions, roles, role_permissions, workspace_members with `invited_email` for unregistered-invite binding)
@@ -357,10 +373,11 @@ Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_E
   - 008: Audit logs (append-only, immutable)
   - 009: Expiry indexes (email_tokens, refresh_tokens)
   - 010: Session metadata on refresh_tokens (`user_agent`, `ip_address`, `last_used_at`, `location`)
+  - 011: Two-factor auth (users `totp_*` columns, `mfa_backup_codes` table)
 - **Seeds**: `database/seeds/` — 2 seed files:
   - 01: 31 permissions across 8 resources (workspace, role, member, audit, dataset, file, agent, conversation)
   - 02: 2 test users (alice@example.com, bob@example.com, password: "Password123!")
-- 18 tables total, workspace-scoped via `workspace_id` with composite FKs
+- 19 tables total, workspace-scoped via `workspace_id` with composite FKs
 - Soft delete pattern on 7 tables (`workspaces`, `users`, `workspace_members`, `datasets`, `dataset_files`, `agents`, `conversations`) via `deleted_at` column with partial unique indexes
 - pgvector `vector(1536)` column for OpenAI embeddings with HNSW index
 
@@ -378,11 +395,11 @@ Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_E
   - `getAuthHeaders(userId)` — generates JWT tokens, stores refresh hash in DB, returns Cookie header
   - `createTestWorkspace(userId)` — creates workspace + 4 system roles + permissions + adds creator as owner + creates system agent
   - `addWorkspaceMember(workspaceId, userId, roleId)` — adds member with active status
-  - `cleanAllTables()` — truncates all 18 tables in dependency order
+  - `cleanAllTables()` — truncates all 19 tables in dependency order
   - `seedPermissions()` — seeds 31 RAG permissions
 - **Current test status** — static count from the test files; live passing count comes from `corepack pnpm test:api`:
-  - Integration: agents (28), agents-default-conflict (2), auth (41), chat (8), conversations (11), dataset-file-chunks (2), dataset-file-questions (6), dataset-questions (5), dataset-files (23), datasets (14), file-processing (3), health (5), members (8), permissions (13), roles (15), workspaces (7)
-  - Unit: allowed-models (2), consume-stream (3), email-render (4), file-processing-worker (3), http-error (3), ip-geolocation (4), llamaindex-poll (6), pagination (12), redis (5), request-id (4), sanitize (6), session-denylist (10), ssrf (18), test-users-seed (2), url-slug (9), validate-env (22)
+  - Integration: agents (28), agents-default-conflict (2), auth (41), chat (8), conversations (11), dataset-file-chunks (2), dataset-file-questions (6), dataset-questions (5), dataset-files (23), datasets (14), file-processing (3), health (5), members (8), mfa-backup-codes-model (5), permissions (13), roles (15), signin-2fa (6), two-factor (7), users-2fa-model (2), workspaces (7)
+  - Unit: allowed-models (2), consume-stream (3), email-render (4), file-processing-worker (3), http-error (3), ip-geolocation (4), llamaindex-poll (6), mfa-email-otp (3), pagination (12), redis (5), request-id (4), sanitize (6), session-denylist (10), ssrf (18), test-users-seed (2), totp (4), totp-crypto (4), url-slug (9), validate-env (22), validate-env-2fa (2)
   - Session management (in `tests/`): sessions (5), session-revocation (3), jwt-sid (1), refresh-tokens-model (5)
   - Skipped (0)
   - No Redis required for local test runs (queue + session-denylist modules mocked via `tests/setup.js`; the real denylist is unit-tested with `ioredis` mocked)

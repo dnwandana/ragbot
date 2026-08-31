@@ -66,6 +66,10 @@ const envSchema = joi
     EMAIL_FROM_ADDRESS: joi.string().email().required(),
     APP_URL: joi.string().uri().required(),
 
+    // Two-factor authentication
+    TOTP_ENCRYPTION_KEY: joi.string().min(32).required(),
+    TOTP_ISSUER: joi.string().default("RAGbot"),
+
     // Storage
     S3_BUCKET: joi.string().required(),
     S3_REGION: joi.string().default("auto"),

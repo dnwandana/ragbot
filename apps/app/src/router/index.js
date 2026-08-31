@@ -34,6 +34,12 @@ const routes = [
     component: () => import("@/views/auth/ResetPasswordView.vue"),
     meta: { requiresGuest: true },
   },
+  {
+    path: "/login/2fa",
+    name: "TwoFactorChallenge",
+    component: () => import("@/views/auth/TwoFactorChallengeView.vue"),
+    meta: { requiresGuest: true },
+  },
 
   // ── Default redirect ─────────────────────────────────────────────────
   {

@@ -2,7 +2,11 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
 import { setActivePinia, createPinia } from "pinia"
 
-vi.mock("../api/auth.js", () => ({ logout: vi.fn().mockResolvedValue({}), getMe: vi.fn() }))
+vi.mock("../api/auth.js", () => ({
+  signin: vi.fn(),
+  logout: vi.fn().mockResolvedValue({}),
+  getMe: vi.fn(),
+}))
 const { clearOnboardingData } = vi.hoisted(() => ({ clearOnboardingData: vi.fn() }))
 vi.mock("../utils/storage.js", () => ({
   getUserData: () => null,
@@ -11,6 +15,7 @@ vi.mock("../utils/storage.js", () => ({
   clearOnboardingData,
 }))
 
+import * as authApi from "../api/auth.js"
 import { useAuthStore } from "./auth.js"
 import { useWorkspacesStore } from "./workspaces.js"
 import { useConversationsStore } from "./conversations.js"
@@ -58,5 +63,25 @@ describe("logout teardown", () => {
     const auth = useAuthStore()
     await auth.logout()
     expect(clearOnboardingData).toHaveBeenCalled()
+  })
+})
+
+describe("auth store — 2FA", () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
+  it("signin returns mfaRequired and does not set user", async () => {
+    authApi.signin.mockResolvedValue({ data: { data: { mfa_required: true } } })
+    const store = useAuthStore()
+    const result = await store.signin("e@x.com", "pw")
+    expect(result.mfaRequired).toBe(true)
+    expect(store.user).toBeNull()
+  })
+
+  it("signin sets user when no 2FA", async () => {
+    authApi.signin.mockResolvedValue({ data: { data: { id: "u1", email: "e@x.com" } } })
+    const store = useAuthStore()
+    const result = await store.signin("e@x.com", "pw")
+    expect(result.mfaRequired).toBe(false)
+    expect(store.user.id).toBe("u1")
   })
 })

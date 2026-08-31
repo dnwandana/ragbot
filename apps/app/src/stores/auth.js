@@ -48,18 +48,40 @@ export const useAuthStore = defineStore("auth", () => {
   /**
    * Authenticates a user and stores their profile locally.
    *
+   * When the server requires a second factor, no user/profile is persisted and
+   * the caller is signalled to continue with the 2FA challenge.
+   *
    * @param {string} email - User's email address.
    * @param {string} password - User's password.
+   * @returns {Promise<{ mfaRequired: boolean }>} Whether a 2FA challenge is required.
    */
   async function signin(email, password) {
     loading.value = true
     try {
       const res = await authApi.signin(email, password)
-      user.value = res.data.data
+      const data = res.data.data
+      if (data?.mfa_required) {
+        return { mfaRequired: true }
+      }
+      user.value = data
       setUserData(user.value)
+      return { mfaRequired: false }
     } finally {
       loading.value = false
     }
+  }
+
+  /**
+   * Persists a freshly authenticated user after a 2FA challenge completes.
+   *
+   * Mirrors the non-2FA signin path (which sets the user inline) so the route
+   * guard sees an authenticated user and a page reload restores the session.
+   *
+   * @param {Object} profile - The authenticated user ({ id, email, full_name }).
+   */
+  function setAuthenticatedUser(profile) {
+    user.value = profile
+    setUserData(user.value)
   }
 
   /** Logs out the current user and clears local auth data. */
@@ -114,6 +136,7 @@ export const useAuthStore = defineStore("auth", () => {
     initAuth,
     signup,
     signin,
+    setAuthenticatedUser,
     logout,
     forgotPassword,
     resetPassword,

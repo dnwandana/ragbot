@@ -1,7 +1,7 @@
 <script setup>
 import { ref, reactive, computed, watchEffect, onMounted, onUnmounted } from "vue"
 import { useRouter } from "vue-router"
-import { LayoutGrid, UserPlus, Database, Bot, ArrowRight } from "lucide-vue-next"
+import { LayoutGrid, UserPlus, Database, Bot, ShieldCheck, ArrowRight } from "lucide-vue-next"
 import { useWorkspacesStore } from "@/stores/workspaces"
 import { useRolesStore } from "@/stores/roles"
 import { useDatasetsStore } from "@/stores/datasets"
@@ -19,6 +19,7 @@ import OnboardingProgress from "@/components/onboarding/OnboardingProgress.vue"
 import OnboardingToast from "@/components/onboarding/OnboardingToast.vue"
 import OnboardingWelcome from "./steps/OnboardingWelcome.vue"
 import OnboardingWorkspace from "./steps/OnboardingWorkspace.vue"
+import OnboardingSecure from "./steps/OnboardingSecure.vue"
 import OnboardingInvite from "./steps/OnboardingInvite.vue"
 import OnboardingSource from "./steps/OnboardingSource.vue"
 import OnboardingAgent from "./steps/OnboardingAgent.vue"
@@ -37,6 +38,7 @@ const RESERVED = ["admin", "test", "ragbot", "demo", "www", "api"]
 
 const STEPS = [
   { key: "workspace", label: "Create your workspace", icon: LayoutGrid, required: true },
+  { key: "secure", label: "Secure your account", icon: ShieldCheck, required: false },
   { key: "invites", label: "Invite your team", icon: UserPlus, required: false },
   { key: "source", label: "Add a knowledge source", icon: Database, required: false },
   { key: "agent", label: "Create your first agent", icon: Bot, required: false },
@@ -468,6 +470,7 @@ onUnmounted(() => clearTimeout(toastTimer))
               @update:workspace-name="formData.workspaceName = $event"
               @update:workspace-description="formData.workspaceDescription = $event"
             />
+            <OnboardingSecure v-else-if="STEPS[stepIdx].key === 'secure'" :ctx="ctx" />
             <OnboardingInvite
               v-else-if="STEPS[stepIdx].key === 'invites'"
               :ctx="ctx"
