@@ -39,6 +39,7 @@ export default defineConfig({
           { text: "Datasets", link: "/concepts/datasets" },
           { text: "Agents", link: "/concepts/agents" },
           { text: "Chatting with your data", link: "/concepts/chatting" },
+          { text: "Analyzing data files", link: "/concepts/data-analysis" },
           { text: "Audit logs", link: "/concepts/audit-logs" },
           { text: "Your profile & account", link: "/concepts/account" },
         ],

@@ -5,7 +5,7 @@
 ## What it is
 
 - **VitePress static site** (`^1.6.4`, bundles Vue 3.5) — prerendered to `.vitepress/dist`, no server runtime.
-- Scope: end-user docs. Five sections — **Getting Started** (Overview, Accounts & Signing In, Onboarding, Quick Start), **Concepts & How-To** (Workspaces, Members & Roles, Datasets, Agents, Chatting, Audit logs, Profile & account), **Reference** (Product tour), **For Developers** (Architecture, Running locally, Deployment), and **Help** (FAQ, Troubleshooting). Not the product UI (`apps/app`) or marketing site (`apps/web`).
+- Scope: end-user docs. Five sections — **Getting Started** (Overview, Accounts & Signing In, Onboarding, Quick Start), **Concepts & How-To** (Workspaces, Members & Roles, Datasets, Agents, Chatting, Analyzing data files, Audit logs, Profile & account), **Reference** (Product tour), **For Developers** (Architecture, Running locally, Deployment), and **Help** (FAQ, Troubleshooting). Not the product UI (`apps/app`) or marketing site (`apps/web`).
 - **Theme:** VitePress default theme, restyled to the RAGBot design tokens in `.vitepress/theme/styles/tokens.css` (+ `components.css`). Dark mode uses VitePress's `.dark` selector.
 - **Components:** doc **primitives** (`Cards`/`Card`, `Steps`/`Step`, `Faq`, `MockFrame`, `Shot`) plus **product mockups** — pixel-faithful recreations of real `apps/app` screens — registered globally via `enhanceApp`. Icons from `lucide-vue-next`.
 
@@ -16,7 +16,7 @@ apps/docs/
 ├── index.md                 # Overview / landing page
 ├── getting-started/         # signing-in, onboarding, quick-start
 ├── concepts/                # workspaces, members-roles, datasets, agents,
-│                            #   chatting, audit-logs, account
+│                            #   chatting, data-analysis, audit-logs, account
 ├── reference/               # tour (screenshot-driven product tour)
 ├── developer/               # architecture, running-locally, deployment
 ├── help/                    # faq, troubleshooting
@@ -46,6 +46,7 @@ apps/docs/
 | Concepts & How-To | Datasets               | `concepts/datasets.md`           |
 | Concepts & How-To | Agents                 | `concepts/agents.md`             |
 | Concepts & How-To | Chatting with data     | `concepts/chatting.md`           |
+| Concepts & How-To | Analyzing data files   | `concepts/data-analysis.md`      |
 | Concepts & How-To | Audit logs             | `concepts/audit-logs.md`         |
 | Concepts & How-To | Your profile & account | `concepts/account.md`            |
 | Reference         | Product tour           | `reference/tour.md`              |

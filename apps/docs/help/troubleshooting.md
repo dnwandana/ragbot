@@ -19,7 +19,11 @@ A file moves from **Parsing** to **Indexed** when processing finishes. If it's s
 - **Give it a moment.** Large PDFs take longer than short text files.
 - **Check it's readable text.** A scanned PDF that's really an image of a page has no selectable text, so there's nothing to index. Replace it with a text-based version.
 - **Reprocess it.** Open the file's options and choose **Reprocess** to run the pipeline again.
-- **Confirm the format is supported** — PDF, Word (`.docx`/`.doc`), or text/Markdown. See [Datasets](/concepts/datasets).
+- **Confirm the format is supported** — PDF, Word (`.docx`/`.doc`), text/Markdown, or a data file (`.xlsx`, `.xls`, `.csv`, `.tsv`, `.json`). See [Datasets](/concepts/datasets).
+
+## A `.tsv` or `.json` upload was refused
+
+These two formats need the code interpreter, and your RAGBot deployment has it turned off. RAGBot cannot read them as text, so it refuses the upload with a message that says so. Ask your administrator to enable the code interpreter, or convert the file to `.csv` or `.xlsx`, which RAGBot reads as text when the interpreter is off. Developers: see [Deployment](/developer/deployment#the-sandbox-container).
 
 ## A web page didn't scrape well
 
@@ -34,6 +38,18 @@ This is usually a sources problem, not a bug:
 - **Wording mismatch.** Rephrase using terms that actually appear in the document.
 
 See [Chatting](/concepts/chatting) for the full checklist.
+
+## The agent quoted my spreadsheet instead of computing with it
+
+The agent runs code only when the **code interpreter** is enabled on your deployment and the data file is **Indexed** in a dataset the conversation searches. Check those first. Then ask a question that needs a computation — a count, a sum, a comparison, or a chart — and name the file or the column if the agent seems unsure. See [Analyzing data files](/concepts/data-analysis).
+
+## A code run failed
+
+Open the **Code interpreter** card and expand the red cell. The **Output** row names the error.
+
+- **A column was not found.** The agent guessed a column name wrong. Open the file's **Schema** in its dataset and give the agent the exact name in your next message.
+- **The run timed out.** Each run has a time limit, 30 seconds by default. Ask a narrower question, or ask the agent to filter the rows before it computes.
+- **"sandbox is busy" or "sandbox is unavailable".** The code interpreter runs one job at a time. Wait a moment and ask again. If it stays unavailable, the service is down; tell your administrator.
 
 ## Answers cite the wrong material
 

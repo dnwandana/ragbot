@@ -4,7 +4,7 @@ title: Datasets
 
 # Datasets
 
-<p class="lede">A dataset is a collection of documents you've uploaded. RAGBot reads and indexes every file so a chat can search inside it and answer from it. Group documents into datasets by topic, and you'll keep answers focused and easy to manage.</p>
+<p class="lede">A dataset is a collection of documents and data files you've uploaded. RAGBot reads and indexes every file so a chat can search inside it and answer from it. Group documents into datasets by topic, and you'll keep answers focused and easy to manage.</p>
 
 ## Create a dataset
 
@@ -20,7 +20,7 @@ Smaller, focused datasets give sharper answers than one giant pile of everything
 
 Open a dataset and choose **Add source**. A panel slides in with two tabs:
 
-- **Upload files** — drag documents into the drop zone, or browse to select them. You can add several at once.
+- **Upload files** — drag documents or spreadsheets into the drop zone, or browse to select them. You can add several at once.
 - **Link** — paste a web page or YouTube link. RAGBot detects which it is: a web page is scraped for its readable text, and a YouTube link is indexed from its transcript.
 
 Either way, each new source uploads and then begins processing automatically — there's nothing else to press.
@@ -34,6 +34,7 @@ RAGBot reads the document formats people use every day:
 - **PDF** — reports, handbooks, scanned policies, contracts (`.pdf`)
 - **Word** — documents and memos (`.docx`, `.doc`)
 - **Plain text & Markdown** — notes and exports (`.txt`, `.md`)
+- **Spreadsheets & data files** — Excel workbooks, delimited text, and JSON records (`.xlsx`, `.xls`, `.csv`, `.tsv`, `.json`). RAGBot treats these as data, not text: the agent can compute with them and draw charts. See [Analyzing data files](/concepts/data-analysis).
 
 Text-based documents work best. A PDF that's really a photo of a page (a scan with no selectable text) may not be readable — if you can't highlight the words in the file, an agent probably can't read them either.
 
@@ -53,6 +54,8 @@ supported — add videos one at a time.
 
 When you add a source, RAGBot doesn't just store it — it **reads** the text, splits it into small passages called **chunks**, and builds a searchable index of them. That index is what lets a chat later find the few most relevant passages out of hundreds of pages in a fraction of a second. It also auto-generates a handful of starter questions for each document (see below).
 
+A **data file** takes a different path. RAGBot does not split its rows into passages. It **profiles** the file instead: every sheet, every column, its type, its value range, and a few sample values. That profile is what gets indexed, so a data file shows a small chunk count even when it holds thousands of rows. The agent reads the profile before it writes code against the file. See [Analyzing data files](/concepts/data-analysis).
+
 You don't have to do anything during this step. Each file shows one of three statuses next to its name:
 
 - **Parsing** — RAGBot is still reading and indexing the file. It isn't searchable yet. Large PDFs take longer than short text files.
@@ -71,6 +74,8 @@ Click any indexed file to open its detail panel. You'll see its status, size, an
 
 - **Explore this document** — a set of ready-made questions drawn from the text. Pick one to open a chat already grounded in that file. Hit **Shuffle** to see more.
 - **Chunk preview** — a look at the actual passages RAGBot extracted, so you can confirm it read the document correctly.
+
+A **data file** shows one more section, **Schema**: each sheet with its row count, and a table of its columns with their type, how many values they hold, how many are unique, and their range. Check it once after upload to confirm RAGBot read the header row correctly.
 
 <FileDetailMock />
 

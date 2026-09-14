@@ -18,9 +18,9 @@ Everything in RAGBot is made of four simple pieces. Once these click, the rest o
 
 <Cards>
   <Card to="/concepts/workspaces" icon="layers" title="Workspaces" desc="A sealed space that holds all your datasets, agents, chats, and people. Nothing is shared between workspaces." />
-  <Card to="/concepts/datasets" icon="database" title="Datasets" desc="Collections of uploaded documents — PDFs, Word files, text. RAGBot indexes them so agents can search inside." />
+  <Card to="/concepts/datasets" icon="database" title="Datasets" desc="Collections of uploaded documents and data files — PDFs, Word files, text, spreadsheets. RAGBot indexes them so agents can search and compute inside." />
   <Card to="/concepts/agents" icon="bot" title="Agents" desc="Assistants you configure with a model and a persona. The workspace ships a ready-to-use default agent." />
-  <Card to="/concepts/chatting" icon="chat" title="Chat" desc="Pick an agent, choose which sources to search, ask a question, and read answers with cited sources. History is saved." />
+  <Card to="/concepts/chatting" icon="chat" title="Chat" desc="Pick an agent, choose which sources to search, ask a question, and read answers with cited sources or a chart drawn from your data. History is saved." />
 </Cards>
 
 ## How it fits together

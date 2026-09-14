@@ -45,6 +45,10 @@ Use the **sources** toggle beneath an answer (it shows a count like `1 source`) 
 Citations are there to be used. When an answer matters, click through to confirm the document really says what the agent summarized. It takes a second and turns a good answer into a verified one.
 :::
 
+## Ask about the numbers in a data file
+
+When a selected dataset holds a spreadsheet or another data file, the agent can do more than quote it. Ask for a count, a sum, a comparison, or a chart, and the agent writes Python code, runs it in a locked-down sandbox, and answers from the result. A **Code interpreter** card above the answer shows each run with its code and output, and any charts appear inline. See [Analyzing data files](/concepts/data-analysis) for what to upload, what to ask, and how to read the result.
+
 ## Find past conversations
 
 Every conversation is saved automatically. Your **chat history** sits in the sidebar and in the Conversations list, newest first, so you can reopen a thread, keep asking, or revisit an answer you found useful. Each entry shows the agent it used and how many sources it searched. History belongs to the workspace you're in — switch workspaces and you'll see that workspace's conversations instead.

@@ -39,6 +39,7 @@ Workspace (tenant boundary)
 - Corepack (bundled with Node 24+)
 - PostgreSQL with `pgvector` extension (for the API)
 - Redis service — any Redis-compatible provider — for the BullMQ job queue
+- Python `>=3.12` — only to run the `sandbox/` tests outside Docker
 
 For production deployment:
 
@@ -109,6 +110,11 @@ EMAIL_FROM_NAME=RAGBot
 IP_GEOLOCATION_ENABLED=false           # resolve session IPs to "City, CC" on the sessions list
 IPGEOLOCATION_API_KEY=                 # required only when IP_GEOLOCATION_ENABLED=true (ipgeolocation.io)
 IPGEOLOCATION_TIMEOUT_MS=5000
+SANDBOX_ENABLED=false                  # enable the code executor for tabular analysis
+SANDBOX_URL=http://sandbox:8000        # required only when SANDBOX_ENABLED=true
+SANDBOX_API_TOKEN=change-me            # required only when SANDBOX_ENABLED=true (shared secret)
+SANDBOX_TIMEOUT_MS=30000               # per-execution timeout (range 1000–60000)
+CHAT_MAX_ITERATIONS=10                  # ReAct loop bound (range 1–20)
 ```
 
 ### App (`apps/app`)
@@ -345,9 +351,68 @@ The test suite uses real PostgreSQL (no mocks). Vitest runs migrations once befo
 
 The frontend app (`apps/app`) has its own Vitest suite (`corepack pnpm --filter app test`, jsdom environment): unit tests for API wrappers and composables, plus component-render tests via `@vue/test-utils`. No database or network is required — API modules and composables are mocked.
 
+### Sandbox (`sandbox/`)
+
+The code executor is a Python service, so it is not part of the pnpm test run. Test it in four layers, from fast to real.
+
+**Layer 1 — Python unit tests.** Create the virtual environment once, then run pytest from `sandbox/`:
+
+```bash
+cd sandbox
+python3 -m venv .venv
+.venv/bin/pip install -r requirements-dev.txt
+.venv/bin/python -m pytest -q          # 31 tests
+```
+
+Run pytest from `sandbox/`, not from the repository root. The imports of `app.executor` fail from any other directory. The five files cover the HTTP surface (`test_main.py`), the child process (`test_executor.py`), the `show_chart` injection (`test_runner.py`), the chart schema (`test_chart_schema.py`), and the profiling script (`test_profile_script.py`).
+
+**Layer 2 — API-side unit tests.** The API never calls a real sandbox in tests. `apps/api/tests/setup.js` mocks `src/services/sandbox.js` and `isSandboxEnabled` returns `false`. A test opts in with `vi.mocked(isSandboxEnabled).mockReturnValue(true)`.
+
+```bash
+cd apps/api
+npx vitest run tests/unit/sandbox-client.test.js tests/unit/chat-tools.test.js \
+  tests/unit/chat-tools-execute-code.test.js tests/unit/tabular-profile.test.js \
+  tests/unit/profile-markdown.test.js
+```
+
+**Layer 3 — Run the service alone.** Use this layer to send real requests to the HTTP API without Docker.
+
+```bash
+cd sandbox
+SANDBOX_API_TOKEN=local-dev-sandbox-token .venv/bin/uvicorn app.main:app --port 8099
+```
+
+In a second terminal:
+
+```bash
+curl -s http://127.0.0.1:8099/health
+# {"status":"ok"}
+
+curl -s -X POST http://127.0.0.1:8099/execute \
+  -H "Authorization: Bearer local-dev-sandbox-token" \
+  -H "Content-Type: application/json" \
+  -d '{"code":"show_chart({\"type\":\"bar\",\"data\":{\"labels\":[\"a\"],\"datasets\":[{\"label\":\"v\",\"data\":[1]}]}})\nprint(\"done\")","timeout_ms":10000}'
+# {"ok":true,"stdout":"done\n","charts":[{...}],"error":null}
+```
+
+A chart spec must have the Chart.js shape: `{type, data:{labels, datasets:[{data}]}}`. An invalid spec does not return HTTP 400. `show_chart` raises inside the child process, so the response is `{"ok":false,"error":"exception"}` with the traceback in `stderr`.
+
+> **Caution: layer 3 gives you no isolation.** The container supplies `read_only`, `cap_drop: [ALL]`, `mem_limit`, `pids_limit`, and the internal-only network. A bare uvicorn process has none of them. Use this layer for the HTTP contract only. Do not use it to test the security limits.
+
+**Layer 4 — Full stack.** This is the only layer that tests the real isolation and the API-to-sandbox wiring. Start the local stack (see [Local Docker](#local-docker)), then send the request from inside the `api` container. The sandbox publishes no host port.
+
+```bash
+docker compose -f docker-compose.local.yml exec api \
+  wget -qO- --header="Authorization: Bearer local-dev-sandbox-token" \
+  --header="Content-Type: application/json" --post-data='{"code":"print(1)"}' \
+  http://sandbox:8000/execute
+```
+
+For the end-to-end path, set `SANDBOX_ENABLED=true`, `SANDBOX_URL=http://sandbox:8000`, and `SANDBOX_API_TOKEN` in `.env.local`. Then upload a CSV into a dataset, open a chat on that dataset, and ask an analytical question. The chat thread must show the execution step and the chart, and both must survive a page reload.
+
 ## Deployment
 
-Production deployment uses Docker Compose with nginx as the sole entry point. Five containers run on the host VM — the nginx edge plus one container each for `web`, `app`, `api`, and `docs`; PostgreSQL remains an external service.
+Production deployment uses Docker Compose with nginx as the sole entry point. Six containers run on the host VM — the nginx edge, one container each for `web`, `app`, `api`, and `docs`, plus the `sandbox` code executor; PostgreSQL remains an external service.
 
 ### How it works
 
@@ -361,8 +426,14 @@ nginx edge (ports 80/443) — name-based virtual hosts (pure reverse proxy)
 
 api (internal only)
   ├── connects to external PostgreSQL via DATABASE_URL
-  └── connects to external Redis via REDIS_URL
+  ├── connects to external Redis via REDIS_URL
+  └── calls the sandbox at http://sandbox:8000 (internal-only sandbox_net)
+
+sandbox (internal only, no host port, no route to the internet)
+  └── runs model-written Python for tabular analysis
 ```
+
+The `sandbox` container runs untrusted code, so it sits alone on the internal-only `sandbox_net` network. Only the `api` container can reach it. It gets no `env_file` — it receives `SANDBOX_API_TOKEN` and nothing else, because user code can read `/proc/1/environ` of the server. Its limits are `read_only: true`, `cap_drop: [ALL]`, `no-new-privileges:true`, `mem_limit: 1g`, `cpus: 1`, `pids_limit: 64`, and a 256 MB tmpfs `/tmp`. The sandbox runs one execution at a time and answers HTTP 429 while a run is active. When `SANDBOX_ENABLED=false`, the API sends `csv`, `xls`, and `xlsx` uploads to LlamaIndex and rejects `tsv` and `json` uploads with HTTP 400.
 
 ### Local Docker
 
@@ -479,6 +550,11 @@ docker compose run --rm api sh -c "node_modules/.bin/knex seed:run"
 | `IP_GEOLOCATION_ENABLED`   | No       | Set `true` to resolve session IPs to a "City, CC" label on the sessions list. Default `false`.      |
 | `IPGEOLOCATION_API_KEY`    | Cond.    | Required only when `IP_GEOLOCATION_ENABLED=true` — ipgeolocation.io API key.                        |
 | `IPGEOLOCATION_TIMEOUT_MS` | No       | Geolocation lookup timeout. Defaults to 5000.                                                       |
+| `SANDBOX_ENABLED`          | No       | Set `true` to enable the code executor for tabular analysis. Default `false`.                       |
+| `SANDBOX_URL`              | Cond.    | Required only when `SANDBOX_ENABLED=true`. Use `http://sandbox:8000` in the compose stacks.         |
+| `SANDBOX_API_TOKEN`        | Cond.    | Required only when `SANDBOX_ENABLED=true`. Shared secret — both containers need the same value.     |
+| `SANDBOX_TIMEOUT_MS`       | No       | Per-execution timeout. Defaults to 30000. Range 1000–60000.                                         |
+| `CHAT_MAX_ITERATIONS`      | No       | Bound on the ReAct loop. Defaults to 10. Range 1–20.                                                |
 | `LLAMAINDEX_PARSE_TIER`    | No       | LlamaParse tier: `fast`, `cost_effective`, `agentic`, `agentic_plus`. Defaults to `cost_effective`. |
 | `CORS_ALLOWED_ORIGINS`     | No       | Defaults to `http://localhost:8080`. Set to `https://app.<DOMAIN>` in production (SPA origin).      |
 
@@ -565,6 +641,17 @@ ragbot/
 │   │       └── styles/             # colors_and_type.css, marketing.css
 │   │
 │   └── docs/                        # VitePress static documentation site (apps/docs)
+│
+├── sandbox/                        # Hardened Python code executor (FastAPI + uvicorn)
+│   ├── Dockerfile
+│   ├── requirements.txt            # runtime: fastapi, uvicorn, pandas, numpy, openpyxl, duckdb, pyarrow
+│   ├── requirements-dev.txt        # adds pytest + httpx for the test suite
+│   ├── app/
+│   │   ├── main.py                 # HTTP surface: bearer auth, validation, concurrency cap
+│   │   ├── executor.py             # spawns the runner as an isolated child, caps output
+│   │   ├── runner.py               # runs user code with -I and an empty env, injects show_chart
+│   │   └── chart_schema.py         # minimal Chart.js spec validation
+│   └── tests/                      # 5 pytest files (run from sandbox/ with the venv)
 │
 ├── plans/                          # Feature implementation plans (F1–F7)
 ├── docs/superpowers/specs/         # Design specifications

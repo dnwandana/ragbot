@@ -14,7 +14,15 @@ const items = [
   },
   {
     q: "What file types can I upload?",
-    a: `<p>PDF (<code class="inl">.pdf</code>), Word (<code class="inl">.docx</code>, <code class="inl">.doc</code>), and plain text or Markdown (<code class="inl">.txt</code>, <code class="inl">.md</code>). Text-based files work best — a scanned PDF that's really an image of a page may not be readable. The <a href="/concepts/datasets">Datasets</a> page has the full list.</p>`,
+    a: `<p>PDF (<code class="inl">.pdf</code>), Word (<code class="inl">.docx</code>, <code class="inl">.doc</code>), plain text or Markdown (<code class="inl">.txt</code>, <code class="inl">.md</code>), and data files — Excel (<code class="inl">.xlsx</code>, <code class="inl">.xls</code>), delimited text (<code class="inl">.csv</code>, <code class="inl">.tsv</code>), and JSON records (<code class="inl">.json</code>). Text-based files work best — a scanned PDF that's really an image of a page may not be readable. The <a href="/concepts/datasets">Datasets</a> page has the full list.</p>`,
+  },
+  {
+    q: "Can RAGBot analyze a spreadsheet or draw a chart?",
+    a: `<p>Yes. Upload a spreadsheet or another data file to a dataset, select that dataset in a chat, and ask for a count, a sum, a comparison, or a chart. The agent writes Python code, runs it in a locked-down sandbox, and answers from the result. A <strong>Code interpreter</strong> card above the answer shows the code and its output, and charts appear inline.</p><p>This needs the code interpreter to be enabled on your RAGBot deployment. See <a href="/concepts/data-analysis">Analyzing data files</a>.</p>`,
+  },
+  {
+    q: "What happens to my data when the agent runs code?",
+    a: `<p>Only the data files the agent asked for are copied into the sandbox for that one run, and they are deleted when the run ends. The sandbox has no access to the internet, to RAGBot's database, or to any other workspace. What is kept is the code, its printed output, and the chart specs, all saved with the conversation so you can review them later.</p>`,
   },
   {
     q: "Why might an agent not find something in my document?",

@@ -4,13 +4,13 @@ title: Deployment
 
 # Deployment
 
-<p class="lede">How to run RAGBot in containers — a four-service stack on your machine, or the full reverse-proxied production deployment. For a non-Docker dev setup, see <a href="/developer/running-locally">Running locally</a>.</p>
+<p class="lede">How to run RAGBot in containers — a five-service stack on your machine, or the full reverse-proxied production deployment. For a non-Docker dev setup, see <a href="/developer/running-locally">Running locally</a>.</p>
 
 Two Compose files ship with the repo — one for local containers, one for production. **PostgreSQL is always external** to both, and **migrations never run automatically** — you run them by hand (see below).
 
 ## Local Docker
 
-The local stack runs four containers — `web` (Astro marketing site, `:4321`), `docs` (VitePress, `:4173`), `app` (Vue SPA on `:80`, proxies `/api`), and `api` (Express, no published port). nginx serves over plain HTTP (no TLS) using `nginx/local.conf`.
+The local stack runs five containers — `web` (Astro marketing site, `:4321`), `docs` (VitePress, `:4173`), `app` (Vue SPA on `:80`, proxies `/api`), `api` (Express, no published port), and `sandbox` (the Python code executor, no published port, internal network only). nginx serves over plain HTTP (no TLS) using `nginx/local.conf`.
 
 ```bash
 docker compose -f docker-compose.local.yml up --build -d
@@ -18,7 +18,7 @@ docker compose -f docker-compose.local.yml logs -f
 docker compose -f docker-compose.local.yml down
 ```
 
-Environment comes from `.env.local` (copy `.env.example`). Set `NODE_ENV=development`, `JWT_ISSUER`/`JWT_AUDIENCE=http://localhost`, and `CORS_ALLOWED_ORIGINS=http://localhost`.
+Environment comes from `.env.local` (copy `.env.example`). Set `NODE_ENV=development`, `JWT_ISSUER`/`JWT_AUDIENCE=http://localhost`, and `CORS_ALLOWED_ORIGINS=http://localhost`. The `sandbox` service does **not** read `.env.local`: the compose file pins one `SANDBOX_API_TOKEN` (default `local-dev-sandbox-token`) for both the `api` and the `sandbox` container, which overrides the value in `.env.local`. To use the code interpreter locally, set `SANDBOX_ENABLED=true` and `SANDBOX_URL=http://sandbox:8000` in `.env.local`.
 
 ::: tip Local cookies need development mode
 `NODE_ENV=development` is required locally: the API marks auth cookies `Secure` only in production, and browsers reject `Secure` cookies over plain HTTP — so a production config won't let you log in over `http://localhost`.
@@ -26,7 +26,7 @@ Environment comes from `.env.local` (copy `.env.example`). Set `NODE_ENV=develop
 
 ## Production self-host
 
-The production stack runs **five** containers — one nginx edge plus `web`, `app`, `api`, and `docs`.
+The production stack runs **six** containers — one nginx edge plus `web`, `app`, `api`, `docs`, and `sandbox`.
 
 ```bash
 docker compose build
@@ -52,6 +52,29 @@ The **API uses clean URLs** (`api.${DOMAIN}/*`): nginx re-adds the `/api` prefix
 
 Set `DOMAIN` and the rest of the production configuration in `.env`.
 
+### The sandbox container
+
+The `sandbox` container (built from `sandbox/Dockerfile`) runs the Python that the chat agent writes for [data analysis](/concepts/data-analysis). It runs untrusted code, so the compose files lock it down:
+
+- It sits alone on the internal-only `sandbox_net` network. Only the `api` container can reach it, at `http://sandbox:8000`. It publishes no port and has no route to the internet. The edge never proxies to it.
+- It runs with `read_only: true`, `cap_drop: [ALL]`, `no-new-privileges:true`, `mem_limit: 1g`, `cpus: 1`, `pids_limit: 64`, and a 256 MB tmpfs at `/tmp`.
+- It receives `SANDBOX_API_TOKEN` and nothing else. It gets no `env_file`, because user code can read the server's environment through `/proc`.
+- It runs one execution at a time and answers `429` while a run is active. The API turns that into an observation the model can retry.
+
+Five variables configure the feature on the `api` side. All of them are optional, and the sandbox is **off by default**:
+
+| Variable              | Default                                                                                 |
+| --------------------- | --------------------------------------------------------------------------------------- |
+| `SANDBOX_ENABLED`     | `false`. Set `true` to offer the `execute_code` tool and to profile tabular uploads.    |
+| `SANDBOX_URL`         | Required when enabled. Use `http://sandbox:8000` in the compose stacks.                 |
+| `SANDBOX_API_TOKEN`   | Required when enabled. A shared secret; the `api` sends it and the `sandbox` checks it. |
+| `SANDBOX_TIMEOUT_MS`  | `30000`. Per-execution time limit, `1000`–`60000`.                                      |
+| `CHAT_MAX_ITERATIONS` | `10`. Bound on the ReAct loop, `1`–`20`.                                                |
+
+In production, set one `SANDBOX_API_TOKEN` in `.env` and change it from the example value. The compose file passes the same value to both containers. The sandbox **fails closed**: with the token unset, every `/execute` call returns `401`.
+
+When `SANDBOX_ENABLED=false`, the API sends `csv`, `xls`, and `xlsx` uploads to LlamaIndex as text, and rejects `tsv` and `json` uploads with `400`. The chat agent gets no `execute_code` tool.
+
 ### TLS & DNS
 
 You bring your own DNS and certificate. Point both the **apex** and a **wildcard** record at the host, and provide a single certificate covering both (issued with, for example, `-d example.com -d *.example.com`). The edge mounts `certs/` read-only and expects two files named after your domain:
@@ -59,7 +82,7 @@ You bring your own DNS and certificate. Point both the **apex** and a **wildcard
 - `${DOMAIN}.fullchain.pem`
 - `${DOMAIN}.privkey.pem`
 
-The wildcard entry covers the `app.`, `api.`, and `docs.` subdomains.
+The wildcard entry covers the `app.`, `api.`, and `docs.` subdomains. The sandbox has no hostname and needs no certificate.
 
 ## Run the migrations
 

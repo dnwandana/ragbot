@@ -33,8 +33,8 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 - **RBAC**: `requirePermission(name)` middleware, permissions resolved on `req.permissions`. 31 permissions across 8 resources (workspace, role, member, audit, dataset, file, agent, conversation)
 - **Request context**: `req.id` (request ID), `req.user` (from JWT). `req.workspace` and `req.permissions` are set by `resolveWorkspace` (`src/middlewares/resolve-workspace.js`), mounted via `router.use("/:workspace_id", resolveWorkspace)` in `routes/workspaces.js` — it loads the workspace and resolves the caller's permissions for RBAC
 - **Error handling**: Controllers throw `HttpError(status, msg)`, caught by centralized `errorHandler`
-- **Env validation**: API fails fast at startup if required vars are missing (expected behavior). The authoritative schema is `src/utils/validate-env.js` — 38 validated env vars (16 always required, plus `IPGEOLOCATION_API_KEY` required only when `IP_GEOLOCATION_ENABLED=true`; the rest have defaults), including `REDIS_URL`, scheme `redis://` or `rediss://`, covering OpenRouter, Brevo, S3/R2, LlamaIndex, Firecrawl, Redis, and IP geolocation
-- **Async processing**: BullMQ job queue backed by Redis — dataset file processing (upload, scrape, reprocess) runs in an inline worker started alongside Express. A dedicated youtube-processing queue/worker resolves YouTube transcripts (manual captions via yt-dlp, else audio + OpenRouter Whisper) and reuses the shared runProcessingPipeline; YouTube files are marked by metadata.source_type === "youtube".
+- **Env validation**: API fails fast at startup if required vars are missing (expected behavior). The authoritative schema is `src/utils/validate-env.js` — 43 validated env vars (16 always required, plus `IPGEOLOCATION_API_KEY` required only when `IP_GEOLOCATION_ENABLED=true` and `SANDBOX_URL` + `SANDBOX_API_TOKEN` required only when `SANDBOX_ENABLED=true`; the rest have defaults), including `REDIS_URL`, scheme `redis://` or `rediss://`, covering OpenRouter, Brevo, S3/R2, LlamaIndex, Firecrawl, Redis, IP geolocation, and the code sandbox (`SANDBOX_ENABLED`, `SANDBOX_URL`, `SANDBOX_API_TOKEN`, `SANDBOX_TIMEOUT_MS`, `CHAT_MAX_ITERATIONS`)
+- **Async processing**: BullMQ job queue backed by Redis — dataset file processing (upload, scrape, reprocess) runs in an inline worker started alongside Express. A dedicated youtube-processing queue/worker resolves YouTube transcripts (manual captions via yt-dlp, else audio + OpenRouter Whisper) and reuses the shared runProcessingPipeline; YouTube files are marked by metadata.source_type === "youtube". Tabular files (`csv`, `tsv`, `xls`, `xlsx`, `json`, marked by metadata.source_type === "tabular") skip LlamaIndex — the worker profiles them in the sandbox and embeds the schema profile as markdown.
 
 ## Current implementation state
 
@@ -54,6 +54,7 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 - Agent management — CRUD with system agent protection (F5)
 - Conversation CRUD + dataset linking + dataset shortcut endpoint (F6)
 - Chat with ReAct loop + SSE streaming (F7) — RAG search, message persistence, citations
+- Tabular analysis — `execute_code` chat tool runs model-written Python in the sandbox against the caller's tabular files, streams chart specs as a new `chart` SSE event, and persists them in message `content_json`
 - Audit logging — workspace-scoped read endpoint plus append-only event writes via `utils/audit.js` (`logAuditEvent`), backed by `controllers/audit-logs.js`, `routes/audit-logs.js`, and `models/audit-logs.js`
 
 ### Frontend (`apps/app`)
@@ -75,6 +76,7 @@ corepack pnpm test:api      # Vitest + Supertest against real PostgreSQL
 - Chat view (ChatView) with SSE streaming, chat store, composable, and API module (F7)
 - Audit-logs view (AuditLogsView) with store, composable, and API module
 - Active-sessions management in Settings → Account — list signed-in devices and revoke individually or all-others (sessions store, `useSessions` composable, and API module)
+- Tabular analysis UI — `CodeRunCard.vue` (a notebook card holding one `CodeRunCell.vue` per code run, each with `CollapsibleSection.vue` Input and Output rows) and `ChartCard.vue` (Chart.js) render in the chat thread, live and after a reload; `FileDetailPanel.vue` shows a schema section for a profiled tabular file
 
 ### Web (`apps/web`)
 
@@ -122,7 +124,9 @@ See [`apps/api/CLAUDE.md`](apps/api/CLAUDE.md), [`apps/app/CLAUDE.md`](apps/app/
 
 ## Docker deployment
 
-Two compose files. Production runs **five** containers (nginx edge + `web` + `app` + `api` + `docs`); local runs **four** (`web` + `app` + `api` + `docs`, no edge). PostgreSQL is always external.
+Two compose files. Production runs **six** containers (nginx edge + `web` + `app` + `api` + `docs` + `sandbox`); local runs **five** (`web` + `app` + `api` + `docs` + `sandbox`, no edge). PostgreSQL is always external.
+
+The `sandbox` container (built from `sandbox/Dockerfile`) is a hardened Python executor. It sits alone on the internal-only `sandbox_net` network, so only the `api` container can reach it, at `http://sandbox:8000`. It publishes no port and has no route to the internet. Its limits are `read_only: true`, `cap_drop: [ALL]`, `no-new-privileges:true`, `mem_limit: 1g`, `cpus: 1`, `pids_limit: 64`, and a 256 MB tmpfs `/tmp`.
 
 ### Production (`docker-compose.yml`)
 
@@ -154,15 +158,17 @@ docker compose -f docker-compose.local.yml logs -f
 docker compose -f docker-compose.local.yml down
 ```
 
-- Four services: `web` (Astro marketing site, `apps/web/Dockerfile`, `http://localhost:4321`), `docs` (VitePress docs, `apps/docs/Dockerfile`, `http://localhost:4173`), `app` (Vue SPA on port 80, proxies `/api`), `api` (Express, no published port)
+- Five services: `web` (Astro marketing site, `apps/web/Dockerfile`, `http://localhost:4321`), `docs` (VitePress docs, `apps/docs/Dockerfile`, `http://localhost:4173`), `app` (Vue SPA on port 80, proxies `/api`), `api` (Express, no published port), `sandbox` (Python executor, no published port, internal network only)
 - nginx on port 80 (app), 4321 (web), and 4173 (docs), no TLS
 - Uses `nginx/local.conf` (HTTP-only)
 - Env from `.env.local` (copy from `.env.example`; set `NODE_ENV=development`, `JWT_ISSUER/AUDIENCE=http://localhost`, `CORS_ALLOWED_ORIGINS=http://localhost`)
 - `NODE_ENV=development` is required locally — the API sets `Secure` cookies only in production, which browsers reject over plain HTTP
+- The `sandbox` service does **not** read `.env.local`. It runs untrusted code, so it gets `SANDBOX_API_TOKEN` only. The compose file pins the same token for the `api` and the `sandbox` container, which overrides the value in `.env.local`
 
 ### Common facts
 
 - `app` container: nginx serves Vue static files + proxies `/api` and `/health` to the `api` container
 - `api` container: Express.js, no host port published, only reachable as `http://api:3000` inside Docker network
+- `sandbox` container: FastAPI + uvicorn on `http://sandbox:8000`, no host port published, only reachable from `api` on the internal `sandbox_net`. The `api` container joins both `default` and `sandbox_net`. Set `SANDBOX_API_TOKEN` to the same value for both containers — the sandbox fails closed if the token is unset
 - `redis`: external service — connect via `REDIS_URL` (`redis://` for plain, `rediss://` for TLS)
 - Migrations do **not** run automatically — run manually: `docker compose [-f docker-compose.local.yml] run --rm api sh -c "node_modules/.bin/knex migrate:latest"`
