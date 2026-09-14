@@ -31,7 +31,14 @@ async function hydrateWorkspaces() {
   }
   if (isHydrating) return
   isHydrating = true
-  hydrating.value = true
+  // Blank the page only while data the view needs is still missing. This watcher
+  // also runs on a plain route-name change inside a loaded workspace — ChatView
+  // replaces /conversations/new with the new conversation id in the middle of a
+  // send — and unmounting the slot there destroys the view that owns the live
+  // stream, so the answer stays invisible until the stream ends.
+  hydrating.value =
+    workspacesStore.workspaces.length === 0 ||
+    shouldFetchWorkspace(workspacesStore.currentWorkspace?.id, route.params.workspaceId)
   hydrateError.value = false
   try {
     await workspacesStore.fetchWorkspaces()

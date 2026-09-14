@@ -5,6 +5,7 @@ import { ConfigProvider } from "ant-design-vue"
 import AppLayout from "@/components/AppLayout.vue"
 import { buildAntTheme } from "@/config/antd-theme.js"
 import { useTheme } from "@/composables/useTheme"
+import { routerViewKey } from "@/router/view-key.js"
 
 const route = useRoute()
 const { theme } = useTheme()
@@ -20,7 +21,7 @@ const isAuthPage = computed(() => {
   <ConfigProvider :theme="antThemeConfig">
     <RouterView v-if="isAuthPage" />
     <AppLayout v-else>
-      <RouterView :key="$route.fullPath" />
+      <RouterView :key="routerViewKey($route)" />
     </AppLayout>
   </ConfigProvider>
 </template>

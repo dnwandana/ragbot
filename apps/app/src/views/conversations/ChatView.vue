@@ -307,8 +307,12 @@ onMounted(async () => {
   }
 })
 
+// Re-initialise the new-chat view. The router gives both chat routes one key per
+// workspace, so this instance is reused for every navigation inside a workspace.
+// Track the query too: entering the new-chat route again with other `dataset`
+// or `q` values changes no route name, but must still re-seed the pickers.
 watch(
-  isNew,
+  () => (isNew.value ? [route.query.dataset, route.query.q] : null),
   async (val) => {
     if (!val) return
     await Promise.all([fetchDatasetResults(), fetchAgentResults()])
