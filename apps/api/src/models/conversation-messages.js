@@ -57,3 +57,19 @@ export const findVisibleByConversationId = (conversationId) =>
     .where({ conversation_id: conversationId })
     .whereIn("step_type", ["input", "final_answer"])
     .orderBy("created_at", "asc")
+
+/**
+ * Find the full thread for hydration, including the tool steps.
+ *
+ * findVisibleByConversationId stays input/final_answer only because it feeds
+ * the LLM history, where a thought row has a null content column.
+ * @param {string} conversationId - Conversation UUID.
+ * @returns {Promise<Object[]>} Messages in thread order.
+ */
+export const findThreadByConversationId = (conversationId) =>
+  db
+    .select(COLUMNS)
+    .from(TABLE)
+    .where({ conversation_id: conversationId })
+    .whereIn("step_type", ["input", "thought", "observation", "final_answer"])
+    .orderBy("created_at", "asc")

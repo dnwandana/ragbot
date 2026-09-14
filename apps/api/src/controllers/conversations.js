@@ -158,8 +158,10 @@ export const listConversations = async (req, res, next) => {
 /**
  * GET /api/workspaces/:workspace_id/conversations/:conversation_id — Get a conversation.
  *
- * Returns the conversation with its linked dataset IDs, visible messages,
- * and all citations across those messages.
+ * Returns the conversation with its linked dataset IDs, the full message
+ * thread (input, thought, observation, final_answer) so a reloaded page can
+ * rebuild the execution steps and their charts, and all citations across
+ * those messages.
  * @param {Object} req - Express request object.
  * @param {Object} res - Express response object.
  * @param {Function} next - Express next middleware.
@@ -176,7 +178,7 @@ export const getConversation = async (req, res, next) => {
 
     const [datasetIds, messages] = await Promise.all([
       conversationDatasetModel.findDatasetIds(conversation.id),
-      messageModel.findVisibleByConversationId(conversation.id),
+      messageModel.findThreadByConversationId(conversation.id),
     ])
 
     const citations = messages.length

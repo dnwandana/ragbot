@@ -9,28 +9,53 @@ import * as conversationDatasetModel from "../models/conversation-datasets.js"
 import * as messageModel from "../models/conversation-messages.js"
 import * as citationModel from "../models/conversation-message-citations.js"
 import * as agentModel from "../models/agents.js"
+import * as datasetFileModel from "../models/dataset-files.js"
 import * as openrouterService from "../services/openrouter.js"
 import * as ragService from "../services/rag.js"
+import { executeTool, getAvailableTools, sanitizeFileName } from "../services/chat-tools.js"
+import { isSandboxEnabled } from "../services/sandbox.js"
 
 /** Validates the chat message request body. */
 const messageSchema = joi
   .object({ content: joi.string().min(1).max(100000).required() })
   .options({ stripUnknown: true })
 
-/** OpenRouter tool definition exposing the vector store as a callable search tool. */
-const SEARCH_TOOL = {
-  type: "function",
-  function: {
-    name: "search_knowledge_base",
-    description:
-      "Search the knowledge base for relevant document excerpts. Use this when you need to find specific information.",
-    parameters: {
-      type: "object",
-      properties: { query: { type: "string", description: "The search query" } },
-      required: ["query"],
-    },
-  },
+/** Fallback tool-call id used when the provider streams no id. */
+const FALLBACK_TOOL_CALL_ID = "call_0"
+
+/**
+ * Describe one tabular file for the system prompt: its id, the name it gets
+ * inside the sandbox, and the sheets and columns of its stored profile.
+ *
+ * @param {Object} file - A dataset_files row with a `metadata.profile` object.
+ * @returns {string} One prompt line for the file.
+ */
+const describeDataFile = (file) => {
+  const metadata =
+    typeof file.metadata === "string" ? JSON.parse(file.metadata) : (file.metadata ?? {})
+  const sheets = (metadata.profile?.sheets ?? [])
+    .map((sheet) => {
+      const columns = (sheet.columns ?? []).map((column) => column.name).join(", ")
+      return `${sheet.name} (${sheet.rows} rows: ${columns})`
+    })
+    .join("; ")
+  return `- id: ${file.id} — ${file.filename} — saved in the sandbox as ${sanitizeFileName(
+    file.filename,
+  )} — ${sheets}`
 }
+
+/**
+ * Build the "Available data files" section appended to the system prompt.
+ *
+ * @param {Object[]} tabularFiles - Completed tabular files linked to the conversation.
+ * @returns {string} The prompt section, or an empty string when there are no files.
+ */
+const buildDataFilesSection = (tabularFiles) =>
+  tabularFiles.length === 0
+    ? ""
+    : `\n\nAvailable data files (use execute_code with these ids):\n${tabularFiles
+        .map(describeDataFile)
+        .join("\n")}`
 
 /**
  * Consume an OpenRouter SSE ReadableStream, forwarding text deltas to `onToken`
@@ -39,13 +64,14 @@ const SEARCH_TOOL = {
  * @param {ReadableStream} stream - The OpenRouter response body stream.
  * @param {(token: string) => void} onToken - Called with each text delta as it arrives.
  * @param {AbortSignal} [signal] - Optional abort signal that stops the read loop when aborted.
- * @returns {Promise<{ finishReason: string|null, usage: Object|null, toolCall: { name: string, arguments: string }|null }>}
+ * @returns {Promise<{ finishReason: string|null, usage: Object|null, toolCall: { name: string, arguments: string }|null, toolCallId: string|null }>}
  */
 export async function consumeStream(stream, onToken, signal) {
   const reader = stream.getReader()
   const decoder = new TextDecoder()
   let buffer = ""
   let accumulatedToolCall = null
+  let toolCallId = null
   let finishReason = null
   let usage = null
 
@@ -80,6 +106,7 @@ export async function consumeStream(stream, onToken, signal) {
             if (tc.index === 0 && !accumulatedToolCall) {
               accumulatedToolCall = { name: "", arguments: "" }
             }
+            if (tc.id) toolCallId = tc.id
             if (tc.function?.name) accumulatedToolCall.name += tc.function.name
             if (tc.function?.arguments) accumulatedToolCall.arguments += tc.function.arguments
           }
@@ -94,14 +121,16 @@ export async function consumeStream(stream, onToken, signal) {
     reader.cancel().catch(() => {})
   }
 
-  return { finishReason, usage, toolCall: accumulatedToolCall }
+  return { finishReason, usage, toolCall: accumulatedToolCall, toolCallId }
 }
 
 /**
  * Run the server-side ReAct loop: embed the query, search the vector store,
- * stream the model response, execute `search_knowledge_base` tool calls, then
- * persist the final answer plus citations. Model-agnostic about transport —
- * emits structured events via `sendEvent` for both SSE and JSON modes.
+ * stream the model response, dispatch tool calls through the tool registry,
+ * then persist the final answer plus citations. The message array is
+ * append-only, so every iteration sees all earlier tool calls and results.
+ * Model-agnostic about transport — emits structured events via `sendEvent`
+ * for both SSE and JSON modes.
  *
  * @param {Object} params
  * @param {Object} params.conversation - The conversation row.
@@ -144,34 +173,59 @@ async function runReActLoop({
     .filter((m) => m.id !== userMessageId) // exclude the just-stored user message
     .map((m) => ({ role: m.role, content: m.content }))
 
-  const systemContent = ragService.buildSystemMessage(agent.system_prompt, chunks)
+  // Tabular files the model may analyse with execute_code. Loaded only when the
+  // sandbox is on, so a disabled sandbox costs no query and advertises no files.
+  const tabularFiles =
+    isSandboxEnabled() && datasetIds.length > 0
+      ? await datasetFileModel.findCompletedTabularByDatasetIds(
+          datasetIds,
+          conversation.workspace_id,
+        )
+      : []
 
-  let openRouterMessages = [
+  const systemContent =
+    ragService.buildSystemMessage(agent.system_prompt, chunks) + buildDataFilesSection(tabularFiles)
+
+  // One append-only message array for the whole run: every tool turn is pushed
+  // onto it, so the model keeps seeing all earlier tool calls and observations.
+  const openRouterMessages = [
     { role: "system", content: systemContent },
     ...historyMessages,
     { role: "user", content: userContent },
   ]
+
+  // Shared context every tool receives.
+  const toolContext = {
+    workspaceId: conversation.workspace_id,
+    datasetIds,
+    conversation,
+    userContent,
+    tabularFiles,
+  }
 
   let finalContent = ""
   let finalUsage = null
   const modelConfig =
     typeof agent.model_config === "string" ? JSON.parse(agent.model_config) : agent.model_config
 
-  const MAX_ITERATIONS = 3
+  // Read per call, not at module load, so a request can vary the budget.
+  const MAX_ITERATIONS = Number(process.env.CHAT_MAX_ITERATIONS ?? 10)
   for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
     if (signal?.aborted) throw new Error("client disconnected")
     const isLastIteration = iteration === MAX_ITERATIONS - 1
-    const useTools = !isLastIteration && datasetIds.length
+    // The last iteration gets no tools, which forces the model to answer.
+    const tools = isLastIteration ? [] : getAvailableTools(toolContext)
+    const useTools = tools.length > 0
     const streamBody = await openrouterService.chatCompletionStream(openRouterMessages, {
       ...modelConfig,
-      tools: useTools ? [SEARCH_TOOL] : undefined,
+      tools: useTools ? tools : undefined,
       tool_choice: useTools ? "auto" : undefined,
       signal,
     })
 
     let iterTokens = ""
 
-    const { finishReason, usage, toolCall } = await consumeStream(
+    const { finishReason, usage, toolCall, toolCallId } = await consumeStream(
       streamBody,
       (token) => {
         iterTokens += token
@@ -185,6 +239,28 @@ async function runReActLoop({
     if (usage) finalUsage = usage
 
     if (finishReason === "tool_calls" && toolCall) {
+      let args = {}
+      try {
+        args = JSON.parse(toolCall.arguments) || {}
+      } catch {}
+
+      const isExecute = toolCall.name === "execute_code"
+
+      // An execution step shows the code it ran; a search step keeps its old shape.
+      // The filenames are resolved here, so a reloaded thread needs no extra lookup.
+      const fileIds = args.file_ids ?? []
+      const thoughtPayload = isExecute
+        ? {
+            tool: "execute_code",
+            title: args.title ?? "",
+            code: args.code ?? "",
+            file_ids: fileIds,
+            filenames: fileIds
+              .map((id) => tabularFiles.find((file) => file.id === id)?.filename)
+              .filter(Boolean),
+          }
+        : { tool_call: toolCall }
+
       // Store thought message
       await messageModel.create({
         id: crypto.randomUUID(),
@@ -193,63 +269,68 @@ async function runReActLoop({
         role: "assistant",
         step_type: "thought",
         content: null,
-        content_json: JSON.stringify({ tool_call: toolCall }),
+        content_json: JSON.stringify(thoughtPayload),
         created_at: new Date(),
       })
 
-      sendEvent("thought", { content: `Searching: ${toolCall.arguments}`, tool_call: toolCall })
-
-      // Execute tool
-      let searchQuery = userContent
-      try {
-        const args = JSON.parse(toolCall.arguments)
-        searchQuery = args.query || userContent
-      } catch {}
-
-      const refineEmbedding = await openrouterService.embedText(
-        searchQuery,
-        process.env.DEFAULT_EMBEDDINGS_MODEL,
+      sendEvent(
+        "thought",
+        isExecute
+          ? thoughtPayload
+          : { content: `Searching: ${toolCall.arguments}`, tool_call: toolCall },
       )
-      chunks = await ragService.searchChunks({
-        embedding: refineEmbedding,
-        datasetIds,
-        matchCount: 10,
-        threshold: 0.0,
-      })
 
-      const observationContent = chunks.length
-        ? chunks.map((c, i) => `[${i + 1}] ${c.content.slice(0, 200)}`).join("\n")
-        : "No relevant documents found."
+      const { observation, extra } = await executeTool(toolCall.name, args, toolContext)
+
+      // Citations follow the newest search result the model was shown.
+      if (extra?.chunks) chunks = extra.chunks
+
+      const observationContent = observation?.content ?? JSON.stringify(observation)
+
+      // Charts ride alongside the observation for the UI; the model never sees them.
+      const charts = isExecute ? (extra?.charts ?? []) : []
+      const observationPayload = isExecute ? { ...observation, charts } : observation
 
       // Store observation message
+      const observationId = crypto.randomUUID()
       await messageModel.create({
-        id: crypto.randomUUID(),
+        id: observationId,
         conversation_id: conversation.id,
         workspace_id: conversation.workspace_id,
         role: "tool",
         step_type: "observation",
         content: observationContent,
-        content_json: null,
+        content_json: JSON.stringify(observationPayload),
         created_at: new Date(),
       })
 
       sendEvent("observation", {
-        content: observationContent,
-        sources: chunks.map((c) => c.chunk_id),
+        ...(isExecute ? observationPayload : { content: observationContent }),
+        sources: (extra?.chunks ?? []).map((c) => c.chunk_id),
       })
 
-      // Feed result back into the model
-      openRouterMessages = [
-        { role: "system", content: ragService.buildSystemMessage(agent.system_prompt, chunks) },
-        ...historyMessages,
-        { role: "user", content: userContent },
-        {
-          role: "assistant",
-          content: null,
-          tool_calls: [{ id: "call_0", type: "function", function: toolCall }],
-        },
-        { role: "tool", tool_call_id: "call_0", content: observationContent },
-      ]
+      charts.forEach((spec, index) =>
+        sendEvent("chart", { message_id: observationId, index, spec }),
+      )
+
+      // Append the tool turn so the next iteration sees this call and its result.
+      const callId = toolCallId ?? FALLBACK_TOOL_CALL_ID
+      openRouterMessages.push({
+        role: "assistant",
+        content: null,
+        tool_calls: [
+          {
+            id: callId,
+            type: "function",
+            function: { name: toolCall.name, arguments: toolCall.arguments },
+          },
+        ],
+      })
+      openRouterMessages.push({
+        role: "tool",
+        tool_call_id: callId,
+        content: JSON.stringify(observation),
+      })
       continue
     }
 
@@ -315,8 +396,8 @@ async function runReActLoop({
  *
  * Validates and stores the user message, then runs the ReAct loop. When the
  * request sets `Accept: text/event-stream`, streams `token`/`thought`/
- * `observation`/`citation`/`done` events as SSE; otherwise (tests) returns the
- * collected events as JSON.
+ * `observation`/`chart`/`citation`/`done` events as SSE; otherwise (tests)
+ * returns the collected events as JSON.
  *
  * @param {Object} req - Express request object.
  * @param {Object} res - Express response object.
