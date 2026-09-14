@@ -31,6 +31,19 @@ vi.mock("../src/queues/youtube-processing.js", () => ({
   addYoutubeJob: vi.fn().mockResolvedValue({ id: "mock-yt-job-id" }),
 }))
 
+// The sandbox is disabled by default so no test needs a running sandbox container. Tests that
+// exercise the code path call vi.mocked(...).mockReturnValue(true) themselves.
+vi.mock("../src/services/sandbox.js", () => ({
+  isSandboxEnabled: vi.fn(() => false),
+  executeCode: vi.fn(async () => ({
+    ok: true,
+    stdout: "",
+    stderr: "",
+    charts: [],
+    error: null,
+  })),
+}))
+
 vi.mock("../src/utils/session-denylist.js", () => ({
   denySession: vi.fn().mockResolvedValue(undefined),
   isSessionDenied: vi.fn().mockResolvedValue(false),

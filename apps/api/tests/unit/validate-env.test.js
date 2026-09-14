@@ -249,3 +249,72 @@ describe("validateEnv — geolocation guard", () => {
     expect(() => validateEnv()).not.toThrow()
   })
 })
+
+describe("validateEnv — sandbox env vars", () => {
+  let snapshot, exitSpy, errSpy
+
+  beforeEach(() => {
+    snapshot = { ...process.env }
+    Object.assign(process.env, REQUIRED_ENV)
+    for (const key of ["SANDBOX_ENABLED", "SANDBOX_URL", "SANDBOX_API_TOKEN"]) {
+      delete process.env[key]
+    }
+    exitSpy = vi.spyOn(process, "exit").mockImplementation(() => {
+      throw new Error("process.exit called")
+    })
+    errSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    exitSpy.mockRestore()
+    errSpy.mockRestore()
+    for (const key of Object.keys(process.env)) delete process.env[key]
+    Object.assign(process.env, snapshot)
+  })
+
+  /** Returns every message that validateEnv reported to console.error. */
+  const reportedErrors = () => errSpy.mock.calls.map((call) => call.join(" ")).join("\n")
+
+  it("passes when sandbox is disabled and no sandbox vars are set", () => {
+    expect(() => validateEnv()).not.toThrow()
+  })
+
+  it("requires SANDBOX_URL and SANDBOX_API_TOKEN when enabled", () => {
+    process.env.SANDBOX_ENABLED = "true"
+    expect(() => validateEnv()).toThrow("process.exit called")
+    expect(reportedErrors()).toMatch(/SANDBOX_URL/)
+
+    errSpy.mockClear()
+    process.env.SANDBOX_URL = "http://sandbox:8000"
+    expect(() => validateEnv()).toThrow("process.exit called")
+    expect(reportedErrors()).toMatch(/SANDBOX_API_TOKEN/)
+
+    process.env.SANDBOX_API_TOKEN = "secret"
+    expect(() => validateEnv()).not.toThrow()
+  })
+
+  it("rejects a non-uri SANDBOX_URL", () => {
+    process.env.SANDBOX_ENABLED = "true"
+    process.env.SANDBOX_URL = "not a url"
+    process.env.SANDBOX_API_TOKEN = "secret"
+    expect(() => validateEnv()).toThrow("process.exit called")
+    expect(reportedErrors()).toMatch(/SANDBOX_URL/)
+  })
+
+  it("defaults SANDBOX_TIMEOUT_MS and CHAT_MAX_ITERATIONS", () => {
+    delete process.env.SANDBOX_TIMEOUT_MS
+    delete process.env.CHAT_MAX_ITERATIONS
+
+    const value = validateEnv()
+
+    expect(value.SANDBOX_ENABLED).toBe(false)
+    expect(value.SANDBOX_TIMEOUT_MS).toBe(30000)
+    expect(value.CHAT_MAX_ITERATIONS).toBe(10)
+  })
+
+  it("rejects a SANDBOX_TIMEOUT_MS above the sandbox hard max", () => {
+    process.env.SANDBOX_TIMEOUT_MS = "60001"
+    expect(() => validateEnv()).toThrow("process.exit called")
+    expect(reportedErrors()).toMatch(/SANDBOX_TIMEOUT_MS/)
+  })
+})

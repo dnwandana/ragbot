@@ -9,6 +9,9 @@ import {
   seedPermissions,
 } from "../helpers.js"
 import { addProcessingJob } from "../../src/queues/file-processing.js"
+import * as llamaindexService from "../../src/services/llamaindex.js"
+import * as datasetFileModel from "../../src/models/dataset-files.js"
+import { isSandboxEnabled } from "../../src/services/sandbox.js"
 
 vi.mock("../../src/services/email.js", () => ({
   sendVerificationEmail: vi.fn(),
@@ -35,6 +38,7 @@ beforeAll(async () => {
 })
 beforeEach(async () => {
   vi.clearAllMocks()
+  vi.mocked(isSandboxEnabled).mockReturnValue(false)
   await cleanAllTables()
   user = await createTestUser()
   ws = await createTestWorkspace(user.id)
@@ -86,6 +90,70 @@ describe("POST .../files/upload", () => {
       .attach("file", Buffer.from("MZ..."), "malware.exe")
 
     expect(res.status).toBe(400)
+  })
+
+  const uploadTestFile = async (filename, content) =>
+    (await request())
+      .post(`${baseUrl()}/upload`)
+      .set(await getAuthHeaders(user.id))
+      .attach("file", Buffer.from(content), filename)
+
+  describe("tabular uploads", () => {
+    beforeEach(() => {
+      vi.mocked(isSandboxEnabled).mockReturnValue(true)
+    })
+
+    it("accepts a .tsv upload", async () => {
+      const res = await uploadTestFile("data.tsv", "a\tb\n1\t2")
+      expect(res.status).toBe(201)
+    })
+
+    it("accepts a .json upload and marks it tabular", async () => {
+      const res = await uploadTestFile("data.json", '[{"a":1}]')
+      expect(res.status).toBe(201)
+      const metadata = res.body.data.metadata
+      expect(metadata.source_type).toBe("tabular")
+      expect(metadata.llamaindex_job_id).toBeUndefined()
+    })
+
+    it("marks a .csv upload tabular and skips the parse job", async () => {
+      const res = await uploadTestFile("data.csv", "a,b\n1,2")
+      expect(res.status).toBe(201)
+      expect(res.body.data.metadata.source_type).toBe("tabular")
+      expect(llamaindexService.submitParseJob).not.toHaveBeenCalled()
+    })
+
+    it("still routes a .pdf through LlamaIndex", async () => {
+      const res = await uploadTestFile("doc.pdf", "%PDF-1.4 fake")
+      expect(res.status).toBe(201)
+      expect(res.body.data.metadata.source_type).toBeUndefined()
+      expect(llamaindexService.submitParseJob).toHaveBeenCalled()
+    })
+  })
+
+  describe("tabular uploads with the sandbox disabled", () => {
+    beforeEach(() => {
+      vi.mocked(isSandboxEnabled).mockReturnValue(false)
+    })
+
+    it("routes a .csv upload through LlamaIndex", async () => {
+      const res = await uploadTestFile("data.csv", "a,b\n1,2")
+      expect(res.status).toBe(201)
+      expect(res.body.data.metadata.source_type).toBeUndefined()
+      expect(res.body.data.metadata.llamaindex_job_id).toBe("mock-job-id")
+      expect(llamaindexService.submitParseJob).toHaveBeenCalled()
+    })
+
+    it("rejects a .tsv upload with 400", async () => {
+      const res = await uploadTestFile("data.tsv", "a\tb\n1\t2")
+      expect(res.status).toBe(400)
+      expect(llamaindexService.submitParseJob).not.toHaveBeenCalled()
+    })
+
+    it("rejects a .json upload with 400", async () => {
+      const res = await uploadTestFile("data.json", '[{"a":1}]')
+      expect(res.status).toBe(400)
+    })
   })
 })
 
@@ -248,6 +316,27 @@ describe("POST .../files/:file_id/reprocess", () => {
     expect(res.status).toBe(200)
     const file = await db("dataset_files").where({ id: fileId }).first()
     expect(file.status).toBe("processing")
+  })
+
+  it("re-enqueues a tabular file on the file-processing queue", async () => {
+    vi.mocked(isSandboxEnabled).mockReturnValue(true)
+    const createRes = await (
+      await request()
+    )
+      .post(`${baseUrl()}/upload`)
+      .set(await getAuthHeaders(user.id))
+      .attach("file", Buffer.from("a,b\n1,2"), "cities.csv")
+    const fileId = createRes.body.data.id
+
+    await db("dataset_files").where({ id: fileId }).update({ status: "completed" })
+    vi.mocked(addProcessingJob).mockClear()
+
+    const res = await (await request())
+      .post(`${baseUrl()}/${fileId}/reprocess`)
+      .set(await getAuthHeaders(user.id))
+
+    expect(res.status).toBe(200)
+    expect(addProcessingJob).toHaveBeenCalledWith({ datasetFileId: fileId, datasetId: dsId })
   })
 
   it("returns 400 when file is already in processing state", async () => {
@@ -488,5 +577,76 @@ describe("question deletion cascades", () => {
       .set(await getAuthHeaders(user.id))
 
     expect(await db("dataset_file_questions").where({ dataset_file_id: fileId })).toHaveLength(0)
+  })
+})
+
+describe("findCompletedTabularByDatasetIds", () => {
+  /** Inserts one dataset_files row with the given overrides. */
+  const insertFile = async (overrides) => {
+    const id = crypto.randomUUID()
+    await db("dataset_files").insert({
+      id,
+      dataset_id: dsId,
+      workspace_id: ws.id,
+      filename: "data.csv",
+      mime_type: "text/csv",
+      file_size_bytes: 10,
+      storage_provider: "r2",
+      storage_path: `datasets/${dsId}/${id}.csv`,
+      status: "completed",
+      metadata: JSON.stringify({ source_type: "tabular" }),
+      created_at: new Date(),
+      updated_at: new Date(),
+      ...overrides,
+    })
+    return id
+  }
+
+  it("finds only completed tabular files in the workspace", async () => {
+    const tabularId = await insertFile({})
+    await insertFile({ filename: "doc.pdf", metadata: JSON.stringify({}) })
+    await insertFile({ status: "pending" })
+
+    // A completed tabular file in another workspace must stay invisible.
+    const otherUser = await createTestUser()
+    const otherWs = await createTestWorkspace(otherUser.id)
+    const otherDsRes = await (
+      await request()
+    )
+      .post(`/api/workspaces/${otherWs.id}/datasets`)
+      .set(await getAuthHeaders(otherUser.id))
+      .send({ name: "Other Dataset" })
+    const otherDsId = otherDsRes.body.data.id
+    const otherFileId = crypto.randomUUID()
+    await db("dataset_files").insert({
+      id: otherFileId,
+      dataset_id: otherDsId,
+      workspace_id: otherWs.id,
+      filename: "other.csv",
+      mime_type: "text/csv",
+      file_size_bytes: 10,
+      storage_provider: "r2",
+      storage_path: `datasets/${otherDsId}/${otherFileId}.csv`,
+      status: "completed",
+      metadata: JSON.stringify({ source_type: "tabular" }),
+      created_at: new Date(),
+      updated_at: new Date(),
+    })
+
+    const rows = await datasetFileModel.findCompletedTabularByDatasetIds([dsId, otherDsId], ws.id)
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0].id).toBe(tabularId)
+    const metadata =
+      typeof rows[0].metadata === "string" ? JSON.parse(rows[0].metadata) : rows[0].metadata
+    expect(metadata.source_type).toBe("tabular")
+  })
+
+  it("ignores soft-deleted files", async () => {
+    await insertFile({ deleted_at: new Date() })
+
+    const rows = await datasetFileModel.findCompletedTabularByDatasetIds([dsId], ws.id)
+
+    expect(rows).toEqual([])
   })
 })
