@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from "vitest"
-import { mount } from "@vue/test-utils"
+import { mount, flushPromises } from "@vue/test-utils"
 import ChatComposer from "@/components/chat/ChatComposer.vue"
 
 // a-popover stub: renders both default slot and #content slot immediately,
@@ -37,6 +37,34 @@ const ATextareaStub = {
   ></textarea>`,
 }
 
+// a-textarea stub that reproduces Ant's behaviour when the field is disabled
+// while it holds focus. The browser blurs a focused element that becomes
+// disabled, the blur fires a native `change`, and Ant re-emits the value the DOM
+// still holds through `update:value`. The `disabled` watcher runs pre-render, so
+// it reads the DOM before Vue patches it — the same order as the browser.
+const ATextareaEchoStub = {
+  props: {
+    value: { type: String, default: "" },
+    disabled: { type: Boolean, default: false },
+  },
+  emits: ["update:value", "keydown", "focus", "blur"],
+  watch: {
+    disabled(next) {
+      if (next) this.$emit("update:value", this.$refs.el.value)
+    },
+  },
+  template: `<textarea
+    ref="el"
+    class="a-textarea-stub"
+    :value="value"
+    :disabled="disabled"
+    @input="$emit('update:value', $event.target.value)"
+    @keydown="$emit('keydown', $event)"
+    @focus="$emit('focus')"
+    @blur="$emit('blur')"
+  ></textarea>`,
+}
+
 // a-button stub: renders a <button>, forwarding disabled via $attrs.
 const AButtonStub = {
   inheritAttrs: true,
@@ -44,7 +72,7 @@ const AButtonStub = {
   template: `<button class="a-button-stub" v-bind="$attrs" @click="$emit('click')"><slot /></button>`,
 }
 
-function mountComposer(props = {}) {
+function mountComposer(props = {}, { textareaStub = ATextareaStub } = {}) {
   return mount(ChatComposer, {
     props,
     global: {
@@ -59,7 +87,7 @@ function mountComposer(props = {}) {
           emits: ["select", "search", "close"],
         },
         "a-popover": APopoverStub,
-        "a-textarea": ATextareaStub,
+        "a-textarea": textareaStub,
         "a-button": AButtonStub,
       },
     },
@@ -259,5 +287,37 @@ describe("ChatComposer a-textarea + a-button send/abort", () => {
     expect(stop.exists()).toBe(true)
     await stop.trigger("click")
     expect(wrapper.emitted("abort")).toBeTruthy()
+  })
+})
+
+describe("ChatComposer send while the parent disables the field", () => {
+  // ChatView flips `streaming` synchronously inside its send handler, because
+  // useChat.sendMessage sets isStreaming before its first await. The clear and
+  // the disable therefore land in one render flush.
+  function mountBusyOnSend() {
+    let wrapper
+    wrapper = mountComposer(
+      { onSend: () => wrapper.setProps({ streaming: true }) },
+      { textareaStub: ATextareaEchoStub },
+    )
+    return wrapper
+  }
+
+  it("leaves the field empty after Enter sends the message", async () => {
+    const wrapper = mountBusyOnSend()
+    await wrapper.find(".a-textarea-stub").setValue("second question")
+    await wrapper.find(".a-textarea-stub").trigger("keydown", { key: "Enter" })
+    await flushPromises()
+    expect(wrapper.emitted("send")[0]).toEqual(["second question"])
+    expect(wrapper.find(".a-textarea-stub").element.value).toBe("")
+  })
+
+  it("leaves the field empty after the Send button sends the message", async () => {
+    const wrapper = mountBusyOnSend()
+    await wrapper.find(".a-textarea-stub").setValue("third question")
+    await wrapper.find(".chat-composer__send").trigger("click")
+    await flushPromises()
+    expect(wrapper.emitted("send")[0]).toEqual(["third question"])
+    expect(wrapper.find(".a-textarea-stub").element.value).toBe("")
   })
 })
