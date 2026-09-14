@@ -19,6 +19,11 @@
   <!-- Agent message -->
   <div v-else class="chat-message chat-message--agent">
     <div class="chat-message__bubble chat-message__bubble--agent">
+      <!-- Code the agent ran to reach this answer, above the answer itself. -->
+      <div v-if="steps.length" class="chat-message__steps">
+        <CodeRunCard :steps="steps" />
+      </div>
+
       <MarkdownRenderer
         :text="msg.text"
         :streaming="msg.streaming"
@@ -26,19 +31,20 @@
         @cite="(n) => emit('cite', n)"
       />
 
+      <!-- Index key is safe: charts arrive in a fixed order and never reorder. -->
+      <div v-if="charts.length" class="chat-message__charts">
+        <ChartCard v-for="(spec, i) in charts" :key="`chart-${i}`" :spec="spec" />
+      </div>
+
       <!-- ReAct steps during streaming -->
       <div
-        v-if="
-          msg.streaming &&
-          reActSteps &&
-          (reActSteps.thoughts.length || reActSteps.observations.length)
-        "
+        v-if="msg.streaming && (reActThoughts.length || reActObservations.length)"
         class="chat-message__react"
       >
-        <!-- Index key is safe: ReAct steps are append-only during streaming and never
-             reordered or filtered. Switch to a payload id if that ever changes. -->
+        <!-- Index key is safe: ReAct steps are append-only during streaming, and the
+             filter keeps that order. Switch to a payload id if that ever changes. -->
         <details
-          v-for="(thought, i) in reActSteps.thoughts"
+          v-for="(thought, i) in reActThoughts"
           :key="'t' + i"
           class="chat-message__react-step"
         >
@@ -50,10 +56,10 @@
             {{ thought.tool_call }}
           </div>
         </details>
-        <!-- Index key is safe: ReAct steps are append-only during streaming and never
-             reordered or filtered. Switch to a payload id if that ever changes. -->
+        <!-- Index key is safe: ReAct steps are append-only during streaming, and the
+             filter keeps that order. Switch to a payload id if that ever changes. -->
         <details
-          v-for="(obs, i) in reActSteps.observations"
+          v-for="(obs, i) in reActObservations"
           :key="'o' + i"
           class="chat-message__react-step"
         >
@@ -108,6 +114,8 @@ import { ref, computed, onUnmounted } from "vue"
 import { Check, Copy, CircleAlert } from "lucide-vue-next"
 import MarkdownRenderer from "./MarkdownRenderer.vue"
 import SourceCitations from "./SourceCitations.vue"
+import CodeRunCard from "./CodeRunCard.vue"
+import ChartCard from "./ChartCard.vue"
 
 const props = defineProps({
   /** Message object: { id, role, text, time, sources, streaming, error, errorMsg } */
@@ -116,11 +124,24 @@ const props = defineProps({
   reActSteps: { type: Object, default: null },
   /** Citation numbers backed by a source for this message (null while streaming) */
   citationNumbers: { type: Array, default: null },
+  /** Code executions behind this answer: { thought, observation }[]. A null observation means still running. */
+  steps: { type: Array, default: () => [] },
+  /** Chart.js specs produced by this answer's code executions */
+  charts: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits(["copy", "cite", "open-panel"])
 
 const isUser = computed(() => props.msg.role === "user")
+
+// Only search steps carry a `content` field. An execute_code step has its own
+// cell in the run card, so it must not also render an empty ReAct disclosure.
+const reActThoughts = computed(() =>
+  (props.reActSteps?.thoughts ?? []).filter((t) => t.content != null),
+)
+const reActObservations = computed(() =>
+  (props.reActSteps?.observations ?? []).filter((o) => o.content != null),
+)
 
 const copyActive = ref(false)
 let copyTimer = null
@@ -230,6 +251,18 @@ onUnmounted(() => clearTimeout(copyTimer))
 .chat-message__dot,
 .chat-message__time {
   color: var(--ink-4);
+}
+
+/* ── Execution steps + charts ── */
+.chat-message__steps {
+  margin-bottom: 12px;
+}
+
+.chat-message__charts {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 /* ── ReAct steps ── */

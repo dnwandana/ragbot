@@ -39,6 +39,8 @@
         :msg="m"
         :re-act-steps="m.streaming ? reActSteps : null"
         :citation-numbers="m.citationNumbers"
+        :steps="m.steps"
+        :charts="m.charts"
         @copy="emit('copy', $event)"
         @cite="(n) => emit('cite', m.id, n)"
         @open-panel="emit('open-panel', m.id)"

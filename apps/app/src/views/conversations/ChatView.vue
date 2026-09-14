@@ -2,7 +2,7 @@
   <div class="chat-view">
     <ChatThread
       :messages="displayMessages"
-      :loading="chatStore.isStreaming && !hasStreamingContent"
+      :loading="chatStore.isStreaming && !hasStreamingBody"
       :loading-label="loadingLabel"
       :streaming="chatStore.isStreaming"
       :re-act-steps="{ thoughts: chatStore.thoughts, observations: chatStore.observations }"
@@ -18,7 +18,7 @@
 
     <ChatComposer
       :streaming="chatStore.isStreaming"
-      :loading="chatStore.isStreaming && !hasStreamingContent"
+      :loading="chatStore.isStreaming && !hasStreamingBody"
       :dataset-options="datasetResults"
       :selected-dataset-ids="linkedDatasetIds"
       :selected-datasets="isNew ? selectedDatasetObjects : linkedDatasets"
@@ -108,6 +108,7 @@ import { useFormattedTime } from "@/composables/useFormattedTime"
 import ChatThread from "@/components/chat/ChatThread.vue"
 import ChatComposer from "@/components/chat/ChatComposer.vue"
 import MarkdownRenderer from "@/components/chat/MarkdownRenderer.vue"
+import { groupThreadMessages } from "./chat-thread-grouping.js"
 
 const route = useRoute()
 const router = useRouter()
@@ -347,12 +348,10 @@ watch(
 )
 const messages = computed(() => conversation.value?.messages || [])
 
-// Filter to input + final_answer only (matching current behavior)
-const filteredMessages = computed(() =>
-  messages.value.filter(
-    (m) => m.step_type === "input" || m.step_type === "final_answer" || !m.step_type,
-  ),
-)
+// Drop the thought/observation rows and fold them into the answer they belong
+// to, so a reloaded thread shows the same execution steps and charts the live
+// stream showed.
+const groupedMessages = computed(() => groupThreadMessages(messages.value))
 
 const citationsByMsgId = computed(() => {
   const map = new Map()
@@ -366,6 +365,22 @@ const citationsByMsgId = computed(() => {
 
 const hasStreamingContent = computed(() => (chatStore.currentContent || "").length > 0)
 
+// Live execution steps. The ReAct loop emits one thought per iteration and one
+// observation for it, so the two store arrays stay index-aligned; the tail
+// thought has no observation yet and renders as running.
+const liveSteps = computed(() =>
+  chatStore.thoughts
+    .map((thought, i) => ({ thought, observation: chatStore.observations[i] ?? null }))
+    .filter((step) => step.thought?.tool === "execute_code"),
+)
+
+// Show the assistant bubble as soon as either tokens or an execution step
+// arrives — a code run produces no tokens, so without this the running step
+// would stay hidden behind the "Searching…" indicator.
+const hasStreamingBody = computed(
+  () => chatStore.isStreaming && (hasStreamingContent.value || liveSteps.value.length > 0),
+)
+
 const loadingLabel = computed(() => {
   const n = linkedDatasetIds.value.length
   if (!n) return "Searching…"
@@ -374,7 +389,7 @@ const loadingLabel = computed(() => {
 
 // Build streaming message from chatStore state
 const streamingMessage = computed(() => {
-  if (!chatStore.isStreaming || !chatStore.currentContent) return null
+  if (!hasStreamingBody.value) return null
   return {
     id: "streaming",
     role: "assistant",
@@ -384,6 +399,8 @@ const streamingMessage = computed(() => {
     // Citations aren't known until the stream finishes — chip every marker.
     citationNumbers: null,
     time: clockTime(new Date().toISOString()),
+    steps: liveSteps.value,
+    charts: chatStore.charts.map((c) => c.spec),
   }
 })
 
@@ -391,7 +408,7 @@ const streamingMessage = computed(() => {
 // Normalises API field names: content→text, created_at→time, and injects
 // per-message citations from the conversation-level citations array.
 const displayMessages = computed(() => {
-  const base = filteredMessages.value.map((m) => {
+  const base = groupedMessages.value.map((m) => {
     const cits = citationsByMsgId.value.get(m.id) || []
     return {
       ...m,
@@ -435,7 +452,7 @@ const activeCitationCount = computed(() =>
 
 const activeMsgIndex = computed(() => {
   if (!activeMsgId.value) return null
-  const aiMessages = filteredMessages.value.filter((m) => m.role === "assistant")
+  const aiMessages = groupedMessages.value.filter((m) => m.role === "assistant")
   const idx = aiMessages.findIndex((m) => m.id === activeMsgId.value)
   return idx === -1 ? null : idx + 1
 })

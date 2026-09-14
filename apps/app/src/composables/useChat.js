@@ -98,6 +98,8 @@ export function useChat(workspaceId, conversationId) {
               chatStore.observations.push(data)
             } else if (currentEvent === "citation") {
               chatStore.pendingCitations.push(data)
+            } else if (currentEvent === "chart") {
+              chatStore.charts.push(data)
             } else if (currentEvent === "done") {
               // Reload the conversation to pull in the persisted messages, then
               // drop the streaming bubble immediately so the answer is never
