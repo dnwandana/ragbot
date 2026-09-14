@@ -7,6 +7,48 @@ description: What's new in RAGBot — new features and improvements by version.
 
 What's new in RAGBot. The newest release is listed first.
 
+## 1.4.0 — 14 September 2026
+
+RAGBot can now analyze your spreadsheets, not only read them. Upload a data
+file, ask a question about the numbers, and the agent writes and runs Python
+code to work out the answer, with the code, the output, and any charts shown
+right in the chat.
+
+### New
+
+**Ask questions about your data files**
+
+- Add Excel workbooks, CSV or TSV files, and JSON records to a
+  [dataset](/concepts/datasets). RAGBot profiles each file's sheets and columns
+  instead of splitting it into text passages, and shows the result under a new
+  **Schema** section in the file's detail panel.
+- Ask for a count, a sum, a comparison, or a trend, and the agent computes it
+  with a **code interpreter** that runs in a locked-down sandbox with no internet
+  access. See [Analyzing data files](/concepts/data-analysis).
+- Every answer that ran code shows a **Code interpreter** card with one cell per
+  run: a title, the code, its output, and how long it took. Copy the code with
+  one click.
+
+**Charts in the chat**
+
+- Ask for a bar, line, pie, doughnut, scatter, radar, bubble, or polar area
+  chart, and the agent draws it inline. Charts are saved with the conversation
+  and are still there when you reopen it.
+
+### Improvements
+
+- The agent can now reason over more steps in one answer, so it can look at
+  your data first, then compute, then fix a mistake, before it replies.
+- The file picker in the Add source panel now offers every format RAGBot
+  accepts, including the new data file types.
+
+### Fixes
+
+- The answer to your first message in a new conversation now appears as it
+  streams, instead of only after it finishes.
+- The message you just sent no longer reappears in the composer after you send
+  it.
+
 ## 1.3.0 — 26 June 2026
 
 You can now build datasets from YouTube videos, not just files and web pages.
