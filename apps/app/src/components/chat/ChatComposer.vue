@@ -138,7 +138,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from "vue"
+import { ref, computed, watch, onMounted, nextTick } from "vue"
 import { Paperclip, LayoutGrid, ChevronDown, ArrowUp, Ban, Bot } from "lucide-vue-next"
 import DatasetDrawer from "./DatasetDrawer.vue"
 import AgentDrawer from "./AgentDrawer.vue"
@@ -221,8 +221,15 @@ function onKey(e) {
 
 function submit() {
   if (!canSend.value) return
-  emit("send", value.value.trim())
+  const text = value.value.trim()
+  // Clear the field first, then emit on the next tick. The parent starts the
+  // stream synchronously, which sets `busy` and disables this textarea in the
+  // same render flush. The browser blurs a focused element that becomes
+  // disabled, and Ant re-emits the value the textarea still holds through
+  // `update:value` — which writes the sent message back into the composer.
+  // One tick of delay lets the empty value reach the DOM first.
   value.value = ""
+  nextTick(() => emit("send", text))
 }
 
 function selectAgent(agentId) {
