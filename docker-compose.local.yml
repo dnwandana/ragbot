@@ -40,9 +40,49 @@ services:
       dockerfile: apps/api/Dockerfile
     env_file:
       - .env.local
+    environment:
+      # Pins the shared secret for both containers. This value overrides
+      # .env.local, so the api and the sandbox always agree on one token.
+      SANDBOX_API_TOKEN: ${SANDBOX_API_TOKEN:-local-dev-sandbox-token}
+    networks: [default, sandbox_net]
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
       interval: 10s
       timeout: 5s
       retries: 3
     restart: unless-stopped
+
+  sandbox:
+    build:
+      context: .
+      dockerfile: sandbox/Dockerfile
+    restart: unless-stopped
+    # The sandbox runs untrusted code, so it gets the shared secret only. Do not
+    # give it .env.local: a child process can read /proc/1/environ of the server.
+    environment:
+      SANDBOX_API_TOKEN: ${SANDBOX_API_TOKEN:-local-dev-sandbox-token}
+    networks: [sandbox_net]
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m
+    mem_limit: 1g
+    cpus: 1
+    pids_limit: 64
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  sandbox_net:
+    internal: true
