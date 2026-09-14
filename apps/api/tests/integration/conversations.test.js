@@ -179,6 +179,75 @@ describe("GET /api/workspaces/:id/conversations/:conversation_id", () => {
     expect(res.body.data.messages).toEqual([])
     expect(res.body.data.citations).toEqual([])
   })
+
+  it("returns thought and observation rows with content_json", async () => {
+    const user = await createTestUser()
+    const ws = await createTestWorkspace(user.id)
+
+    const createRes = await (
+      await request()
+    )
+      .post(`/api/workspaces/${ws.id}/conversations`)
+      .set(await getAuthHeaders(user.id))
+      .send({ title: "Analysis" })
+    const convId = createRes.body.data.id
+
+    const base = Date.now()
+    const seed = (index, row) =>
+      db("conversation_messages").insert({
+        id: crypto.randomUUID(),
+        conversation_id: convId,
+        workspace_id: ws.id,
+        created_at: new Date(base + index * 1000),
+        ...row,
+      })
+
+    await seed(0, {
+      role: "user",
+      step_type: "input",
+      content: "sum the pop column",
+      content_json: null,
+    })
+    await seed(1, {
+      role: "assistant",
+      step_type: "thought",
+      content: null,
+      content_json: JSON.stringify({ tool: "execute_code", code: "print(1)", file_ids: [] }),
+    })
+    await seed(2, {
+      role: "tool",
+      step_type: "observation",
+      content: "1",
+      content_json: JSON.stringify({
+        stdout: "1",
+        stderr: "",
+        error: null,
+        charts: [{ type: "bar" }],
+      }),
+    })
+    await seed(3, {
+      role: "assistant",
+      step_type: "final_answer",
+      content: "The total is 1.",
+      content_json: null,
+    })
+
+    const res = await (await request())
+      .get(`/api/workspaces/${ws.id}/conversations/${convId}`)
+      .set(await getAuthHeaders(user.id))
+
+    expect(res.status).toBe(200)
+    const steps = res.body.data.messages.map((m) => m.step_type)
+    expect(steps).toEqual(["input", "thought", "observation", "final_answer"])
+
+    const observation = res.body.data.messages[2]
+    const payload =
+      typeof observation.content_json === "string"
+        ? JSON.parse(observation.content_json)
+        : observation.content_json
+    expect(payload.charts).toHaveLength(1)
+    expect(payload.stdout).toBe("1")
+  })
 })
 
 describe("PATCH /api/workspaces/:id/conversations/:conversation_id", () => {

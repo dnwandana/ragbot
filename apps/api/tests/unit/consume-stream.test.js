@@ -47,4 +47,33 @@ describe("consumeStream", () => {
     expect(tokens).toEqual(["first"])
     expect(result.finishReason).toBeNull()
   })
+
+  it("captures the tool call id from the stream", async () => {
+    const stream = streamOf([
+      `data: ${JSON.stringify({
+        choices: [
+          {
+            delta: {
+              tool_calls: [
+                { index: 0, id: "call_abc", function: { name: "search", arguments: "" } },
+              ],
+            },
+          },
+        ],
+      })}\n\n`,
+      `data: ${JSON.stringify({
+        choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: '{"q":1}' } }] } }],
+      })}\n\n`,
+      "data: [DONE]\n\n",
+    ])
+    const result = await consumeStream(stream, () => {})
+    expect(result.toolCallId).toBe("call_abc")
+    expect(result.toolCall).toEqual({ name: "search", arguments: '{"q":1}' })
+  })
+
+  it("returns null toolCallId when the stream has no tool call", async () => {
+    const stream = streamOf([tokenChunk("hi"), "data: [DONE]\n\n"])
+    const result = await consumeStream(stream, () => {})
+    expect(result.toolCallId).toBeNull()
+  })
 })
