@@ -22,6 +22,30 @@ const urlError = ref("")
 const urlLoading = ref(false)
 
 /**
+ * Extensions the file picker offers. Mirrors ALLOWED_UPLOAD_EXTENSIONS in
+ * apps/api/src/controllers/dataset-files.js. A missing entry hides the file in
+ * the OS picker even though the upload itself would succeed.
+ */
+const ACCEPTED_EXTENSIONS = [
+  ".pdf",
+  ".doc",
+  ".docx",
+  ".ppt",
+  ".pptx",
+  ".xls",
+  ".xlsx",
+  ".csv",
+  ".tsv",
+  ".json",
+  ".txt",
+  ".md",
+  ".html",
+  ".htm",
+  ".rtf",
+  ".epub",
+].join(",")
+
+/**
  * Per-source submit dispatch keyed by detector key. Each entry calls the right
  * store action and names the event the drawer emits so the parent refreshes.
  */
@@ -161,12 +185,12 @@ function onClose() {
                 <CloudUpload :size="20" :stroke-width="1.5" />
               </div>
               <p class="drop-text">Drop files here</p>
-              <p class="drop-sub">PDF, DOCX, Markdown, plain text</p>
+              <p class="drop-sub">PDF, Office, spreadsheets, Markdown, plain text</p>
               <label class="btn-secondary" style="margin-top: 6px; cursor: pointer">
                 Choose files
                 <input
                   type="file"
-                  accept=".pdf,.docx,.doc,.md,.txt"
+                  :accept="ACCEPTED_EXTENSIONS"
                   multiple
                   style="display: none"
                   @change="onFileInput"

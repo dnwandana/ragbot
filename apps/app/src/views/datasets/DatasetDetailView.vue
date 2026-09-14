@@ -1149,6 +1149,12 @@ const visiblePages = computed(() => {
   border-color: rgba(29, 78, 216, 0.2);
 }
 
+.type-tabular {
+  background: rgba(16, 124, 65, 0.1);
+  color: #107c41;
+  border-color: rgba(16, 124, 65, 0.2);
+}
+
 .type-file {
   background: var(--bg-2);
   color: var(--ink-3);

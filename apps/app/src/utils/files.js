@@ -16,6 +16,9 @@ export function isYouTubeUrl(url) {
   }
 }
 
+/** Extensions the API routes to sandbox profiling instead of LlamaIndex. */
+const TABULAR_EXTENSIONS = new Set(["csv", "tsv", "xls", "xlsx", "json"])
+
 /**
  * Classify a dataset file's source type for display.
  * `sourceType` (from `metadata.source_type`) is authoritative: a YouTube file's
@@ -25,6 +28,7 @@ export function isYouTubeUrl(url) {
  */
 export function fileType(filename, sourceType) {
   if (sourceType === "youtube") return "youtube"
+  if (sourceType === "tabular") return "tabular"
   if (!filename) return "file"
   if (isYouTubeUrl(filename)) return "youtube"
   if (/^https?:\/\//i.test(filename)) return "url"
@@ -32,6 +36,7 @@ export function fileType(filename, sourceType) {
   if (ext === "pdf") return "pdf"
   if (ext === "docx" || ext === "doc") return "docx"
   if (ext === "md") return "md"
+  if (TABULAR_EXTENSIONS.has(ext)) return "tabular"
   return "file"
 }
 

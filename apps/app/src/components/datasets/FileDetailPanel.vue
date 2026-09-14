@@ -39,6 +39,14 @@ const isCompleted = computed(() => props.file?.status === "completed")
 const isFailed = computed(() => props.file?.status === "failed")
 const type = computed(() => fileType(props.file?.filename, props.file?.metadata?.source_type))
 
+// The schema profile of a tabular file. Null until the worker writes it, so a
+// file that is still processing shows no schema section at all.
+const profile = computed(() => {
+  const metadata = props.file?.metadata
+  if (metadata?.source_type !== "tabular") return null
+  return metadata.profile ?? null
+})
+
 /** Number of exploration questions shown at once. */
 const QUESTION_DISPLAY_SIZE = 5
 
@@ -140,6 +148,50 @@ watch(
                 <dd class="mono">{{ humanSize(file.file_size_bytes) }}</dd>
               </div>
             </dl>
+          </section>
+
+          <!-- Tabular schema -->
+          <section v-if="profile" class="schema-section">
+            <div class="sec-head">
+              <h3 class="section-label">Schema</h3>
+              <span v-if="profile.format" class="sec-count">{{ profile.format }}</span>
+            </div>
+            <p v-if="profile.truncated" class="schema-note">
+              The profile was truncated to fit the size cap.
+            </p>
+            <div v-for="sheet in profile.sheets" :key="sheet.name" class="schema-sheet">
+              <details>
+                <summary>{{ sheet.name }} — {{ sheet.rows }} rows</summary>
+                <div class="schema-table-wrap">
+                  <table class="schema-table">
+                    <thead>
+                      <tr>
+                        <th>column</th>
+                        <th>type</th>
+                        <th>non-null</th>
+                        <th>unique</th>
+                        <th>range</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="col in sheet.columns" :key="col.name">
+                        <td>{{ col.name }}</td>
+                        <td class="mono">{{ col.dtype }}</td>
+                        <td class="mono">{{ col.non_null }}</td>
+                        <td class="mono">{{ col.unique }}</td>
+                        <td class="mono">
+                          {{
+                            col.min !== null && col.min !== undefined
+                              ? `${col.min} – ${col.max}`
+                              : "—"
+                          }}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            </div>
           </section>
 
           <!-- Explore this document -->
@@ -387,6 +439,11 @@ watch(
   color: #1d4ed8;
   border-color: rgba(29, 78, 216, 0.2);
 }
+.type-tabular {
+  background: rgba(16, 124, 65, 0.1);
+  color: #107c41;
+  border-color: rgba(16, 124, 65, 0.2);
+}
 .type-file {
   background: var(--bg-2);
   color: var(--ink-3);
@@ -517,6 +574,56 @@ watch(
 }
 .status-dot.pulse {
   animation: pulse 1.4s ease-in-out infinite;
+}
+
+/* Tabular schema */
+.schema-section {
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+.schema-note {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  margin: 0 0 10px;
+}
+.schema-sheet + .schema-sheet {
+  margin-top: 8px;
+}
+.schema-sheet details {
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+.schema-sheet summary {
+  padding: 7px 11px;
+  background: var(--bg-2);
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.schema-table-wrap {
+  overflow-x: auto;
+}
+.schema-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+}
+.schema-table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--ink-4);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 10px;
+}
+.schema-table th,
+.schema-table td {
+  border-top: 1px solid var(--line);
+  padding: 5px 11px;
+  white-space: nowrap;
+  color: var(--ink-2);
 }
 
 /* Explore this document */
