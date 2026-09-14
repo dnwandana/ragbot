@@ -5,6 +5,23 @@ import { mount } from "@vue/test-utils"
 vi.mock("@/components/chat/MarkdownRenderer.vue", () => ({ default: { template: "<div />" } }))
 vi.mock("@/components/chat/SourceCitations.vue", () => ({ default: { template: "<div />" } }))
 
+// Named stubs so findAllComponents({ name }) resolves them. ChartCard is also
+// stubbed to keep Chart.js and its canvas out of jsdom.
+vi.mock("@/components/chat/CodeRunCard.vue", () => ({
+  default: {
+    name: "CodeRunCard",
+    props: { steps: { type: Array, default: () => [] } },
+    template: "<div class='code-run-card-stub' />",
+  },
+}))
+vi.mock("@/components/chat/ChartCard.vue", () => ({
+  default: {
+    name: "ChartCard",
+    props: { spec: { type: Object, default: null } },
+    template: "<div class='chart-card-stub' />",
+  },
+}))
+
 // a-alert stub: renders the message prop and a named icon slot inside a
 // wrapper div. The data-type attribute lets us assert the type prop.
 const AAlertStub = {
@@ -50,6 +67,11 @@ function agentMsg(overrides = {}) {
 
 function userMsg(overrides = {}) {
   return { id: "m2", role: "user", text: "hi", time: "12:00", ...overrides }
+}
+
+/** Mount an agent message with the given extra props (steps, charts, …). */
+function mountMessage(props = {}) {
+  return mount(ChatMessage, { props: { msg: agentMsg(), ...props }, global: GLOBAL })
 }
 
 describe("ChatMessage isUser reactivity", () => {
@@ -140,6 +162,68 @@ describe("ChatMessage copy button", () => {
     await wrapper.find(".a-button-stub").trigger("click")
     expect(wrapper.emitted("copy")).toBeTruthy()
     expect(wrapper.emitted("copy")[0][0]).toEqual(msg)
+  })
+})
+
+describe("ChatMessage execution steps and charts", () => {
+  it("renders one CodeRunCard for all steps and one ChartCard per chart", () => {
+    const wrapper = mountMessage({
+      steps: [
+        {
+          thought: { tool: "execute_code", code: "x", file_ids: [] },
+          observation: { stdout: "1" },
+        },
+        {
+          thought: { tool: "execute_code", code: "y", file_ids: [] },
+          observation: { stdout: "2" },
+        },
+      ],
+      charts: [{ type: "bar" }, { type: "line" }],
+    })
+    const cards = wrapper.findAllComponents({ name: "CodeRunCard" })
+    expect(cards).toHaveLength(1)
+    expect(cards[0].props("steps")).toHaveLength(2)
+    expect(wrapper.findAllComponents({ name: "ChartCard" })).toHaveLength(2)
+  })
+
+  it("renders no steps or charts for a plain message", () => {
+    const wrapper = mountMessage({})
+    expect(wrapper.findAllComponents({ name: "CodeRunCard" })).toHaveLength(0)
+    expect(wrapper.findAllComponents({ name: "ChartCard" })).toHaveLength(0)
+  })
+
+  it("passes the running state through as a null observation", () => {
+    const wrapper = mountMessage({
+      steps: [{ thought: { tool: "execute_code", code: "x", file_ids: [] }, observation: null }],
+    })
+    const steps = wrapper.findComponent({ name: "CodeRunCard" }).props("steps")
+    expect(steps[0].observation).toBe(null)
+    expect(steps[0].thought.code).toBe("x")
+  })
+})
+
+describe("ChatMessage ReAct steps during streaming", () => {
+  it("hides a thought or an observation that carries no content", () => {
+    const wrapper = mountMessage({
+      msg: agentMsg({ streaming: true }),
+      reActSteps: {
+        thoughts: [{ content: "Let me search." }, { tool: "execute_code", code: "print(1)" }],
+        observations: [{ content: "Found 3 chunks." }, { stdout: "1\n", charts: [] }],
+      },
+    })
+    // The execute_code pair renders as a run-card cell, not as a ReAct step.
+    expect(wrapper.findAll(".chat-message__react-step")).toHaveLength(2)
+  })
+
+  it("renders no ReAct block when no step carries content", () => {
+    const wrapper = mountMessage({
+      msg: agentMsg({ streaming: true }),
+      reActSteps: {
+        thoughts: [{ tool: "execute_code", code: "print(1)" }],
+        observations: [{ stdout: "1\n", charts: [] }],
+      },
+    })
+    expect(wrapper.find(".chat-message__react").exists()).toBe(false)
   })
 })
 

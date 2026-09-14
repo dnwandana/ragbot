@@ -137,6 +137,36 @@ describe("AddSourceDrawer a-tabs panes", () => {
     expect(q(".url-input")).not.toBe(null)
     wrapper.unmount()
   })
+
+  it("the file picker accepts every extension the API allows", async () => {
+    // Mirrors ALLOWED_UPLOAD_EXTENSIONS in apps/api/src/controllers/dataset-files.js.
+    // A missing entry hides the file in the OS picker even though the upload works.
+    const { wrapper, q } = mountDrawer()
+    await wrapper.vm.$nextTick()
+    const accept = q('.drop-zone input[type="file"]').getAttribute("accept")
+    const extensions = accept.split(",")
+    for (const ext of [
+      ".pdf",
+      ".doc",
+      ".docx",
+      ".ppt",
+      ".pptx",
+      ".xls",
+      ".xlsx",
+      ".csv",
+      ".tsv",
+      ".json",
+      ".txt",
+      ".md",
+      ".html",
+      ".htm",
+      ".rtf",
+      ".epub",
+    ]) {
+      expect(extensions).toContain(ext)
+    }
+    wrapper.unmount()
+  })
 })
 
 describe("AddSourceDrawer URL flow", () => {

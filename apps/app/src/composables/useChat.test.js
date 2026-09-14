@@ -98,4 +98,35 @@ describe("useChat", () => {
     expect(chatStore.currentContent).toContain("hi")
     expect(chatStore.currentContent).not.toContain("orphan")
   })
+
+  it("pushes chart events into the store", async () => {
+    const store = useConversationsStore()
+    vi.spyOn(store, "fetchConversation").mockResolvedValue({})
+    vi.spyOn(store, "fetchConversations").mockResolvedValue()
+    const chatStore = useChatStore()
+
+    chatApi.sendMessage.mockResolvedValue({
+      ok: true,
+      body: sseStream([
+        'event: thought\ndata: {"tool":"execute_code","code":"print(1)","file_ids":[]}\n\n',
+        'event: observation\ndata: {"stdout":"1","stderr":"","error":null,"charts":[]}\n\n',
+        'event: chart\ndata: {"message_id":"m1","index":0,"spec":{"type":"bar"}}\n\n',
+        "event: done\ndata: {}\n\n",
+      ]),
+    })
+
+    const { sendMessage } = useChat("ws1", "conv1")
+    await sendMessage("plot it")
+    await flushPromises()
+
+    expect(chatStore.charts).toHaveLength(1)
+    expect(chatStore.charts[0].spec.type).toBe("bar")
+  })
+
+  it("clears charts on reset", () => {
+    const chatStore = useChatStore()
+    chatStore.charts.push({ message_id: "m1", index: 0, spec: { type: "bar" } })
+    chatStore.reset()
+    expect(chatStore.charts).toHaveLength(0)
+  })
 })

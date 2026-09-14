@@ -29,4 +29,16 @@ describe("fileType", () => {
   it("prefers the youtube source type over filename heuristics", () => {
     expect(fileType("a.pdf", "youtube")).toBe("youtube")
   })
+  it("classifies the five tabular extensions as tabular", () => {
+    // Same set as TABULAR_EXTENSIONS in the API controller. These files skip
+    // LlamaIndex and get profiled in the sandbox instead.
+    expect(fileType("sales.csv")).toBe("tabular")
+    expect(fileType("sales.tsv")).toBe("tabular")
+    expect(fileType("sales.xls")).toBe("tabular")
+    expect(fileType("sales.xlsx")).toBe("tabular")
+    expect(fileType("sales.json")).toBe("tabular")
+  })
+  it("classifies a tabular source by metadata even when the filename has no extension", () => {
+    expect(fileType("quarterly report", "tabular")).toBe("tabular")
+  })
 })

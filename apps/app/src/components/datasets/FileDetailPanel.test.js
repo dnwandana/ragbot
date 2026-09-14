@@ -178,3 +178,78 @@ describe("FileDetailPanel", () => {
     expect(wrapper.find(".chunk-section .sec-count").exists()).toBe(false)
   })
 })
+
+const profile = {
+  format: "csv",
+  truncated: false,
+  sheets: [
+    {
+      name: "Sheet1",
+      rows: 120,
+      columns: [
+        {
+          name: "city",
+          dtype: "object",
+          non_null: 120,
+          unique: 40,
+          sample_values: ["Oslo"],
+          min: null,
+          max: null,
+        },
+        {
+          name: "pop",
+          dtype: "int64",
+          non_null: 118,
+          unique: 90,
+          sample_values: ["700000"],
+          min: "290000",
+          max: "700000",
+        },
+      ],
+    },
+  ],
+}
+
+const tabularFile = {
+  id: "f1",
+  filename: "cities.csv",
+  status: "completed",
+  metadata: { source_type: "tabular", profile },
+}
+
+describe("tabular schema section", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(useFileDetail).mockReturnValue(stubState())
+  })
+
+  it("lists sheets with row counts and columns", () => {
+    const wrapper = mountPanel(tabularFile)
+    expect(wrapper.text()).toContain("Sheet1")
+    expect(wrapper.text()).toContain("120 rows")
+    expect(wrapper.text()).toContain("pop")
+    expect(wrapper.text()).toContain("int64")
+    expect(wrapper.text()).toContain("290000")
+  })
+
+  it("shows nothing for a non-tabular file", () => {
+    const wrapper = mountPanel({ ...tabularFile, metadata: {} })
+    expect(wrapper.find(".schema-section").exists()).toBe(false)
+  })
+
+  it("shows nothing while the profile is missing (still processing)", () => {
+    const wrapper = mountPanel({
+      ...tabularFile,
+      metadata: { source_type: "tabular" },
+    })
+    expect(wrapper.find(".schema-section").exists()).toBe(false)
+  })
+
+  it("notes a truncated profile", () => {
+    const truncated = {
+      ...tabularFile,
+      metadata: { source_type: "tabular", profile: { ...profile, truncated: true } },
+    }
+    expect(mountPanel(truncated).text()).toContain("truncated")
+  })
+})
