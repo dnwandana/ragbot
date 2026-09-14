@@ -6,6 +6,7 @@ import * as datasetModel from "../models/datasets.js"
 import * as llamaindexService from "../services/llamaindex.js"
 import * as firecrawlService from "../services/firecrawl.js"
 import { runProcessingPipeline } from "../services/processing-pipeline.js"
+import { profileTabularFile } from "../services/tabular/profile.js"
 
 export { runProcessingPipeline } from "../services/processing-pipeline.js"
 
@@ -13,14 +14,16 @@ export { runProcessingPipeline } from "../services/processing-pipeline.js"
  * BullMQ job processor for the file-processing queue.
  *
  * Loads the dataset file and dataset from DB in parallel, resolves the markdown
- * source from file metadata (LlamaIndex job ID or Firecrawl source URL), and runs
- * the processing pipeline. Throws on failure so BullMQ retries with exponential backoff.
+ * source from file metadata (tabular profile, LlamaIndex job ID, or Firecrawl source
+ * URL), and runs the processing pipeline. A tabular file is profiled in the sandbox
+ * and the profile is stored in metadata before the pipeline embeds its markdown.
+ * Throws on failure so BullMQ retries with exponential backoff.
  *
  * @param {import('bullmq').Job<{ datasetFileId: string, datasetId: string }>} job - BullMQ job
  * @returns {Promise<void>}
  * @throws {Error} If file or dataset not found, no source in metadata, or pipeline fails
  */
-const processJob = async (job) => {
+export const processJob = async (job) => {
   const { datasetFileId, datasetId } = job.data
 
   const [file, dataset] = await Promise.all([
@@ -33,6 +36,15 @@ const processJob = async (job) => {
 
   const metadata =
     typeof file.metadata === "string" ? JSON.parse(file.metadata) : (file.metadata ?? {})
+
+  if (metadata.source_type === "tabular") {
+    const { profile, markdown } = await profileTabularFile(file)
+    await datasetFileModel.update(datasetFileId, {
+      metadata: JSON.stringify({ ...metadata, profile }),
+      updated_at: new Date(),
+    })
+    return runProcessingPipeline({ datasetFileId, markdownContent: markdown, dataset })
+  }
 
   let markdown
   if (metadata.llamaindex_job_id) {

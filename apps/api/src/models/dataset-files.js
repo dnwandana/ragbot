@@ -79,6 +79,26 @@ export const findManyPaginated = (
 }
 
 /**
+ * Find completed tabular files that belong to the given datasets.
+ *
+ * The chat loop uses this list to gate the execute_code tool and to validate
+ * the file ids the model sends, so the query is workspace-scoped.
+ *
+ * @param {string[]} datasetIds - Dataset UUIDs linked to the conversation
+ * @param {string} workspaceId - Workspace UUID for tenant scoping
+ * @returns {Promise<Object[]>} Array of matching file records
+ */
+export const findCompletedTabularByDatasetIds = (datasetIds, workspaceId) =>
+  db
+    .select(COLUMNS)
+    .from(TABLE)
+    .whereIn("dataset_id", datasetIds)
+    .where({ workspace_id: workspaceId, status: "completed" })
+    .whereRaw("metadata->>'source_type' = ?", ["tabular"])
+    .whereNull("deleted_at")
+    .orderBy("created_at", "asc")
+
+/**
  * Update a dataset file record by ID and return the updated row.
  *
  * @param {string} id - UUID of the file to update

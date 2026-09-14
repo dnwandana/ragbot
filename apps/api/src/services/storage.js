@@ -65,3 +65,15 @@ export const getSignedDownloadUrl = async (key, expiresIn = 3600) => {
   const command = new GetObjectCommand({ Bucket: BUCKET, Key: key })
   return getSignedUrl(client, command, { expiresIn })
 }
+
+/**
+ * Downloads an object from the bucket and returns its bytes.
+ *
+ * @param {string} key - The object key.
+ * @returns {Promise<Buffer>} The object body.
+ * @throws {Error} If the S3 GetObject command fails
+ */
+export const getObjectBuffer = async (key) => {
+  const response = await client.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }))
+  return Buffer.from(await response.Body.transformToByteArray())
+}

@@ -90,6 +90,26 @@ const envSchema = joi
       otherwise: joi.string().optional(),
     }),
     IPGEOLOCATION_TIMEOUT_MS: joi.number().default(5000),
+
+    // Code sandbox
+    SANDBOX_ENABLED: joi.boolean().default(false),
+    SANDBOX_URL: joi
+      .string()
+      .uri({ scheme: ["http", "https"] })
+      .when("SANDBOX_ENABLED", {
+        is: true,
+        // oxlint-disable-next-line no-thenable -- `then` is a Joi `.when()` option, not a Promise
+        then: joi.required(),
+      }),
+    SANDBOX_API_TOKEN: joi.string().when("SANDBOX_ENABLED", {
+      is: true,
+      // oxlint-disable-next-line no-thenable -- `then` is a Joi `.when()` option, not a Promise
+      then: joi.required(),
+    }),
+    SANDBOX_TIMEOUT_MS: joi.number().integer().min(1000).max(60000).default(30000),
+
+    // Chat
+    CHAT_MAX_ITERATIONS: joi.number().integer().min(1).max(20).default(10),
   })
   .unknown(true)
 

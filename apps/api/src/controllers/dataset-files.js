@@ -14,11 +14,12 @@ import * as chunkModel from "../models/dataset-file-chunks.js"
 import * as questionModel from "../models/dataset-file-questions.js"
 import * as storageService from "../services/storage.js"
 import * as llamaindexService from "../services/llamaindex.js"
+import { isSandboxEnabled } from "../services/sandbox.js"
 import { addProcessingJob } from "../queues/file-processing.js"
 import { parseYouTubeUrl } from "../services/youtube.js"
 import { addYoutubeJob } from "../queues/youtube-processing.js"
 
-/** Extensions LlamaIndex can parse; uploads outside this set are rejected. */
+/** Extensions the pipeline accepts; uploads outside this set are rejected. */
 const ALLOWED_UPLOAD_EXTENSIONS = new Set([
   "pdf",
   "doc",
@@ -28,6 +29,8 @@ const ALLOWED_UPLOAD_EXTENSIONS = new Set([
   "xls",
   "xlsx",
   "csv",
+  "tsv",
+  "json",
   "txt",
   "md",
   "html",
@@ -35,6 +38,12 @@ const ALLOWED_UPLOAD_EXTENSIONS = new Set([
   "rtf",
   "epub",
 ])
+
+/** Extensions that route to the tabular profiling branch instead of LlamaIndex. */
+export const TABULAR_EXTENSIONS = new Set(["csv", "tsv", "xls", "xlsx", "json"])
+
+/** Tabular extensions that LlamaIndex does not parse, so they need the sandbox. */
+const SANDBOX_ONLY_EXTENSIONS = new Set(["tsv", "json"])
 
 /** Multer middleware: in-memory storage, 50 MB cap, extension allowlist. */
 export const upload = multer({
@@ -68,9 +77,10 @@ const updateSchema = joi
 /**
  * POST /api/workspaces/:workspace_id/datasets/:dataset_id/files/upload — Upload a file to a dataset.
  *
- * Stores the uploaded file in R2, submits an async parse job to LlamaIndex, creates a
- * dataset_file record with status 'processing', enqueues a BullMQ processing job, and
- * logs the upload audit event. The worker polls LlamaIndex for completion asynchronously.
+ * Stores the uploaded file in R2, then creates a dataset_file record with status
+ * 'processing', enqueues a BullMQ processing job, and logs the upload audit event.
+ * A tabular file skips LlamaIndex and gets metadata.source_type = 'tabular'. Any other
+ * file gets an async LlamaIndex parse job, which the worker polls for completion.
  *
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
@@ -91,18 +101,32 @@ export const uploadFile = async (req, res, next) => {
     const ext = req.file.originalname.split(".").pop().toLowerCase()
     const storagePath = `workspaces/${req.workspace.id}/datasets/${dataset.id}/files/${fileId}.${ext}`
 
+    const sandboxEnabled = isSandboxEnabled()
+    if (!sandboxEnabled && SANDBOX_ONLY_EXTENSIONS.has(ext)) {
+      throw new HttpError(
+        HTTP_STATUS_CODE.BAD_REQUEST,
+        `.${ext} files need the code sandbox, which is disabled`,
+      )
+    }
+
     await storageService.uploadFile(storagePath, req.file.buffer, req.file.mimetype)
 
-    let jobId
-    try {
-      jobId = await llamaindexService.submitParseJob(
-        req.file.buffer,
-        req.file.originalname,
-        req.file.mimetype,
-      )
-    } catch (err) {
-      await storageService.deleteFile(storagePath).catch(() => {})
-      throw err
+    let metadata
+    if (sandboxEnabled && TABULAR_EXTENSIONS.has(ext)) {
+      metadata = { source_type: "tabular" }
+    } else {
+      let jobId
+      try {
+        jobId = await llamaindexService.submitParseJob(
+          req.file.buffer,
+          req.file.originalname,
+          req.file.mimetype,
+        )
+      } catch (err) {
+        await storageService.deleteFile(storagePath).catch(() => {})
+        throw err
+      }
+      metadata = { llamaindex_job_id: jobId }
     }
 
     const [file] = await datasetFileModel.create({
@@ -115,7 +139,7 @@ export const uploadFile = async (req, res, next) => {
       storage_provider: "r2",
       storage_path: storagePath,
       status: "processing",
-      metadata: JSON.stringify({ llamaindex_job_id: jobId }),
+      metadata: JSON.stringify(metadata),
       created_at: new Date(),
       updated_at: new Date(),
     })
