@@ -127,15 +127,15 @@ describe("AgentFormDrawer model picker", () => {
     document.body.innerHTML = ""
   })
 
-  it("renders the five catalog models with descriptions and badges", async () => {
+  it("renders the three catalog models with descriptions and badges", async () => {
     const { wrapper, qq } = mountDrawer()
     await wrapper.vm.$nextTick()
-    expect(qq(".model-opt")).toHaveLength(5)
+    expect(qq(".model-opt")).toHaveLength(3)
     expect(document.body.textContent).toContain(
       "Smartest — gives the best answers to hard questions",
     )
     expect(document.body.textContent).toContain("Recommended")
-    expect(document.body.textContent).toContain("Classic")
+    expect(document.body.textContent).toContain("Fastest")
     wrapper.unmount()
   })
 
@@ -152,7 +152,7 @@ describe("AgentFormDrawer model picker", () => {
       model_config: { model: "anthropic/claude-sonnet-4-6" },
     })
     await wrapper.vm.$nextTick()
-    expect(qq(".model-opt")).toHaveLength(6)
+    expect(qq(".model-opt")).toHaveLength(4)
     expect(document.body.textContent).toContain("No longer offered")
     wrapper.unmount()
   })
@@ -161,10 +161,10 @@ describe("AgentFormDrawer model picker", () => {
     const { wrapper, qq } = mountDrawer({
       id: "a1",
       name: "Ok",
-      model_config: { model: "openai/gpt-4o" },
+      model_config: { model: "openai/gpt-5.4-nano" },
     })
     await wrapper.vm.$nextTick()
-    expect(qq(".model-opt")).toHaveLength(5)
+    expect(qq(".model-opt")).toHaveLength(3)
     wrapper.unmount()
   })
 })
@@ -224,7 +224,7 @@ describe("AgentFormDrawer help-me-choose guide", () => {
       id: "sys",
       name: "System",
       is_system: true,
-      model_config: { model: "openai/gpt-4.1" },
+      model_config: { model: "openai/gpt-5.4" },
     })
     await wrapper.vm.$nextTick()
     expect(q(".guide-link")).toBe(null)
@@ -249,7 +249,7 @@ describe("AgentFormDrawer submit-button label", () => {
     const { wrapper, q } = mountDrawer({
       id: "a1",
       name: "Existing",
-      model_config: { model: "openai/gpt-4.1" },
+      model_config: { model: "openai/gpt-5.4" },
     })
     await wrapper.vm.$nextTick()
     expect(q(".btn-save").textContent.trim()).toBe("Save changes")
@@ -269,7 +269,7 @@ describe("AgentFormDrawer default-agent toggle feedback", () => {
       id: "a1",
       name: "Knowledge assistant",
       is_default: false,
-      model_config: { model: "openai/gpt-4.1" },
+      model_config: { model: "openai/gpt-5.4" },
     })
     await wrapper.vm.$nextTick()
     q(".toggle-switch").click()
@@ -286,7 +286,7 @@ describe("AgentFormDrawer default-agent toggle feedback", () => {
       id: "a1",
       name: "Knowledge assistant",
       is_default: false,
-      model_config: { model: "openai/gpt-4.1" },
+      model_config: { model: "openai/gpt-5.4" },
     })
     await wrapper.vm.$nextTick()
     q(".toggle-switch").click()
@@ -303,19 +303,24 @@ describe("AgentFormDrawer default-agent toggle feedback", () => {
       id: "a1",
       name: "A",
       is_default: false,
-      model_config: { model: "openai/gpt-4.1" },
+      model_config: { model: "openai/gpt-5.4" },
     })
     await wrapper.vm.$nextTick()
-    expect(wrapper.findComponent(SelectStub).props("value")).toBe("openai/gpt-4.1")
+    expect(wrapper.findComponent(SelectStub).props("value")).toBe("openai/gpt-5.4")
 
     // Same id, flipped default, different model → form must NOT re-seed (model stays),
     // but the is_default display must update.
     await wrapper.setProps({
-      agent: { id: "a1", name: "A", is_default: true, model_config: { model: "openai/gpt-4o" } },
+      agent: {
+        id: "a1",
+        name: "A",
+        is_default: true,
+        model_config: { model: "openai/gpt-5.4-nano" },
+      },
     })
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.findComponent(SelectStub).props("value")).toBe("openai/gpt-4.1")
+    expect(wrapper.findComponent(SelectStub).props("value")).toBe("openai/gpt-5.4")
     expect(q(".default-toggle-row--on")).not.toBe(null)
     wrapper.unmount()
   })
@@ -324,12 +329,12 @@ describe("AgentFormDrawer default-agent toggle feedback", () => {
     const { wrapper } = mountDrawer({
       id: "a1",
       name: "A",
-      model_config: { model: "openai/gpt-4.1" },
+      model_config: { model: "openai/gpt-5.4" },
     })
     await wrapper.setProps({
-      agent: { id: "a2", name: "B", model_config: { model: "openai/gpt-4o" } },
+      agent: { id: "a2", name: "B", model_config: { model: "openai/gpt-5.4-nano" } },
     })
-    expect(wrapper.findComponent(SelectStub).props("value")).toBe("openai/gpt-4o")
+    expect(wrapper.findComponent(SelectStub).props("value")).toBe("openai/gpt-5.4-nano")
     wrapper.unmount()
   })
 })

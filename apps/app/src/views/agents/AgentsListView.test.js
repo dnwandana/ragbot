@@ -15,7 +15,7 @@ const agentsRef = ref([
     description: "Handles support queries",
     is_default: false,
     is_system: false,
-    model_config: { model: "openai/gpt-4o" },
+    model_config: { model: "openai/gpt-5.4-nano" },
     created_at: "2026-01-01",
     updated_at: "2026-03-01",
   },
@@ -212,7 +212,7 @@ describe("AgentsListView — table mode", () => {
         description: "Handles support queries",
         is_default: false,
         is_system: false,
-        model_config: { model: "openai/gpt-4o" },
+        model_config: { model: "openai/gpt-5.4-nano" },
         created_at: "2026-01-01",
         updated_at: "2026-03-01",
       },
@@ -252,7 +252,7 @@ describe("AgentsListView — table mode", () => {
         description: "Help desk",
         is_default: false,
         is_system: false,
-        model_config: { model: "openai/gpt-4o" },
+        model_config: { model: "openai/gpt-5.4-nano" },
         created_at: "2026-01-01",
         updated_at: "2026-03-01",
       },
@@ -290,7 +290,7 @@ describe("AgentsListView — table mode", () => {
   it("renders the model label in the model cell", async () => {
     const { wrapper } = mountView()
     await flushPromises()
-    expect(wrapper.find(".tbl-mono").text()).toBe("gpt-4o")
+    expect(wrapper.find(".tbl-mono").text()).toBe("gpt-5.4-nano")
     wrapper.unmount()
   })
 
@@ -317,7 +317,7 @@ describe("AgentsListView — table mode", () => {
         description: null,
         is_default: true,
         is_system: false,
-        model_config: { model: "openai/gpt-4o" },
+        model_config: { model: "openai/gpt-5.4-nano" },
         created_at: "2026-01-01",
         updated_at: "2026-03-01",
       },
@@ -451,7 +451,7 @@ describe("AgentsListView — cards mode", () => {
         description: "Handles support queries",
         is_default: false,
         is_system: false,
-        model_config: { model: "openai/gpt-4o" },
+        model_config: { model: "openai/gpt-5.4-nano" },
         created_at: "2026-01-01",
         updated_at: "2026-03-01",
       },
