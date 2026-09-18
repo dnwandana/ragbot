@@ -162,6 +162,14 @@ describe("validateEnv — default propagation", () => {
     expect(value.OPENROUTER_TRANSCRIBE_TIMEOUT_MS).toBe(120000)
   })
 
+  it("applies the UTILITY_MODEL default when unset", () => {
+    delete process.env.UTILITY_MODEL
+
+    validateEnv()
+
+    expect(process.env.UTILITY_MODEL).toBe("openai/gpt-5.4-nano")
+  })
+
   it("applies YouTube size/duration caps when unset", () => {
     delete process.env.YOUTUBE_MAX_DURATION_SECONDS
     delete process.env.YOUTUBE_MAX_FILESIZE

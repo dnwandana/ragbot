@@ -225,8 +225,11 @@ describe("POST /api/workspaces/:id/conversations/:conv_id/messages (non-streamin
     expect(res.body.data.events.some((e) => e.event === "done")).toBe(false) // done is only for SSE mode
   })
 
-  it("auto-titles the conversation on first message", async () => {
+  it("auto-titles the conversation with an LLM-generated title on first message", async () => {
     const { user, ws, conversation } = await setupConversation()
+    openrouterService.chatCompletion.mockResolvedValueOnce({
+      choices: [{ message: { content: '"Capital of France."' } }],
+    })
 
     await (
       await request()
@@ -239,8 +242,54 @@ describe("POST /api/workspaces/:id/conversations/:conv_id/messages (non-streamin
       .get(`/api/workspaces/${ws.id}/conversations/${conversation.id}`)
       .set(await getAuthHeaders(user.id))
 
-    expect(convRes.body.data.title).toBe("What is the capital of France?")
+    expect(convRes.body.data.title).toBe("Capital of France")
     expect(convRes.body.data.last_message_at).not.toBeNull()
+
+    const titleCall = openrouterService.chatCompletion.mock.calls.at(-1)
+    expect(titleCall[0][1].content).toContain("What is the capital of France?")
+    expect(titleCall[0][1].content).toContain("This is the AI response based on the documents.")
+    expect(titleCall[1].model).toBe("openai/gpt-5.4-nano")
+  })
+
+  it("falls back to the first 100 characters of the message when title generation fails", async () => {
+    const { user, ws, conversation } = await setupConversation()
+    openrouterService.chatCompletion.mockRejectedValueOnce(new Error("OpenRouter down"))
+    const content = "x".repeat(150)
+
+    const res = await (
+      await request()
+    )
+      .post(`/api/workspaces/${ws.id}/conversations/${conversation.id}/messages`)
+      .set({ ...(await getAuthHeaders(user.id)), Accept: "application/json" })
+      .send({ content })
+
+    expect(res.status).toBe(200)
+
+    const convRes = await (await request())
+      .get(`/api/workspaces/${ws.id}/conversations/${conversation.id}`)
+      .set(await getAuthHeaders(user.id))
+
+    expect(convRes.body.data.title).toBe(content.slice(0, 100))
+  })
+
+  it("does not call the title model when the conversation already has a title", async () => {
+    const { user, ws, conversation } = await setupConversation()
+    await db("conversations").where({ id: conversation.id }).update({ title: "Kept title" })
+    openrouterService.chatCompletion.mockClear()
+
+    await (
+      await request()
+    )
+      .post(`/api/workspaces/${ws.id}/conversations/${conversation.id}/messages`)
+      .set({ ...(await getAuthHeaders(user.id)), Accept: "application/json" })
+      .send({ content: "Second question" })
+
+    const convRes = await (await request())
+      .get(`/api/workspaces/${ws.id}/conversations/${conversation.id}`)
+      .set(await getAuthHeaders(user.id))
+
+    expect(convRes.body.data.title).toBe("Kept title")
+    expect(openrouterService.chatCompletion).not.toHaveBeenCalled()
   })
 
   it("stores user message and assistant message in DB", async () => {
