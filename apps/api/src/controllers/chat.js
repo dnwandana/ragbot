@@ -14,6 +14,7 @@ import * as openrouterService from "../services/openrouter.js"
 import * as ragService from "../services/rag.js"
 import { executeTool, getAvailableTools, sanitizeFileName } from "../services/chat-tools.js"
 import { isSandboxEnabled } from "../services/sandbox.js"
+import { generateTitle } from "../services/title-generator.js"
 
 /** Validates the chat message request body. */
 const messageSchema = joi
@@ -381,10 +382,12 @@ async function runReActLoop({
     }),
   )
 
-  // Update conversation title (auto-title on first message) and last_message_at
+  // Update conversation title (auto-title on first message) and last_message_at.
+  // The LLM title is best-effort: fall back to the message prefix when it fails.
   const updates = { last_message_at: new Date(), updated_at: new Date() }
   if (!conversation.title) {
-    updates.title = userContent.slice(0, 100)
+    const title = await generateTitle(userContent, finalContent)
+    updates.title = title ?? userContent.slice(0, 100)
   }
   await conversationModel.update(conversation.id, updates)
 
