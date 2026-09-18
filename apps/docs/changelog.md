@@ -7,6 +7,30 @@ description: What's new in RAGBot — new features and improvements by version.
 
 What's new in RAGBot. The newest release is listed first.
 
+## 1.5.0 — 18 September 2026
+
+Conversations now name themselves, and the agent form offers a shorter,
+current list of models. This is a small release with no action required.
+
+### New
+
+**Conversation titles**
+
+- Every new conversation gets a short title after its first answer, drawn from
+  what you asked and what the agent replied. The title appears in the sidebar
+  and in the Conversations list, so you can tell threads apart at a glance. See
+  [Chatting with your data](/concepts/chatting#find-past-conversations).
+
+### Improvements
+
+**Models**
+
+- The agent form now offers three models: GPT-5.4, GPT-5.4 Mini (the default),
+  and GPT-5.4 Nano. The earlier GPT-4.1 and GPT-4o options are no longer
+  offered. An agent that was saved with one of them keeps working and keeps
+  its model, and the form marks it **No longer offered**. See
+  [Agents](/concepts/agents#model).
+
 ## 1.4.0 — 14 September 2026
 
 RAGBot can now analyze your spreadsheets, not only read them. Upload a data
