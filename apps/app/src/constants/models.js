@@ -18,18 +18,6 @@ export const MODEL_CATALOG = [
     description: "Fastest and cheapest — great for simple questions",
     badge: "Fastest",
   },
-  {
-    value: "openai/gpt-4.1",
-    label: "GPT-4.1",
-    description: "Earlier model — steady and dependable",
-    badge: "Classic",
-  },
-  {
-    value: "openai/gpt-4o",
-    label: "GPT-4o",
-    description: "Earlier model — quick and capable",
-    badge: "Classic",
-  },
 ]
 
 /** "Help me choose" guide chips, each mapping a usage answer to a recommended model. */
