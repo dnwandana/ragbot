@@ -6,7 +6,7 @@ services:
       args:
         PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-http://localhost:4321}
         PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:8080}
-        PUBLIC_DOCS_URL: ${PUBLIC_DOCS_URL:-http://localhost:4173}
+        PUBLIC_DOCS_URL: ${PUBLIC_DOCS_URL:-http://localhost:5173}
     ports:
       - "4321:80"
     restart: unless-stopped
@@ -16,7 +16,7 @@ services:
       context: .
       dockerfile: apps/docs/Dockerfile
     ports:
-      - "4173:80"
+      - "5173:80"
     restart: unless-stopped
 
   app:
