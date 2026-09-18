@@ -122,7 +122,7 @@ Each mock wraps `MockFrame` and recreates a real `apps/app` screen in HTML/CSS (
 ## Commands
 
 ```bash
-corepack pnpm --filter @ragbot/docs dev         # vitepress dev
+corepack pnpm --filter @ragbot/docs dev         # vitepress dev on :5173
 corepack pnpm --filter @ragbot/docs build       # static build to .vitepress/dist
 corepack pnpm --filter @ragbot/docs preview      # preview the built site on :4173
 corepack pnpm --filter @ragbot/docs lint         # eslint .
@@ -146,5 +146,5 @@ From the repo root: `dev:docs` / `build:docs` / `lint:docs` / `format:docs` run 
 
 ## Deployment
 
-- **Local** — runs as its own container via `apps/docs/Dockerfile` (multi-stage: VitePress build → nginx serves `.vitepress/dist`). Wired into `docker-compose.local.yml` as the `docs` service on host port **4173**. nginx uses `try_files $uri $uri.html $uri/` for clean URLs.
+- **Local** — runs as its own container via `apps/docs/Dockerfile` (multi-stage: VitePress build → nginx serves `.vitepress/dist`). Wired into `docker-compose.local.yml` as the `docs` service on host port **5173**. nginx uses `try_files $uri $uri.html $uri/` for clean URLs.
 - **Production** — same Dockerfile, no published ports; the nginx edge reverse-proxies `docs.${DOMAIN}` to it via `nginx/templates/docs.conf.template`. The wildcard cert already covers the subdomain.

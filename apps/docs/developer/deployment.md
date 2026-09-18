@@ -10,7 +10,7 @@ Two Compose files ship with the repo — one for local containers, one for produ
 
 ## Local Docker
 
-The local stack runs five containers — `web` (Astro marketing site, `:4321`), `docs` (VitePress, `:4173`), `app` (Vue SPA on `:80`, proxies `/api`), `api` (Express, no published port), and `sandbox` (the Python code executor, no published port, internal network only). nginx serves over plain HTTP (no TLS) using `nginx/local.conf`.
+The local stack runs five containers — `web` (Astro marketing site, `:4321`), `docs` (VitePress, `:5173`), `app` (Vue SPA on `:80`, proxies `/api`), `api` (Express, no published port), and `sandbox` (the Python code executor, no published port, internal network only). nginx serves over plain HTTP (no TLS) using `nginx/local.conf`.
 
 ```bash
 docker compose -f docker-compose.local.yml up --build -d

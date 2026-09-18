@@ -15,7 +15,7 @@ RAGBot is a **pnpm + Turborepo** monorepo of four apps, plus one Python service 
 | `apps/api`  | Express 5, PostgreSQL + pgvector, Knex, BullMQ/Redis | 3000     | REST API, auth, RAG pipeline               |
 | `apps/app`  | Vue 3, Pinia, Ant Design Vue, Vite                   | 8080     | The single-page app users interact with    |
 | `apps/web`  | Astro 6                                              | 4321     | Static marketing site                      |
-| `apps/docs` | VitePress                                            | 4173     | This documentation site                    |
+| `apps/docs` | VitePress                                            | 5173     | This documentation site                    |
 | `sandbox/`  | Python 3.12, FastAPI, pandas                         | 8000     | Hardened executor for model-written Python |
 
 The browser app talks to the API at `/api`; auth flows over secure, httpOnly cookies with automatic background refresh. The sandbox is reachable from the API only, never from the browser.

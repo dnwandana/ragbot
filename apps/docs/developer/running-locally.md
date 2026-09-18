@@ -63,7 +63,7 @@ corepack pnpm dev          # all apps via Turborepo
 corepack pnpm dev:api      # API on :3000
 corepack pnpm dev:app      # SPA on :8080
 corepack pnpm dev:web      # marketing site on :4321
-corepack pnpm dev:docs     # these docs on :4173
+corepack pnpm dev:docs     # these docs on :5173
 ```
 
 Open the app at `http://localhost:8080`.

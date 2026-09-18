@@ -15,7 +15,7 @@ corepack pnpm dev           # Start all apps (nodemon + Vite + apps/web Astro)
 corepack pnpm dev:api       # API only  (port 3000)
 corepack pnpm dev:app       # App only  (port 8080)
 corepack pnpm dev:web       # Web only  (port 4321, Astro)
-corepack pnpm dev:docs      # Docs only (port 4173, VitePress)
+corepack pnpm dev:docs      # Docs only (port 5173, VitePress)
 corepack pnpm build         # Build all (api, app, web, docs)
 corepack pnpm lint          # Lint all
 corepack pnpm format        # Format all (Prettier)
@@ -158,8 +158,8 @@ docker compose -f docker-compose.local.yml logs -f
 docker compose -f docker-compose.local.yml down
 ```
 
-- Five services: `web` (Astro marketing site, `apps/web/Dockerfile`, `http://localhost:4321`), `docs` (VitePress docs, `apps/docs/Dockerfile`, `http://localhost:4173`), `app` (Vue SPA on port 80, proxies `/api`), `api` (Express, no published port), `sandbox` (Python executor, no published port, internal network only)
-- nginx on port 80 (app), 4321 (web), and 4173 (docs), no TLS
+- Five services: `web` (Astro marketing site, `apps/web/Dockerfile`, `http://localhost:4321`), `docs` (VitePress docs, `apps/docs/Dockerfile`, `http://localhost:5173`), `app` (Vue SPA on port 80, proxies `/api`), `api` (Express, no published port), `sandbox` (Python executor, no published port, internal network only)
+- nginx on port 80 (app), 4321 (web), and 5173 (docs), no TLS
 - Uses `nginx/local.conf` (HTTP-only)
 - Env from `.env.local` (copy from `.env.example`; set `NODE_ENV=development`, `JWT_ISSUER/AUDIENCE=http://localhost`, `CORS_ALLOWED_ORIGINS=http://localhost`)
 - `NODE_ENV=development` is required locally — the API sets `Secure` cookies only in production, which browsers reject over plain HTTP

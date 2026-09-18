@@ -137,7 +137,7 @@ cp apps/web/.env.example apps/web/.env
 ```sh
 PUBLIC_SITE_URL=http://localhost:4321   # canonical/OG/sitemap/robots base URL
 PUBLIC_APP_URL=http://localhost:8080    # CTA "Sign up free" → ${PUBLIC_APP_URL}/signup
-PUBLIC_DOCS_URL=http://localhost:4173   # nav/footer docs links → ${PUBLIC_DOCS_URL}/
+PUBLIC_DOCS_URL=http://localhost:5173   # nav/footer docs links → ${PUBLIC_DOCS_URL}/
 ```
 
 ## Database setup
@@ -160,7 +160,7 @@ corepack pnpm dev
 corepack pnpm dev:api   # http://localhost:3000
 corepack pnpm dev:app   # http://localhost:8080
 corepack pnpm dev:web   # http://localhost:4321  (apps/web Astro dev server)
-corepack pnpm dev:docs  # http://localhost:4173  (apps/docs VitePress dev server)
+corepack pnpm dev:docs  # http://localhost:5173  (apps/docs VitePress dev server)
 ```
 
 ## Scripts
@@ -464,7 +464,7 @@ docker compose -f docker-compose.local.yml up --build -d
 docker compose -f docker-compose.local.yml run --rm api sh -c "node_modules/.bin/knex migrate:latest"
 ```
 
-App available at `http://localhost`. Marketing site at `http://localhost:4321`. Docs at `http://localhost:4173`.
+App available at `http://localhost`. Marketing site at `http://localhost:4321`. Docs at `http://localhost:5173`.
 
 **Useful commands**
 
