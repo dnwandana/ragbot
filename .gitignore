@@ -21,5 +21,10 @@ skills-lock.json
 .env.*
 !.env.example
 
+# Python sandbox
+.venv/
+__pycache__/
+.pytest_cache/
+
 # Docker deployment
 certs/
