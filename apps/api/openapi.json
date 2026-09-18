@@ -5129,13 +5129,7 @@
         "properties": {
           "model": {
             "type": "string",
-            "enum": [
-              "openai/gpt-5.4",
-              "openai/gpt-5.4-mini",
-              "openai/gpt-5.4-nano",
-              "openai/gpt-4.1",
-              "openai/gpt-4o"
-            ],
+            "enum": ["openai/gpt-5.4", "openai/gpt-5.4-mini", "openai/gpt-5.4-nano"],
             "description": "On update, the agent's currently saved model is also accepted (grandfathered) even if absent from this list.",
             "example": "openai/gpt-5.4-mini"
           },
