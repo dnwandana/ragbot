@@ -25,6 +25,10 @@ const items = [
     a: `<p>Only the data files the agent asked for are copied into the sandbox for that one run, and they are deleted when the run ends. The sandbox has no access to the internet, to RAGBot's database, or to any other workspace. What is kept is the code, its printed output, and the chart specs, all saved with the conversation so you can review them later.</p>`,
   },
   {
+    q: "Which AI models can an agent use?",
+    a: `<p>An agent runs on one of three models: <strong>GPT-5.4</strong> for hard questions, <strong>GPT-5.4 Mini</strong> (the default) for everyday use, and <strong>GPT-5.4 Nano</strong> for simple questions at low cost. Pick the model in the agent form, or choose <strong>Help me choose</strong> for a recommendation.</p><p>An agent that was saved with a model that is no longer offered keeps working. See <a href="/concepts/agents">Agents</a>.</p>`,
+  },
+  {
     q: "Why might an agent not find something in my document?",
     a: `<p>Usually one of four things: the document is still <strong>processing</strong> and isn't searchable yet; the dataset holding it isn't connected to that agent; your wording is far from the document's own words; or the file is a scan with no selectable text.</p><p>Confirm the document reads <strong>Ready</strong>, check the agent's connected datasets, and try rephrasing. The <a href="/concepts/chatting">Chatting</a> page covers this in detail.</p>`,
   },

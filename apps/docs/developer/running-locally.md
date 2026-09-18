@@ -37,6 +37,8 @@ Fill in the required variables — database and Redis URLs, two distinct JWT sec
 
 The browser app reads one variable, `VITE_API_BASE_URL` (defaults to `http://localhost:3000/api`).
 
+Two optional variables pick the OpenRouter models. `DEFAULT_CHAT_MODEL` (default `openai/gpt-5.4-mini`) is the model for new agents, and `UTILITY_MODEL` (default `openai/gpt-5.4-nano`) is the cheap model for short tasks such as conversation titles. Agents can use `openai/gpt-5.4`, `openai/gpt-5.4-mini`, or `openai/gpt-5.4-nano`.
+
 The code interpreter is **off by default** (`SANDBOX_ENABLED=false`). Leave it off unless you work on [data analysis](/concepts/data-analysis); the rest of the product runs without it. To turn it on, start the sandbox (below) and set `SANDBOX_ENABLED=true`, `SANDBOX_URL`, and `SANDBOX_API_TOKEN`. The API refuses to start when the flag is on and either of the other two is missing.
 
 ::: tip Local cookies need development mode

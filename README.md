@@ -95,6 +95,7 @@ LOG_LEVEL=info
 LOG_TO_FILE=true
 DEFAULT_EMBEDDINGS_MODEL=openai/text-embedding-3-small
 DEFAULT_CHAT_MODEL=openai/gpt-5.4-mini
+UTILITY_MODEL=openai/gpt-5.4-nano  # cheap model for short tasks
 LLAMAINDEX_PARSE_TIER=cost_effective  # fast | cost_effective | agentic | agentic_plus
 WHISPER_MODEL=openai/whisper-large-v3-turbo  # YouTube audio transcription model
 OPENROUTER_TRANSCRIBE_TIMEOUT_MS=120000      # Whisper request timeout

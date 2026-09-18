@@ -51,7 +51,7 @@ When a selected dataset holds a spreadsheet or another data file, the agent can 
 
 ## Find past conversations
 
-Every conversation is saved automatically. Your **chat history** sits in the sidebar and in the Conversations list, newest first, so you can reopen a thread, keep asking, or revisit an answer you found useful. Each entry shows the agent it used and how many sources it searched. History belongs to the workspace you're in — switch workspaces and you'll see that workspace's conversations instead.
+Every conversation is saved automatically. After the first answer, RAGBot gives the conversation a short **title** that sums up what you asked, so you can tell threads apart at a glance. Your **chat history** sits in the sidebar and in the Conversations list, newest first, so you can reopen a thread, keep asking, or revisit an answer you found useful. Each entry shows its title, the agent it used, and how many sources it searched. History belongs to the workspace you're in — switch workspaces and you'll see that workspace's conversations instead.
 
 ## When an agent can't find something
 

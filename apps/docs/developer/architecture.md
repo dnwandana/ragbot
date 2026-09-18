@@ -60,6 +60,8 @@ Turning a document into something answerable happens asynchronously:
 
 That last link — citation → chunk → file — is what powers the clickable sources in every answer.
 
+After the first answer in a conversation, the API asks a small **utility model** (`UTILITY_MODEL`, default `openai/gpt-5.4-nano`) for a title of at most eight words, built from the first user message and the assistant's reply. Title generation is best-effort: when the call fails or returns nothing, the conversation falls back to the first 100 characters of the user's message.
+
 ## The code interpreter
 
 The ReAct loop offers the model its tools through a small **tool registry** (`services/chat-tools.js`). Each tool declares when it is available for a request, so the loop builds the tool list per request and dispatches calls without knowing tool internals. Two tools exist today:

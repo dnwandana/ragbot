@@ -37,7 +37,17 @@ The built-in assistant's prompt is a good template: answer only from the linked 
 
 ### Model
 
-The model is the engine behind the answers. The default (**GPT-5.4 Mini**) is quick and capable for most questions. Choose a stronger model when answers need more careful reasoning, and a faster one when you want speed over depth. You can switch any time.
+The model is the engine behind the answers. The agent form offers three models:
+
+- **GPT-5.4** — the smartest choice. Pick it when answers to hard questions really matter.
+- **GPT-5.4 Mini** — the default. Great answers at a lower cost, and quick enough for everyday questions.
+- **GPT-5.4 Nano** — the fastest and cheapest. Good for simple questions in high volume.
+
+Not sure which to pick? Choose **Help me choose** under the model field, answer one question about your use, and the form recommends a model. You can switch any time.
+
+::: info Models that are no longer offered
+The model list changes over time. An agent that was saved with a model that is no longer offered keeps working and keeps that model. The form marks it **No longer offered**. The next time you edit the agent, you can keep it or pick a current model.
+:::
 
 ### Temperature
 
