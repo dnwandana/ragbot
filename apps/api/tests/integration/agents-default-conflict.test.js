@@ -44,7 +44,7 @@ describe("default-promotion unique violation (simulated race)", () => {
       .send({
         name: "Racer",
         system_prompt: "You race.",
-        model_config: { model: "openai/gpt-4.1" },
+        model_config: { model: "openai/gpt-5.4" },
         is_default: true,
       })
 
@@ -75,7 +75,7 @@ describe("default-promotion unique violation (simulated race)", () => {
       .send({
         name: "Challenger",
         system_prompt: "You challenge.",
-        model_config: { model: "openai/gpt-4.1" },
+        model_config: { model: "openai/gpt-5.4" },
       })
     expect(createRes.status).toBe(201)
 

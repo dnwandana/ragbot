@@ -55,7 +55,7 @@ describe("POST /api/workspaces/:id/agents", () => {
         name: "Legal Expert",
         system_prompt: "You are a legal expert assistant.",
         model_config: {
-          model: "openai/gpt-4.1",
+          model: "openai/gpt-5.4",
           temperature: 0.3,
         },
       })
@@ -78,7 +78,7 @@ describe("POST /api/workspaces/:id/agents", () => {
         name: "Capped Agent",
         system_prompt: "You are a helpful assistant.",
         model_config: {
-          model: "openai/gpt-4.1",
+          model: "openai/gpt-5.4",
           max_tokens: 2048,
         },
       })
@@ -100,7 +100,7 @@ describe("POST /api/workspaces/:id/agents", () => {
     )
       .post(`/api/workspaces/${ws.id}/agents`)
       .set(await getAuthHeaders(user.id))
-      .send({ name: "Bad Agent", model_config: { model: "openai/gpt-4.1" } })
+      .send({ name: "Bad Agent", model_config: { model: "openai/gpt-5.4" } })
 
     expect(res.status).toBe(400)
   })
@@ -135,7 +135,7 @@ describe("DELETE /api/workspaces/:id/agents/:agent_id", () => {
       .send({
         name: "Delete Me",
         system_prompt: "Temp agent",
-        model_config: { model: "openai/gpt-4.1" },
+        model_config: { model: "openai/gpt-5.4" },
       })
     const agentId = createRes.body.data.id
 
@@ -162,7 +162,7 @@ describe("DELETE /api/workspaces/:id/agents/:agent_id", () => {
       .send({
         name: "Audit Me",
         system_prompt: "Temp agent",
-        model_config: { model: "openai/gpt-4.1" },
+        model_config: { model: "openai/gpt-5.4" },
       })
     const agentId = createRes.body.data.id
 
@@ -265,7 +265,7 @@ describe("PUT /api/workspaces/:id/agents/:agent_id (custom agent)", () => {
       .send({
         name: "Original",
         system_prompt: "Original prompt",
-        model_config: { model: "openai/gpt-4.1" },
+        model_config: { model: "openai/gpt-5.4" },
       })
 
     const res = await (
@@ -313,7 +313,7 @@ describe("POST /api/workspaces/:id/agents (validation)", () => {
       .send({
         name: "Bad Prompt",
         system_prompt: "",
-        model_config: { model: "openai/gpt-4.1" },
+        model_config: { model: "openai/gpt-5.4" },
       })
 
     expect(res.status).toBe(400)
@@ -334,7 +334,7 @@ describe("DELETE /api/workspaces/:id/agents/:agentId (default promotion)", () =>
       .send({
         name: "Custom Default",
         system_prompt: "Custom prompt",
-        model_config: { model: "openai/gpt-4.1" },
+        model_config: { model: "openai/gpt-5.4" },
       })
     const customAgentId = createRes.body.data.id
 
@@ -486,7 +486,7 @@ describe("POST /api/workspaces/:id/agents (create as default)", () => {
         name: "Support Sidekick",
         description: "Answer customer questions from your docs",
         system_prompt: "You are a friendly support assistant.",
-        model_config: { model: "openai/gpt-4.1" },
+        model_config: { model: "openai/gpt-5.4" },
         is_default: true,
       })
 
@@ -516,7 +516,7 @@ describe("POST /api/workspaces/:id/agents (create as default)", () => {
       .send({
         name: "Plain Agent",
         system_prompt: "You are a plain agent.",
-        model_config: { model: "openai/gpt-4.1" },
+        model_config: { model: "openai/gpt-5.4" },
       })
 
     expect(res.status).toBe(201)
@@ -540,7 +540,7 @@ describe("POST /api/workspaces/:id/agents (create as default)", () => {
       .send({
         name: "Nope",
         system_prompt: "You are a plain agent.",
-        model_config: { model: "openai/gpt-4.1" },
+        model_config: { model: "openai/gpt-5.4" },
         is_default: false,
       })
 
@@ -585,7 +585,7 @@ describe("POST /api/workspaces/:id/agents (is_default permission guard)", () => 
       .send({
         name: "Sneaky Default",
         system_prompt: "You are an agent.",
-        model_config: { model: "openai/gpt-4.1" },
+        model_config: { model: "openai/gpt-5.4" },
         is_default: true,
       })
 
@@ -610,7 +610,7 @@ describe("POST /api/workspaces/:id/agents (is_default permission guard)", () => 
       .send({
         name: "Plain Creation",
         system_prompt: "You are an agent.",
-        model_config: { model: "openai/gpt-4.1" },
+        model_config: { model: "openai/gpt-5.4" },
       })
 
     expect(res.status).toBe(201)
@@ -632,7 +632,7 @@ describe("PUT /api/workspaces/:id/agents/:agentId (set default)", () => {
       .send({
         name: "Custom Agent",
         system_prompt: "Custom prompt",
-        model_config: { model: "openai/gpt-4.1" },
+        model_config: { model: "openai/gpt-5.4" },
       })
     const customAgentId = createRes.body.data.id
 
@@ -686,7 +686,7 @@ describe("PUT /api/workspaces/:id/agents/:agentId (set default)", () => {
       .send({
         name: "Original Name",
         system_prompt: "Some prompt",
-        model_config: { model: "openai/gpt-4.1" },
+        model_config: { model: "openai/gpt-5.4" },
       })
     const agentId = createRes.body.data.id
 
@@ -714,7 +714,7 @@ describe("PUT /api/workspaces/:id/agents/:agentId (set default)", () => {
       .send({
         name: "Promotable",
         system_prompt: "You are promotable.",
-        model_config: { model: "openai/gpt-4.1" },
+        model_config: { model: "openai/gpt-5.4" },
       })
     const agentId = createRes.body.data.id
 
