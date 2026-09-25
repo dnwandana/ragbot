@@ -41,6 +41,7 @@ export default defineConfig({
           { text: "Chatting with your data", link: "/concepts/chatting" },
           { text: "Analyzing data files", link: "/concepts/data-analysis" },
           { text: "Audit logs", link: "/concepts/audit-logs" },
+          { text: "Share and export", link: "/concepts/sharing" },
           { text: "Your profile & account", link: "/concepts/account" },
         ],
       },
