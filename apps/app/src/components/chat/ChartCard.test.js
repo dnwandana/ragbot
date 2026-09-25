@@ -45,4 +45,10 @@ describe("ChartCard", () => {
     expect(chartCtor).not.toHaveBeenCalled()
     expect(wrapper.find("canvas").exists()).toBe(false)
   })
+
+  it("emits ready after the chart is built", () => {
+    const wrapper = mount(ChartCard, { props: { spec } })
+    expect(wrapper.emitted("ready")).toHaveLength(1)
+    expect(mount(ChartCard, { props: { spec: null } }).emitted("ready")).toBeUndefined()
+  })
 })

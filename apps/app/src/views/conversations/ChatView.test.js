@@ -43,10 +43,26 @@ const chatStore = reactive({
 const sendMessage = vi.fn().mockResolvedValue(undefined)
 const abort = vi.fn()
 
+const resolve = vi.fn(() => ({ href: "/workspaces/ws1/conversations/c1/print" }))
+const permissions = { can: vi.fn(() => true) }
+const downloadMarkdown = vi.fn()
+
+vi.mock("@/composables/usePermissions", () => ({ usePermissions: () => permissions }))
+vi.mock("@/composables/useConversationShare", () => ({
+  useConversationShare: () => ({ downloadMarkdown }),
+}))
+vi.mock("ant-design-vue", async (importOriginal) => ({
+  ...(await importOriginal()),
+  Button: { name: "Button", template: `<button><slot /></button>` },
+  Dropdown: { name: "Dropdown", template: `<div><slot /><slot name="overlay" /></div>` },
+  Menu: { name: "Menu", template: `<div><slot /></div>` },
+  MenuItem: { name: "MenuItem", template: `<div><slot /></div>` },
+}))
+
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal()),
   useRoute: () => route,
-  useRouter: () => ({ replace, push: vi.fn() }),
+  useRouter: () => ({ replace, push: vi.fn(), resolve }),
   onBeforeRouteLeave: vi.fn(),
 }))
 
@@ -92,7 +108,7 @@ import { getDataset } from "@/api/datasets"
 import ChatView from "@/views/conversations/ChatView.vue"
 import { groupThreadMessages } from "./chat-thread-grouping.js"
 
-const STUBS = { ChatThread: true, ChatComposer: true, MarkdownRenderer: true }
+const STUBS = { ChatThread: true, ChatComposer: true, MarkdownRenderer: true, ShareDialog: true }
 
 /**
  * Mount ChatView, let onMounted's async fetches settle, then clear all spy
@@ -321,5 +337,56 @@ describe("ChatView — live execution steps on the streaming message", () => {
     // The second observation has not arrived — the step renders as running.
     expect(streaming.steps[0].observation).toBe(null)
     expect(streaming.charts).toEqual([{ type: "bar" }])
+  })
+})
+
+describe("ChatView — share and export actions", () => {
+  const openChat = async () => {
+    route.name = "Chat"
+    route.params = { workspaceId: "ws1", conversationId: "c1" }
+    conversationsStore.currentConversation = { id: "c1", messages: [], citations: [] }
+    // Mount without mountFresh: its clearAllMocks would erase the render-time can() call.
+    const wrapper = mount(ChatView, { global: { stubs: STUBS } })
+    await flushPromises()
+    return wrapper
+  }
+  const buttonNamed = (wrapper, label) =>
+    wrapper.findAll("button").find((b) => b.text().includes(label))
+
+  it("hides the actions on the new-chat route", async () => {
+    const wrapper = await mountFresh()
+    expect(wrapper.find(".chat-view__actions").exists()).toBe(false)
+  })
+
+  it("shows Share only with conversation:share and opens the dialog", async () => {
+    const wrapper = await openChat()
+    expect(permissions.can).toHaveBeenCalledWith("conversation:share")
+    await buttonNamed(wrapper, "Share").trigger("click")
+    expect(wrapper.findComponent({ name: "ShareDialog" }).props("open")).toBe(true)
+
+    permissions.can.mockReturnValue(false)
+    const gated = await openChat()
+    expect(buttonNamed(gated, "Share")).toBeUndefined()
+    expect(buttonNamed(gated, "Export")).toBeDefined()
+    permissions.can.mockReturnValue(true)
+  })
+
+  it("downloads Markdown or opens the print route", async () => {
+    const open = vi.fn()
+    vi.stubGlobal("open", open)
+    const wrapper = await openChat()
+    wrapper.vm.onExport({ key: "markdown" })
+    expect(downloadMarkdown).toHaveBeenCalledTimes(1)
+    wrapper.vm.onExport({ key: "pdf" })
+    expect(resolve).toHaveBeenCalledWith({
+      name: "ConversationPrint",
+      params: { workspaceId: "ws1", conversationId: "c1" },
+    })
+    expect(open).toHaveBeenCalledWith(
+      "/workspaces/ws1/conversations/c1/print",
+      "_blank",
+      "noopener",
+    )
+    vi.unstubAllGlobals()
   })
 })

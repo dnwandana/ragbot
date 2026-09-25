@@ -67,3 +67,34 @@ describe("top-level user settings route", () => {
     expect(router.resolve("/settings").meta.skipWorkspaceGuard).toBe(true)
   })
 })
+
+describe("bare routes", () => {
+  it.each(["/login", "/signup", "/verify-email", "/forgot-password", "/reset-password"])(
+    "marks %s as bare",
+    (path) => {
+      expect(router.resolve(path).meta.bare).toBe(true)
+    },
+  )
+
+  it("leaves app routes inside the layout", () => {
+    expect(router.resolve("/workspaces").meta.bare).toBeUndefined()
+  })
+})
+
+describe("public share route", () => {
+  it("maps /chat/:id to a bare public route", () => {
+    const r = router.resolve("/chat/0f3b1a7c-9d2e-4c61-8a55-6b0f2d7e4a19")
+    expect(r.name).toBe("SharedConversation")
+    expect(r.params.id).toBe("0f3b1a7c-9d2e-4c61-8a55-6b0f2d7e4a19")
+    expect(r.meta).toEqual({ bare: true })
+  })
+})
+
+describe("print route", () => {
+  it("maps the print path to a bare authenticated route", () => {
+    const r = router.resolve("/workspaces/ws1/conversations/c1/print")
+    expect(r.name).toBe("ConversationPrint")
+    expect(r.params).toEqual({ workspaceId: "ws1", conversationId: "c1" })
+    expect(r.meta).toEqual({ requiresAuth: true, bare: true })
+  })
+})

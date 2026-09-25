@@ -57,4 +57,38 @@ describe("useMarkdown.render citation gating", () => {
     expect(html).toContain("[1]")
     expect(html).toContain("[2]")
   })
+
+  it("keeps the space before a marker that stays literal", () => {
+    expect(render("APAC grew [1], ahead of EMEA.", [])).toContain("APAC grew [1], ahead")
+  })
+})
+
+describe("useMarkdown.render citation stripping", () => {
+  const { render } = useMarkdown()
+  const strip = { stripCitations: true }
+
+  it("removes a marker and the space before it", () => {
+    const html = render("APAC grew [1], ahead of EMEA.", null, strip)
+    expect(html).toContain("APAC grew, ahead of EMEA.")
+    expect(html).not.toContain("[1]")
+    expect(html).not.toContain("cite-ref")
+  })
+
+  it("removes a marker that has no space before it", () => {
+    expect(render("APAC grew[1].", null, strip)).toContain("APAC grew.")
+  })
+
+  it("keeps bracketed numbers inside a code fence", () => {
+    const html = render("```js\nconst x = arr[0]\n```", null, strip)
+    expect(html).toContain("arr[0]")
+  })
+
+  it("keeps a markdown link intact", () => {
+    const html = render("See [1](https://example.com) now.", null, strip)
+    expect(html).toContain('href="https://example.com"')
+  })
+
+  it("leaves markers in place when stripping is off", () => {
+    expect(render("APAC grew [1].", null, { stripCitations: false })).toContain("cite-ref")
+  })
 })
