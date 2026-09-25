@@ -17,6 +17,10 @@ const config = {
   useNullAsDefault: true,
   migrations: {
     directory: "./database/migrations",
+    // The shared test database records migration entries that were later folded
+    // into the base files and removed from disk. Knex aborts on that drift, so
+    // the test config tolerates it. It relaxes a check only, and writes nothing.
+    disableMigrationsListValidation: process.env.NODE_ENV === "test",
   },
   seeds: {
     directory: "./database/seeds",
