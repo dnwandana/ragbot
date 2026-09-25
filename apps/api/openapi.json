@@ -30,7 +30,7 @@
     },
     {
       "name": "Permissions",
-      "description": "Read-only reference list of all 31 permissions"
+      "description": "Read-only reference list of all 32 permissions"
     },
     {
       "name": "Datasets",
@@ -51,6 +51,10 @@
     {
       "name": "Chat",
       "description": "Send message with ReAct loop; JSON and SSE streaming modes"
+    },
+    {
+      "name": "Share",
+      "description": "Share links, public snapshots, and Markdown export"
     },
     {
       "name": "Audit Logs",
@@ -3823,6 +3827,537 @@
         }
       }
     },
+    "/api/workspaces/{workspace_id}/conversations/{conversation_id}/share": {
+      "get": {
+        "tags": ["Share"],
+        "summary": "Get the share of a conversation",
+        "description": "**Permission required**: `conversation:read`. Only the conversation owner can read the share. Returns 404 `Share not found` when the conversation has no share. The response never contains the snapshot. Use `url`.",
+        "operationId": "getShare",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdParam"
+          },
+          {
+            "$ref": "#/components/parameters/ConversationIdParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Share retrieved",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ConversationShare"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Conversation not found, or the conversation has no share",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "Share not found",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Share"],
+        "summary": "Create a share link",
+        "description": "**Permission required**: `conversation:share`. Only the conversation owner can share it. Builds a snapshot of the visible messages, charts, and citations. A conversation has one share at most. Returns 409 with the existing share when a share exists. Writes a `conversation_share` audit row with action `shared`.",
+        "operationId": "createShare",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdParam"
+          },
+          {
+            "$ref": "#/components/parameters/ConversationIdParam"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Share link created",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ConversationShare"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request. The conversation has no messages to share.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "Conversation has no messages to share",
+                  "data": null
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "Conversation is already shared. The body contains the existing share.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ConversationShare"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Conversation is too large to share. The snapshot JSON is over 1 MB.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "Conversation is too large to share",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Share"],
+        "summary": "Rebuild the snapshot",
+        "description": "**Permission required**: `conversation:share`. Replaces the snapshot with the current thread. The id and the url do not change. Writes a `conversation_share` audit row with action `updated`.",
+        "operationId": "updateShare",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdParam"
+          },
+          {
+            "$ref": "#/components/parameters/ConversationIdParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Share link updated",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ConversationShare"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request. The conversation has no messages to share.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "Conversation has no messages to share",
+                  "data": null
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Conversation not found, or the conversation has no share",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "Share not found",
+                  "data": null
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Conversation is too large to share. The snapshot JSON is over 1 MB.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "Conversation is too large to share",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Share"],
+        "summary": "Revoke the share link",
+        "description": "**Permission required**: `conversation:share`. Deletes the share. The url stops working immediately. Writes a `conversation_share` audit row with action `unshared`.",
+        "operationId": "revokeShare",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdParam"
+          },
+          {
+            "$ref": "#/components/parameters/ConversationIdParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Share link revoked",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "message": "Share link revoked",
+                  "data": null
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Conversation not found, or the conversation has no share",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "Share not found",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/workspaces/{workspace_id}/conversations/{conversation_id}/export": {
+      "get": {
+        "tags": ["Share"],
+        "summary": "Download the conversation as Markdown",
+        "description": "**Permission required**: `conversation:read`. Only the conversation owner can export it. The API accepts only `format=markdown`. The file contains the same content as a share snapshot. The filename comes from the conversation title. The fallback filename is `conversation.md`.",
+        "operationId": "exportConversation",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdParam"
+          },
+          {
+            "$ref": "#/components/parameters/ConversationIdParam"
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": true,
+            "description": "Export format",
+            "schema": {
+              "type": "string",
+              "enum": ["markdown"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Markdown file",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              },
+              "Content-Disposition": {
+                "description": "Attachment with a filename from the conversation title",
+                "schema": {
+                  "type": "string"
+                },
+                "example": "attachment; filename=\"q3-revenue.md\""
+              }
+            },
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "description": "Conversation is too large to share. The snapshot JSON is over 1 MB.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "Conversation is too large to share",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/share/{id}": {
+      "get": {
+        "tags": ["Share"],
+        "summary": "Read a public snapshot",
+        "description": "No authentication. Rate limited to `RATE_LIMIT_SHARE_MAX` (default 60) requests per 15 minutes per IP. The response sets `Cache-Control: private, no-store`. The body contains no share, conversation, workspace, or user ids.",
+        "operationId": "getPublicShare",
+        "security": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ShareIdParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Snapshot retrieved",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              },
+              "Cache-Control": {
+                "description": "Always `private, no-store`",
+                "schema": {
+                  "type": "string"
+                },
+                "example": "private, no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/PublicShare"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The id is unknown, or the owner revoked the share",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "Share link not found",
+                  "data": null
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        }
+      }
+    },
     "/api/workspaces/{workspace_id}/audit-logs": {
       "get": {
         "tags": ["Audit Logs"],
@@ -3862,7 +4397,8 @@
                 "dataset_file",
                 "agent",
                 "conversation",
-                "conversation_dataset"
+                "conversation_dataset",
+                "conversation_share"
               ]
             }
           },
@@ -3885,7 +4421,9 @@
                 "uploaded",
                 "reprocessed",
                 "attached",
-                "detached"
+                "detached",
+                "shared",
+                "unshared"
               ]
             }
           },
@@ -4202,6 +4740,16 @@
         "schema": {
           "type": "string",
           "maxLength": 255
+        }
+      },
+      "ShareIdParam": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Share id. This is the public identifier of the share",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
         }
       }
     },
@@ -5574,7 +6122,8 @@
               "dataset_file",
               "agent",
               "conversation",
-              "conversation_dataset"
+              "conversation_dataset",
+              "conversation_share"
             ]
           },
           "entity_id": {
@@ -5596,7 +6145,9 @@
               "uploaded",
               "reprocessed",
               "attached",
-              "detached"
+              "detached",
+              "shared",
+              "unshared"
             ]
           },
           "changes": {
@@ -5622,6 +6173,135 @@
           "action",
           "created_at"
         ]
+      },
+      "ConversationSnapshot": {
+        "type": "object",
+        "description": "Frozen public copy of a conversation at share time. Contains no user ids or workspace ids.",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "enum": [1]
+          },
+          "title": {
+            "type": "string",
+            "description": "Conversation title. The fallback is `Untitled conversation`."
+          },
+          "workspace_name": {
+            "type": "string"
+          },
+          "agent_name": {
+            "type": "string"
+          },
+          "shared_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "messages": {
+            "type": "array",
+            "description": "Visible messages only: user inputs and final answers. No code and no steps.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "role": {
+                  "type": "string",
+                  "enum": ["user", "assistant"]
+                },
+                "content": {
+                  "type": "string"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "charts": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "description": "Chart.js specs. Only on assistant entries."
+                },
+                "citations": {
+                  "type": "array",
+                  "description": "Only on assistant entries.",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "n": {
+                        "type": "integer"
+                      },
+                      "filename": {
+                        "type": "string"
+                      },
+                      "cited_text": {
+                        "type": "string"
+                      },
+                      "relevance_score": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "ConversationShare": {
+        "type": "object",
+        "description": "Private view of a share. The `id` is also the public identifier. Use `url`.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "conversation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_by": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "`${APP_URL}/chat/<id>`",
+            "example": "https://app.example.com/chat/0f3b1a7c-9d2e-4c61-8a55-6b0f2d7e4a19"
+          }
+        }
+      },
+      "PublicShare": {
+        "type": "object",
+        "description": "Public payload of a share. Contains no ids.",
+        "properties": {
+          "snapshot": {
+            "$ref": "#/components/schemas/ConversationSnapshot"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
       }
     }
   }
