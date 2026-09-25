@@ -51,6 +51,14 @@ describe("validateEnv — default propagation", () => {
     expect(process.env.OPENROUTER_STREAM_TIMEOUT_MS).toBe("30000")
   })
 
+  it("writes the Joi default 60 for RATE_LIMIT_SHARE_MAX when the key is absent", () => {
+    delete process.env.RATE_LIMIT_SHARE_MAX
+
+    validateEnv()
+
+    expect(process.env.RATE_LIMIT_SHARE_MAX).toBe("60")
+  })
+
   it("writes Joi default for LOG_TO_FILE as string 'true' when absent", () => {
     delete process.env.LOG_TO_FILE
 

@@ -60,6 +60,14 @@ describe("GET /api/permissions", () => {
 
     expect(res.status).toBe(401)
   })
+
+  it("returns the 32 seeded permissions including conversation:share", async () => {
+    const user = await createTestUser()
+    const res = await (await request()).get("/api/permissions").set(await getAuthHeaders(user.id))
+    expect(res.status).toBe(200)
+    expect(res.body.data).toHaveLength(32)
+    expect(res.body.data.map((p) => p.name)).toContain("conversation:share")
+  })
 })
 
 // ---------------------------------------------------------------------------

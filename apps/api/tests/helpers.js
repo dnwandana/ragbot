@@ -122,6 +122,7 @@ export async function createTestWorkspace(userId, overrides = {}) {
         "conversation:read",
         "conversation:update",
         "conversation:chat",
+        "conversation:share",
         "audit:read",
       ].includes(p.name),
     )
@@ -202,6 +203,7 @@ export async function addWorkspaceMember(workspaceId, userId, roleId) {
 export async function cleanAllTables() {
   await db.raw(`
     TRUNCATE TABLE
+      conversation_shares,
       audit_logs,
       conversation_message_citations,
       conversation_messages,

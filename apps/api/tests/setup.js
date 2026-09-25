@@ -53,4 +53,5 @@ vi.mock("../src/utils/session-denylist.js", () => ({
 vi.mock("../src/middlewares/rate-limit.js", () => ({
   authLimiter: (req, res, next) => next(),
   generalLimiter: (req, res, next) => next(),
+  shareLimiter: (req, res, next) => next(),
 }))
