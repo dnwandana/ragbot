@@ -1,7 +1,7 @@
 <template>
   <!-- User message -->
   <div v-if="isUser" class="chat-message chat-message--user">
-    <div class="chat-message__bubble chat-message__bubble--user">{{ msg.text }}</div>
+    <MessageBubble role="user">{{ msg.text }}</MessageBubble>
     <div
       v-if="!msg.streaming && !msg.error"
       class="chat-message__actions chat-message__actions--user"
@@ -18,7 +18,7 @@
 
   <!-- Agent message -->
   <div v-else class="chat-message chat-message--agent">
-    <div class="chat-message__bubble chat-message__bubble--agent">
+    <MessageBubble role="agent">
       <!-- Code the agent ran to reach this answer, above the answer itself. -->
       <div v-if="steps.length" class="chat-message__steps">
         <CodeRunCard :steps="steps" />
@@ -94,7 +94,7 @@
       >
         <SourceCitations :sources="msg.sources" @open-panel="emit('open-panel')" />
       </div>
-    </div>
+    </MessageBubble>
 
     <!-- Meta + copy (static below the bubble, not during streaming/error) -->
     <div v-if="!msg.streaming && !msg.error" class="chat-message__actions">
@@ -113,6 +113,7 @@
 import { ref, computed, onUnmounted } from "vue"
 import { Check, Copy, CircleAlert } from "lucide-vue-next"
 import MarkdownRenderer from "./MarkdownRenderer.vue"
+import MessageBubble from "./MessageBubble.vue"
 import SourceCitations from "./SourceCitations.vue"
 import CodeRunCard from "./CodeRunCard.vue"
 import ChartCard from "./ChartCard.vue"
@@ -177,27 +178,6 @@ onUnmounted(() => clearTimeout(copyTimer))
   align-items: flex-start;
 }
 
-/* ── Bubbles ── */
-.chat-message__bubble--user {
-  max-width: 560px;
-  padding: 10px 14px;
-  border-radius: var(--r-lg);
-  font-size: var(--t-md);
-  line-height: 1.55;
-  color: var(--ink);
-  background: var(--brand-tint);
-  border: 1px solid rgba(255, 107, 53, 0.18);
-  white-space: pre-wrap;
-}
-
-.chat-message__bubble--agent {
-  width: 100%;
-  padding: 14px 18px;
-  border-radius: var(--r-lg);
-  background: var(--surface);
-  border: 1px solid var(--line);
-}
-
 /* ── Tool buttons (a-button override) ── */
 :deep(.chat-message__tool-btn.ant-btn) {
   width: 28px;
@@ -224,6 +204,8 @@ onUnmounted(() => clearTimeout(copyTimer))
 }
 
 /* ── Meta + actions row (static below the bubble) ── */
+/* The row box aligns with the bubble box. The leading label has no inset of its
+   own, so it needs no pull to sit flush with the bubble edge. */
 .chat-message__actions {
   display: flex;
   align-items: center;
@@ -234,13 +216,14 @@ onUnmounted(() => clearTimeout(copyTimer))
   color: var(--ink-4);
 }
 
-.chat-message--agent .chat-message__actions {
-  margin-left: -4px;
-}
-
 .chat-message__actions--user {
   justify-content: flex-end;
-  margin-right: -4px;
+}
+
+/* The icon sits 6px inside its 28px hit box. The button ends the right-aligned
+   row, so cancel that inset to make the icon read flush with the bubble edge. */
+:deep(.chat-message__actions--user .chat-message__tool-btn.ant-btn) {
+  margin-right: -6px;
 }
 
 .chat-message__role {
