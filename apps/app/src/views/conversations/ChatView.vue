@@ -1,5 +1,25 @@
 <template>
   <div class="chat-view">
+    <div v-if="!isNew && conversation" class="chat-view__actions">
+      <Button v-if="can('conversation:share')" size="small" @click="shareOpen = true">
+        <Share2 :size="14" /> Share
+      </Button>
+      <Dropdown trigger="click">
+        <Button size="small"><Download :size="14" /> Export</Button>
+        <template #overlay>
+          <Menu @click="onExport">
+            <MenuItem key="markdown">Markdown (.md)</MenuItem>
+            <MenuItem key="pdf">PDF (print)</MenuItem>
+          </Menu>
+        </template>
+      </Dropdown>
+      <ShareDialog
+        :open="shareOpen"
+        :workspace-id="workspaceId"
+        :conversation-id="conversationId"
+        @close="shareOpen = false"
+      />
+    </div>
     <ChatThread
       :messages="displayMessages"
       :loading="chatStore.isStreaming && !hasStreamingBody"
@@ -94,7 +114,11 @@
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue"
 import { useRoute, useRouter, onBeforeRouteLeave } from "vue-router"
-import { X } from "lucide-vue-next"
+import { X, Share2, Download } from "lucide-vue-next"
+import { Button, Dropdown, Menu, MenuItem } from "ant-design-vue"
+import { usePermissions } from "@/composables/usePermissions"
+import { useConversationShare } from "@/composables/useConversationShare"
+import ShareDialog from "@/components/chat/ShareDialog.vue"
 import { useConversationsStore } from "@/stores/conversations"
 import { useChatStore } from "@/stores/chat"
 import * as agentsApi from "@/api/agents"
@@ -108,6 +132,7 @@ import { useFormattedTime } from "@/composables/useFormattedTime"
 import ChatThread from "@/components/chat/ChatThread.vue"
 import ChatComposer from "@/components/chat/ChatComposer.vue"
 import MarkdownRenderer from "@/components/chat/MarkdownRenderer.vue"
+import { relevanceLabel } from "@/components/chat/relevance.js"
 import { groupThreadMessages } from "./chat-thread-grouping.js"
 
 const route = useRoute()
@@ -118,6 +143,19 @@ const workspaceId = computed(() => route.params.workspaceId)
 const conversationId = computed(() => route.params.conversationId)
 const chat = useChat(workspaceId, conversationId)
 const chatActions = useChatActions()
+const { can } = usePermissions()
+const { downloadMarkdown } = useConversationShare(workspaceId, conversationId)
+const shareOpen = ref(false)
+
+/** Handles the Export menu. `key` is "markdown" or "pdf". */
+function onExport({ key }) {
+  if (key === "markdown") return downloadMarkdown()
+  const { href } = router.resolve({
+    name: "ConversationPrint",
+    params: { workspaceId: workspaceId.value, conversationId: conversationId.value },
+  })
+  window.open(href, "_blank", "noopener")
+}
 
 onUnmounted(() => chat.abort())
 onBeforeRouteLeave(() => {
@@ -439,7 +477,7 @@ const activeSources = computed(() => {
     groupMap.get(title).push({
       n: c.citation_number,
       relevance: c.relevance_score,
-      relevanceLabel: c.relevance_score >= 0.85 ? "High" : c.relevance_score >= 0.6 ? "Med" : "Low",
+      relevanceLabel: relevanceLabel(c.relevance_score),
       cited_text: c.cited_text || "",
     })
   }
@@ -502,10 +540,10 @@ function closePanel() {
   highlightedN.value = null
 }
 
+const RELEVANCE_CLASS = { High: "high", Med: "medium", Low: "low" }
+
 function relevanceClass(relevance) {
-  if (relevance >= 0.85) return "chat-view__source-badge--high"
-  if (relevance >= 0.6) return "chat-view__source-badge--medium"
-  return "chat-view__source-badge--low"
+  return `chat-view__source-badge--${RELEVANCE_CLASS[relevanceLabel(relevance)]}`
 }
 </script>
 
@@ -516,6 +554,20 @@ function relevanceClass(relevance) {
   flex-direction: column;
   min-width: 0;
   position: relative;
+}
+
+.chat-view__actions {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  z-index: 5;
+  display: flex;
+  gap: 8px;
+}
+.chat-view__actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 /* ── Sources panel ── */
