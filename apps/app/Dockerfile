@@ -12,6 +12,8 @@ COPY apps/app ./apps/app
 
 ARG VITE_API_BASE_URL=/api
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ARG VITE_WEB_URL=/
+ENV VITE_WEB_URL=$VITE_WEB_URL
 
 RUN pnpm --filter @ragbot/app build
 
