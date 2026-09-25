@@ -7,6 +7,23 @@ description: What's new in RAGBot — new features and improvements by version.
 
 What's new in RAGBot. The newest release is listed first.
 
+## 1.6.0 — Unreleased
+
+Conversations can now leave the app. Share a read-only link with anyone, or
+export a conversation as Markdown or PDF.
+
+### New
+
+**Share links and export**
+
+- **Share** creates a public read-only link to a conversation. The link is a
+  snapshot: update it to include new messages, or revoke it at any time. See
+  [Share and export](/concepts/sharing).
+- **Export** downloads the conversation as a Markdown file or opens a print
+  view for a PDF.
+- The audit log records every share, update, and revoke as a **Share link**
+  entry.
+
 ## 1.5.0 — 18 September 2026
 
 Conversations now name themselves, and the agent form offers a shorter,
