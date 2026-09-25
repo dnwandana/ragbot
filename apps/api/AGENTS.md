@@ -1,422 +1,58 @@
 # CLAUDE.md
 
-RAGBot API — workspace-based multi-tenant Express.js REST API with PostgreSQL + pgvector, JWT authentication, RBAC, and a RAG pipeline. ES Modules (`"type": "module"`), Node.js v24+ (pinned in `.nvmrc`).
+RAGBot API. Multi-tenant Express REST API with PostgreSQL + pgvector, JWT auth, RBAC, and a RAG pipeline. ES modules, Node 24 (`.nvmrc`).
 
 ## Commands
 
 ```bash
-npm run dev              # Development server with nodemon
-npm start                # Production server
-npm test                 # Run tests (Vitest)
-npm run test:watch       # Run tests in watch mode
-npm run test:coverage    # Run tests with coverage
-npm run lint             # Oxlint (linter)
-npm run lint:fix         # Auto-fix lint issues
-npm run format           # Prettier check
-npm run format:fix       # Prettier fix
-npm run migrate          # Run latest migrations
-npm run migrate:make <n> # Create migration
-npm run migrate:rollback # Rollback last migration
-npm run seed             # Run all seeds
-npm run seed:make <n>    # Create seed file
+npm run dev | start | test | test:watch | test:coverage
+npm run lint | lint:fix | format | format:fix
+npm run migrate | migrate:make <n> | migrate:rollback | seed
 ```
 
-No pre-commit hooks. Run `npm run lint:fix && npm run format:fix` before committing.
-
-## Architecture
-
-### MVC Pattern
-
-- **Models** (`src/models/`): Knex.js queries only — no business logic
-- **Controllers** (`src/controllers/`): Business logic, Joi validation, coordinates models
-- **Routes** (`src/routes/`): Route definitions + param validation middleware, aggregated in `routes/index.js`
-- **Middleware** (`src/middlewares/`): Authorization (JWT), permission guards (`requirePermission`)
-
-### Middleware Order (critical — in `src/app.js`)
-
-1. Request ID (`requestId` — must be first so all downstream middleware can use `req.id`)
-2. Security (helmet with strict CSP, cors with explicit origins)
-3. Body parsing (express.json + express.urlencoded, both 100kb limit)
-4. HPP (HTTP Parameter Pollution protection)
-5. Cookie parsing (cookie-parser — populates `req.cookies` for auth token access)
-6. Health check (`/health` — before rate limiting so load balancers aren't throttled)
-7. Rate limiting (generalLimiter — global, configurable via `RATE_LIMIT_GENERAL_MAX`)
-8. Logging (Morgan httpLogger + custom requestLogger)
-9. Routes (`/api`):
-   - `/api/auth/*` — auth routes (authLimiter)
-   - `requireAccessToken` — routes below require auth
-   - `/api/permissions` — permission reference
-10. 404 handler (notFoundHandler)
-11. Error handler (errorHandler) — **must be last**
-
-`trust proxy` is set to `1` so rate limiting works correctly behind reverse proxies.
-
-### App Extraction (`src/app.js` vs `src/index.js`)
-
-`src/app.js` configures Express (middleware, routes) and exports the app without calling `listen()`. `src/index.js` is the thin entry point: loads env, validates it, dynamically imports `app.js`, starts the server, then starts the BullMQ worker. This split enables Supertest to import the app directly without binding to a port or starting Redis connections.
-
-### Async File Processing (BullMQ)
-
-Dataset file processing uses a persistent BullMQ job queue backed by Redis. All three trigger points (file upload via LlamaIndex polling, URL scraping, reprocess) push the same minimal job payload:
-
-```js
-{ datasetFileId: string, datasetId: string }
-```
-
-No content is stored in Redis — the worker re-fetches markdown from the source on every run, making jobs idempotent and safe to retry.
-
-**Queue** (`src/queues/file-processing.js`): `fileProcessingQueue` (BullMQ Queue, named `'file-processing'`), `addProcessingJob({ datasetFileId, datasetId })`. Jobs retry 3× with exponential backoff (5 s base).
-
-**Worker** (`src/workers/file-processing.js`): `startWorker()` — creates a BullMQ Worker (concurrency 2). The processor resolves the markdown source from DB metadata (`llamaindex_job_id` → LlamaIndex, `source_url` → Firecrawl), then runs the pipeline: split → embed → delete old chunks → bulk insert → generate questions → mark `completed`. On final failure (after all retries), sets `status = 'failed'`. Worker is started in `src/index.js` and closed gracefully on SIGTERM/SIGINT before the DB connection.
-
-A tabular file (`metadata.source_type === "tabular"`) takes a different branch: the worker profiles it in the sandbox instead of resolving markdown from LlamaIndex, merges the profile into `metadata.profile`, then runs the same pipeline over the rendered profile markdown. The profile is written before the pipeline runs, so any file that reaches `completed` has one.
-
-**Test mocking**: `tests/setup.js` mocks `src/queues/file-processing.js` with no-op stubs so tests don't require a running Redis instance.
-
-### Request ID Tracking
-
-`src/middlewares/request-id.js` runs first in the middleware chain. Accepts an incoming `X-Request-Id` header (validated as UUID) or generates a UUID via `crypto.randomUUID()`. Stores on `req.id`, echoes in the response `X-Request-Id` header. All logs (Morgan, requestLogger, errorHandler, notFoundHandler) include `requestId: req.id`.
-
-### Health Check
-
-`GET /health` — mounted before rate limiting so load balancers aren't throttled. Returns DB connectivity status (`SELECT 1`), uptime, and timestamp. Uses `apiResponse()` wrapper. Returns 200 when healthy, 503 when DB is unreachable.
-
-### Request Context Flow
-
-Authorization middleware sets `req.user = { id }` from decoded JWT. `requirePermission(name)` checks `req.permissions.includes(name)`.
-
-**`resolveWorkspace` (wired)** — `src/middlewares/resolve-workspace.js` is mounted in `src/routes/workspaces.js` via `router.use("/:workspace_id", resolveWorkspace)`, so it runs for every workspace-scoped route. It validates `req.params.workspace_id` is a well-formed UUID (400 if not), loads the workspace excluding soft-deleted rows (404 if missing), then loads the authenticated user's permission names via their active `workspace_members` role chain (403 if no membership). On success it sets `req.workspace` (the workspace record) and `req.permissions` (the resolved permission names array consumed by `requirePermission`).
-
-**Current request properties**:
-
-```
-req.id          // Request ID (from requestId middleware)
-req.user        // { id } from JWT
-req.workspace   // workspace record (set by resolveWorkspace on workspace-scoped routes)
-req.permissions // [] of permission names (populated by resolveWorkspace)
-```
-
-### Authentication Flow
-
-- POST `/api/auth/signup` → creates user with email + full_name, sends verification email via Brevo, returns `{ id, email, full_name }` (no tokens)
-- POST `/api/auth/verify-email` → validates token from email, sets `email_verified = true`
-- POST `/api/auth/resend-verification` → resends verification email (always returns 200 to prevent enumeration)
-- POST `/api/auth/signin` → requires verified email, stores refresh token hash in DB, sets `access_token` and `refresh_token` as httpOnly cookies, returns `{ id, email, full_name }`
-- POST `/api/auth/forgot-password` → sends reset password email (always returns 200 to prevent enumeration)
-- POST `/api/auth/reset-password` → validates reset token, updates password, denylists all of the user's active sessions, then revokes all refresh tokens for the user
-- POST `/api/auth/refresh` → **token rotation in place**: rotates the session's `token_hash`/`expires_at` on the same `refresh_tokens` row, so the session id (`sid`) stays stable and the session remains listable; sets new `access_token` and `refresh_token` cookies
-- POST `/api/auth/logout` → denylists the session (`sid`) for instant access-token revocation and revokes the refresh token in DB, clears cookies. Idempotent (succeeds even if token already revoked).
-- PUT `/api/auth/profile` → updates the authenticated user's `full_name` and `timezone` (must be a valid IANA zone), returns the updated user
-- DELETE `/api/auth/profile` → soft-deletes the account, denylists all active sessions, revokes all refresh tokens, clears cookies. Rejects with 409 if the user is the sole owner of any workspace
-- PUT `/api/auth/password` → verifies `current_password`, sets `new_password` (8–72 chars), denylists all active sessions and revokes all existing refresh tokens (signing out other devices), then issues a fresh session so the current device stays signed in
-- GET `/api/auth/sessions` → lists the caller's active sessions (one per active refresh token) with a parsed device label, IP, optional location, last-active and created timestamps, and an `is_current` flag (requireAccessToken + authLimiter)
-- DELETE `/api/auth/sessions` → revokes every session except the current one, denylisting each; returns `{ revoked }`. 400 if the request carries no `sid`
-- DELETE `/api/auth/sessions/:id` → revokes one session by id and denylists it; 404 if it is not the caller's
-
-Token cookies: `access_token` and `refresh_token` (httpOnly cookies set by server). JWT algorithm pinned to HS256 with explicit verification.
-
-**Instant access-token revocation**: each access token carries a `sid` claim bound to its `refresh_tokens` session row. `requireAccessToken` (now async) checks a Redis **session denylist** (`utils/session-denylist.js`) on every request and rejects revoked sessions with 401, then sets `req.sessionId`. Revoking a session (single, others, logout, password change/reset, account delete) calls `denySession(sid)`, so a live access token stops working within one access-token TTL even though it hasn't expired. The denylist **fails open** (auth still works if Redis is down) and its TTL is derived from `ACCESS_TOKEN_EXPIRES_IN` so it always outlives the access token. Tokens minted before this feature carry no `sid` and skip the check for one access-token TTL after deploy.
-
-Validation: email (required, lowercase, valid format), password 8–72 chars (72 is Argon2's input limit), full_name 1–100 chars. Email tokens use SHA-256 hashing with configurable expiration (verify: 24h, reset: 1h). Auth routes are rate-limited via `authLimiter` (default 10 req/15min, cap at 50).
-
-### Refresh Token Architecture
-
-**Table**: `refresh_tokens` — UUID PK, `user_id` FK CASCADE, `token_hash` (64-char SHA-256), `expires_at`, `revoked_at` (nullable), plus session metadata `user_agent`, `ip_address`, `last_used_at`, `location` (migration 010 — each active, non-expired row is a listable session). Index on `user_id` and unique on `token_hash`.
-
-**Lifecycle**:
-
-- **Signin**: Controller generates refresh token, hashes with SHA-256 (`refresh-tokens.hashToken`), stores hash + request metadata (UA, IP, optional geo) in DB, sets tokens as httpOnly cookies.
-- **Refresh**: Controller finds the active token by hash (`findActiveByHash`), then **rotates in place** (`rotate`) — the same row gets a new `token_hash`/`expires_at` and a refreshed `last_used_at`, keeping the session id (`sid`) stable. Reuse is still prevented: the old hash no longer matches, so a replayed token is rejected.
-- **Logout**: Controller denylists the session (`denySession`), revokes the token by ID (`revokeById`), clears cookies. Idempotent — no error if token missing or already revoked.
-- **Sessions**: `controllers/sessions.js` lists (`findManyActiveByUserId`) and revokes sessions; every revoke path also calls `denySession(sid)` for instant access-token revocation. `revokeAllForUserExcept` (and the controller) refuse to mass-revoke without an explicit current-session id, so "log out others" can never sign out the caller.
-- **Model functions**: `hashToken`, `create` (persists session metadata), `findActiveByHash`, `revokeById`, `revokeAllForUser`, `rotate`, `findManyActiveByUserId`, `findActiveIdsByUserId`, `findActiveByIdForUser`, `revokeAllForUserExcept`, `purgeOld` (unused — no cron job yet).
-
-### Multi-Tenancy Architecture
-
-**Model**: Shared database, tenant isolation via `workspace_id` columns. Flat workspace model (no org/project nesting).
-
-**Isolation**: Composite foreign keys like `(id, workspace_id)` prevent cross-tenant references at the DB level. Partial unique indexes (`WHERE deleted_at IS NULL`) enforce uniqueness among active rows only.
-
-**RBAC**: 31 permissions across 8 resources (workspace, role, member, audit, dataset, file, agent, conversation). 4 system roles per workspace (owner, admin, editor, viewer) with custom role support.
-
-**System Roles**:
-| Role | Description |
-| ------ | ------------------------------------------ |
-| owner | All 31 permissions |
-| admin | All except workspace:delete, role:delete |
-| editor | Read + create/update on datasets, files, agents, conversations; no member/role management |
-| viewer | Read-only on all resources |
-
-### Error Handling
-
-Controllers throw `HttpError(status, message)` → caught by `next(error)` → centralized `errorHandler` logs full context (requestId, stack, IP, userId, method, URL) but only returns `{ message }` to client. Controllers should **not** log errors themselves — the centralized handler is the single logging point. Stack traces are only logged outside production. `notFoundHandler` logs 404s with user-agent tracking.
-
-### Environment Validation
-
-`src/utils/validate-env.js` runs at the very top of `src/index.js`, **before** Express initializes. Validates all required env vars with Joi (`abortEarly: false` to report all errors at once). JWT secrets must be ≥32 characters and must be distinct from each other. `RATE_LIMIT_AUTH_MAX` is capped at 50. `SANDBOX_URL` and `SANDBOX_API_TOKEN` are required only when `SANDBOX_ENABLED=true`. Fails with `process.exit(1)` — not HttpError (Express doesn't exist yet).
-
-### Pagination & Search
-
-`src/utils/pagination.js` exports three functions:
-
-- `validatePaginationQuery(query, sortableColumns)` — validates page, limit, sort_by, sort_order, search
-- `buildPaginationMeta(page, limit, totalItems)` — pagination metadata object
-- `executePaginatedQuery(countFn, findFn, conditions, params, searchableColumns)` — runs count + data fetch in parallel
-
-Search input is sanitized via `escapeIlike()` from `src/utils/sanitize.js` — escapes `%`, `_`, and `\` so they are treated as literals in PostgreSQL ILIKE patterns.
-
-### Chat (ReAct Loop + SSE Streaming)
-
-The chat feature uses a server-side ReAct (Reason-Act-Observe) loop with dual-mode response:
-
-- **SSE mode** (default): Client sends `Accept: text/event-stream` → server streams `token`, `thought`, `observation`, `citation`, and `done` events as the ReAct loop iterates
-- **JSON mode**: Client sends normal request → server runs the full loop and returns the complete response as JSON
-
-**RAG Service** (`src/services/rag.js`): `searchChunks` — embeds the query via OpenRouter, calls `search_chunks()` SQL function for cosine similarity search, returns ranked document chunks. `buildSystemMessage` — constructs the agent's system prompt with injected context from search results.
-
-**OpenRouter Streaming** (`src/services/openrouter.js`): `chatCompletionStream` — streams chat completion tokens from OpenRouter API using server-sent events, yielding tokens as they arrive for real-time response delivery.
-
-**Loop mechanics**: `openRouterMessages` is built once and is append-only — every tool turn pushes the assistant tool-call message and its `{ role: "tool", tool_call_id, content }` reply, so the model keeps the full history. Tool-call ids come from the stream (`consumeStream` returns `toolCallId`), with `"call_0"` as the fallback. `CHAT_MAX_ITERATIONS` (default 6) bounds the loop, and the last iteration offers no tools, so the model must answer.
-
-**Tool registry** (`src/services/chat-tools.js`): `registerTool`, `getAvailableTools(context)`, `executeTool(name, args, context)`. `executeTool` resolves `{ observation, extra }` and never throws — an unknown tool returns an error observation. Two tools are registered: `search_knowledge_base` (available when the conversation has datasets) and `execute_code` (available when the sandbox is enabled and the conversation has profiled tabular files).
-
-### Code Sandbox (`execute_code`)
-
-**Client** (`src/services/sandbox.js`): `isSandboxEnabled()` reads `SANDBOX_ENABLED` at call time. `executeCode({ code, files, timeoutMs })` posts to the sandbox container and **never throws** — a network failure or a non-2xx status becomes `{ ok: false, error }`, where `error` is `"busy"` (HTTP 429) or `"unavailable"`. Callers must branch on `result.ok`, not on a rejected promise. Every result also carries `duration_ms`, the wall time the client measured around the request — the sandbox reports no timing of its own. `files` is `[{ name, content }]` and `content` must be a **Buffer** — the client base64-encodes it, so a string corrupts binary xlsx. `tests/setup.js` mocks this module globally with `isSandboxEnabled` returning `false`, so no test needs a running sandbox; a test that exercises the code path opts in with `vi.mocked(isSandboxEnabled).mockReturnValue(true)`.
-
-**Runtime** (`sandbox/requirements.txt`): the only libraries the model can import are `pandas`, `numpy`, `duckdb`, `pyarrow`, and `openpyxl`. There is **no plotting library** and no pip, so `import matplotlib` fails with `ModuleNotFoundError`. A chart exists only as a Chart.js spec passed to `show_chart(spec)`, which the browser renders. The `execute_code` tool description in `chat-tools.js` states all of this — keep it in step with `requirements.txt`, or the model wastes a ReAct iteration on a failed import.
-
-**Tabular services** (`src/services/tabular/`): `profile-script.py` is the **server-owned** profiling script — the API sends it as the `code` of a sandbox run with the data file attached, so the model never writes it. `profile.js` exports `profileTabularFile(datasetFile)`, which downloads the object with `getObjectBuffer(storage_path)`, runs the script, and returns `{ profile, markdown }`. `profile-markdown.js` exports `renderProfileMarkdown(profile, fileName)`, whose output is embedded like any other document.
-
-**Message shapes**: a code run persists a `thought` row with `content_json = { tool: "execute_code", title, code, file_ids, filenames }` and an `observation` row with `content_json = { stdout, stderr, error, duration_ms, charts }`. `title` is a required `execute_code` argument and `filenames` is resolved by the controller from `file_ids`, so a reloaded thread labels each cell without an extra lookup. Rows written before these fields existed carry none of them, and the UI falls back to a cell number with no elapsed time. Chart specs live in `content_json.charts`, in array order. The SSE stream emits one `chart` event per chart after the `observation` event, carrying `{ message_id, index, spec }` where `message_id` is the observation row's id. The `role: "tool"` message sent back to the model omits the charts.
-
-**Hydration**: `conversation-messages.js` has two finders on purpose. `findVisibleByConversationId` returns only `input` and `final_answer` rows and feeds the **model's** history — widening it would corrupt the model's context. `findThreadByConversationId` also returns `thought` and `observation` rows and feeds the **conversation GET endpoint**, so the frontend can rebuild execution steps and charts after a reload.
-
-## Complete Endpoint Table
-
-### Public (no authentication)
-
-| Method | Path                            | Controller                          | Auth                | Rate Limit          |
-| ------ | ------------------------------- | ----------------------------------- | ------------------- | ------------------- |
-| GET    | `/health`                       | Inline handler                      | No                  | No (before limiter) |
-| POST   | `/api/auth/signup`              | `authentication.signup`             | No                  | authLimiter         |
-| POST   | `/api/auth/verify-email`        | `authentication.verifyEmail`        | No                  | authLimiter         |
-| POST   | `/api/auth/resend-verification` | `authentication.resendVerification` | No                  | authLimiter         |
-| POST   | `/api/auth/signin`              | `authentication.signin`             | No                  | authLimiter         |
-| POST   | `/api/auth/forgot-password`     | `authentication.forgotPassword`     | No                  | authLimiter         |
-| POST   | `/api/auth/reset-password`      | `authentication.resetPassword`      | No                  | authLimiter         |
-| GET    | `/api/auth/me`                  | `authentication.getMe`              | requireAccessToken  | authLimiter         |
-| PUT    | `/api/auth/profile`             | `authentication.updateProfile`      | requireAccessToken  | authLimiter         |
-| DELETE | `/api/auth/profile`             | `authentication.deleteProfile`      | requireAccessToken  | authLimiter         |
-| PUT    | `/api/auth/password`            | `authentication.changePassword`     | requireAccessToken  | authLimiter         |
-| POST   | `/api/auth/refresh`             | `authentication.refreshAccessToken` | requireRefreshToken | authLimiter         |
-| POST   | `/api/auth/logout`              | `authentication.logout`             | requireRefreshToken | authLimiter         |
-| GET    | `/api/auth/sessions`            | `sessions.listSessions`             | requireAccessToken  | authLimiter         |
-| DELETE | `/api/auth/sessions`            | `sessions.revokeOtherSessions`      | requireAccessToken  | authLimiter         |
-| DELETE | `/api/auth/sessions/:id`        | `sessions.revokeSession`            | requireAccessToken  | authLimiter         |
-
-### Authenticated (requireAccessToken)
-
-| Method | Path               | Controller                   | Permission |
-| ------ | ------------------ | ---------------------------- | ---------- |
-| GET    | `/api/permissions` | `permissions.getPermissions` | —          |
-
-### Workspace-scoped (requireAccessToken + resolveWorkspace)
-
-| Method | Path                                                                          | Controller                               | Permission            |
-| ------ | ----------------------------------------------------------------------------- | ---------------------------------------- | --------------------- |
-| POST   | `/api/workspaces/:workspace_id/conversations`                                 | `conversations.createConversation`       | `conversation:create` |
-| GET    | `/api/workspaces/:workspace_id/conversations`                                 | `conversations.listConversations`        | `conversation:read`   |
-| GET    | `/api/workspaces/:workspace_id/conversations/:conversation_id`                | `conversations.getConversation`          | `conversation:read`   |
-| PUT    | `/api/workspaces/:workspace_id/conversations/:conversation_id`                | `conversations.updateConversation`       | `conversation:update` |
-| DELETE | `/api/workspaces/:workspace_id/conversations/:conversation_id`                | `conversations.deleteConversation`       | `conversation:delete` |
-| POST   | `/api/workspaces/:workspace_id/datasets/:dataset_id/conversations`            | `datasets.createConversationFromDataset` | `conversation:create` |
-| POST   | `/api/workspaces/:workspace_id/conversations/:conversation_id/messages`       | `chat.sendMessage`                       | `conversation:chat`   |
-| GET    | `/api/workspaces/:workspace_id/audit-logs`                                    | `audit-logs.listAuditLogs`               | `audit:read`          |
-| GET    | `/api/workspaces/:workspace_id/datasets/:dataset_id/questions`                | `datasets.listDatasetQuestions`          | `file:read`           |
-| GET    | `/api/workspaces/:workspace_id/datasets/:dataset_id/files/:file_id/questions` | `dataset-files.listFileQuestions`        | `file:read`           |
-| GET    | `/api/workspaces/:workspace_id/datasets/:dataset_id/files/:file_id/chunks`    | `dataset-files.listFileChunks`           | `file:read`           |
-
-> The workspace-scoped table above is illustrative, not exhaustive — workspaces, roles, members, datasets, dataset-files, and agents are also mounted under `/api/workspaces/:workspace_id/*`. See `apps/api/openapi.json` for the full REST reference, or the route files in `src/routes/`.
-
-## Audit Logging (wired)
-
-Audit logging is implemented and wired (not planned). `src/utils/audit.js` exports `logAuditEvent`, which inserts an immutable row into `audit_logs` for a workspace-scoped action. It is called from the datasets, workspaces, members, and dataset-files controllers on mutating operations. Entries are exposed read-only via `GET /api/workspaces/:workspace_id/audit-logs` (`controllers/audit-logs.js` → `listAuditLogs`, guarded by `audit:read`), with `models/audit-logs.js` providing `findMany`/`count` for paginated retrieval.
-
-## Model Catalog
-
-| File                                | Exports                                                                                                                                                                                                 |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `users.js`                          | `create`, `findOne`, `findOneWithPassword`, `update`, `softDelete`                                                                                                                                      |
-| `email-tokens.js`                   | `hashToken`, `create`, `findActiveByHash`, `markUsed`, `deleteExpired`, `deleteByUser`                                                                                                                  |
-| `refresh-tokens.js`                 | `hashToken`, `create`, `findActiveByHash`, `revokeById`, `revokeAllForUser`, `rotate`, `findManyActiveByUserId`, `findActiveIdsByUserId`, `findActiveByIdForUser`, `revokeAllForUserExcept`, `purgeOld` |
-| `roles.js`                          | `create`, `findOne`, `findMany`, `update`, `remove`, `findPermissionsByRoleId`, `setPermissions`                                                                                                        |
-| `permissions.js`                    | `findAll`, `findOne`, `findByIds`                                                                                                                                                                       |
-| `agents.js`                         | `create`, `findOne`, `findSystemAgent`, `count`, `findManyPaginated`, `update`, `softDelete`                                                                                                            |
-| `conversations.js`                  | `create`, `findOne`, `count`, `findManyPaginated`, `update`, `softDelete`                                                                                                                               |
-| `conversation-datasets.js`          | `create`, `findByConversationId`, `findDatasetIds`, `remove`, `removeByConversationId`                                                                                                                  |
-| `conversation-messages.js`          | `create`, `findOne`, `findByConversationId`, `findVisibleByConversationId`, `findThreadByConversationId`                                                                                                |
-| `conversation-message-citations.js` | `bulkInsert`, `findByMessageId`, `findByConversationId`                                                                                                                                                 |
-| `workspaces.js`                     | `create`, `findOne`, `findManyByUserId`, `update`, `softDelete`                                                                                                                                         |
-| `workspace-members.js`              | `create`, `findOne`, `findManyByWorkspaceId`, `getPermissions`, `countActiveOwners`, `updateRole`, `softDelete`                                                                                         |
-| `datasets.js`                       | `create`, `findOne`, `count`, `findManyPaginated`, `update`, `softDelete`                                                                                                                               |
-| `dataset-files.js`                  | `create`, `findOne`, `count`, `findManyPaginated`, `update`, `softDelete`, `softDeleteByDataset`, `findCompletedTabularByDatasetIds`                                                                    |
-| `dataset-file-chunks.js`            | `bulkInsert`, `deleteByFileId`, `countByDatasetFileId`, `deleteByDatasetId`, `count`, `findManyPaginated`                                                                                               |
-| `dataset-file-questions.js`         | `bulkInsert`, `findByFileId`, `deleteByFileId`, `deleteByDatasetId`                                                                                                                                     |
-| `audit-logs.js`                     | `findMany`, `count`                                                                                                                                                                                     |
-
-## Controller Catalog
-
-| File                | Exports                                                                                                                                                                                 |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `authentication.js` | `signup`, `verifyEmail`, `resendVerification`, `signin`, `forgotPassword`, `resetPassword`, `getMe`, `updateProfile`, `deleteProfile`, `changePassword`, `refreshAccessToken`, `logout` |
-| `sessions.js`       | `listSessions`, `revokeSession`, `revokeOtherSessions`                                                                                                                                  |
-| `permissions.js`    | `getPermissions`                                                                                                                                                                        |
-| `roles.js`          | `createRole`, `getRoles`, `getRole`, `updateRole`, `deleteRole`                                                                                                                         |
-| `agents.js`         | `createAgent`, `listAgents`, `getAgent`, `updateAgent`, `deleteAgent`                                                                                                                   |
-| `conversations.js`  | `createConversation`, `listConversations`, `getConversation`, `updateConversation`, `deleteConversation`                                                                                |
-| `datasets.js`       | `createDataset`, `listDatasets`, `getDataset`, `listDatasetQuestions`, `updateDataset`, `deleteDataset`, `createConversationFromDataset`                                                |
-| `chat.js`           | `sendMessage`                                                                                                                                                                           |
-| `members.js`        | `listMembers`, `getMember`, `inviteMember`, `changeRole`, `removeMember`, `acceptInvitation`, `previewInvitation`                                                                       |
-| `workspaces.js`     | `createWorkspace`, `getWorkspaces`, `getWorkspace`, `updateWorkspace`, `deleteWorkspace`                                                                                                |
-| `dataset-files.js`  | `upload` (Multer middleware), `uploadFile`, `scrapeUrl`, `addYouTube`, `listFiles`, `getFile`, `updateFile`, `deleteFile`, `reprocessFile`, `listFileQuestions`, `listFileChunks`       |
-| `audit-logs.js`     | `listAuditLogs`                                                                                                                                                                         |
-
-## Middleware Catalog
-
-| File                    | Exports                                                                                                  |
-| ----------------------- | -------------------------------------------------------------------------------------------------------- |
-| `request-id.js`         | `requestId`                                                                                              |
-| `authorization.js`      | `requireAccessToken` (async — checks the session denylist, sets `req.sessionId`), `requireRefreshToken`  |
-| `resolve-workspace.js`  | `resolveWorkspace` — validates `workspace_id`, loads workspace, sets `req.workspace` + `req.permissions` |
-| `require-permission.js` | `requirePermission`                                                                                      |
-| `rate-limit.js`         | `authLimiter`, `generalLimiter`                                                                          |
-| `logger.js`             | `httpLogger`, `requestLogger`                                                                            |
-| `error.js`              | `errorHandler`, `notFoundHandler`                                                                        |
-
-**Note**: `cookie-parser` is also loaded as middleware (NPM package, not a custom file) to populate `req.cookies` for reading auth tokens from httpOnly cookies.
-
-## Utility Catalog
-
-| File                  | Exports                                                                                                               |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `argon2.js`           | `hashPassword`, `verifyPassword`                                                                                      |
-| `jwt.js`              | `generateAccessToken`, `generateRefreshToken`, `verifyAccessToken`, `verifyRefreshToken`                              |
-| `cookies.js`          | `setAccessTokenCookie`, `setRefreshTokenCookie`, `clearAuthCookies`                                                   |
-| `http-error.js`       | `HttpError` (default)                                                                                                 |
-| `response.js`         | `apiResponse` (default)                                                                                               |
-| `pagination.js`       | `validatePaginationQuery`, `buildPaginationMeta`, `executePaginatedQuery`                                             |
-| `sanitize.js`         | `escapeIlike`                                                                                                         |
-| `constant.js`         | `HTTP_STATUS_CODE`, `HTTP_STATUS_MESSAGE`                                                                             |
-| `logger.js`           | `logger` (default, Winston instance)                                                                                  |
-| `redis.js`            | `parseRedisUrl`                                                                                                       |
-| `session-denylist.js` | `denySession`, `isSessionDenied` — Redis access-token denylist; fail-open, TTL derived from `ACCESS_TOKEN_EXPIRES_IN` |
-| `allowed-models.js`   | `ALLOWED_MODELS`, `DEFAULT_MODEL` — agent model allowlist and default chat model                                      |
-| `audit.js`            | `logAuditEvent` — inserts an immutable audit_logs row for a workspace-scoped action                                   |
-| `validate-env.js`     | `validateEnv` (default)                                                                                               |
-
-## Service Catalog
-
-| File                          | Exports                                                                                                                                         | Description                                                                                                 |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `email.js`                    | `sendEmail`                                                                                                                                     | Brevo transactional email via inline HTML templates                                                         |
-| `openrouter.js`               | `embedText`, `embedBatch`, `chatCompletion`, `chatCompletionStream`, `transcribeAudio`                                                          | OpenRouter LLM inference for embeddings, chat, streaming, and Whisper audio transcription                   |
-| `rag.js`                      | `searchChunks`, `buildSystemMessage`                                                                                                            | RAG pipeline: embed query, vector search, build context                                                     |
-| `firecrawl.js`                | `scrapeUrl`                                                                                                                                     | Scrape a URL to markdown via the Firecrawl API                                                              |
-| `llamaindex.js`               | `submitParseJob`, `pollForMarkdown`                                                                                                             | Submit files to LlamaIndex Cloud for async parsing and poll for markdown                                    |
-| `question-generator.js`       | `generateQuestions`                                                                                                                             | Generate 5–10 exploration questions for a document via OpenRouter chat                                      |
-| `title-generator.js`          | `generateTitle`                                                                                                                                 | Name a conversation from its first exchange via `UTILITY_MODEL`; returns `null` on failure                  |
-| `storage.js`                  | `uploadFile`, `deleteFile`, `getSignedDownloadUrl`, `getObjectBuffer`                                                                           | S3/R2 object storage: upload, delete, presigned download URLs, download an object as a Buffer               |
-| `sandbox.js`                  | `isSandboxEnabled`, `executeCode`                                                                                                               | HTTP client for the sandbox container; never throws, mocked globally in `tests/setup.js`                    |
-| `chat-tools.js`               | `registerTool`, `getAvailableTools`, `executeTool`, `sanitizeFileName`                                                                          | Chat tool registry: `search_knowledge_base` + `execute_code`                                                |
-| `tabular/profile.js`          | `profileTabularFile`                                                                                                                            | Profiles one tabular file in the sandbox with the server-owned `profile-script.py`                          |
-| `tabular/profile-markdown.js` | `renderProfileMarkdown`                                                                                                                         | Renders a profile JSON as the markdown that gets embedded                                                   |
-| `text-splitter.js`            | `splitText`                                                                                                                                     | Recursive character text splitting into overlapping chunks (LangChain)                                      |
-| `ip-geolocation.js`           | `lookupLocation`                                                                                                                                | Resolve an IP to a "City, CC" label via ipgeolocation.io (opt-in via `IP_GEOLOCATION_ENABLED`, fail-soft)   |
-| `youtube.js`                  | `parseYouTubeUrl`, `cleanJson3Captions`, `fetchVideoInfo`, `fetchManualSubtitle`, `transcribeViaWhisper`, `getTranscript`, `killActiveChildren` | Resolve a YouTube video's transcript — manual captions via yt-dlp, else audio download + OpenRouter Whisper |
-| `processing-pipeline.js`      | `runProcessingPipeline`                                                                                                                         | Shared split → embed → store → questions pipeline reused by the file and YouTube workers                    |
-
-## Queue & Worker Catalog
-
-| File                            | Exports                                                             | Description                                                                                                                                                                        |
-| ------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `queues/file-processing.js`     | `fileProcessingQueue`, `addProcessingJob`                           | BullMQ queue (`file-processing`); enqueues `{ datasetFileId, datasetId }` jobs (3 retries, exponential backoff)                                                                    |
-| `workers/file-processing.js`    | `startWorker`, `runProcessingPipeline`                              | BullMQ worker (concurrency 2) running the split → embed → store → questions pipeline; questions stored in `dataset_file_questions` table                                           |
-| `queues/youtube-processing.js`  | `youtubeProcessingQueue`, `addYoutubeJob`                           | BullMQ queue (`youtube-processing`); enqueues YouTube transcript-resolution jobs                                                                                                   |
-| `workers/youtube-processing.js` | `startYoutubeWorker`, `processYoutubeJob`, `handleYoutubeFailedJob` | BullMQ worker (concurrency `YOUTUBE_WORKER_CONCURRENCY`) resolving a transcript (manual captions via yt-dlp, else audio + OpenRouter Whisper) then reusing `runProcessingPipeline` |
-
-## Code Style
-
-- **Formatter**: Prettier — no semicolons, 2-space indent, 100 char width
-- **Linter**: Oxlint — correctness (error), suspicious (warn)
-- **File naming**: kebab-case (`http-error.js`, `validate-env.js`)
-- **UUIDs**: Use `crypto.randomUUID()` from `node:crypto` (not uuid package)
-- **Imports**: ES modules only. Models use named exports. Controllers imported as namespace (`import * as controller`)
-- **Responses**: Always use `apiResponse({ message, data, pagination })` from `src/utils/response.js`. Pass resource directly as `data` (object for single, array for list, `null` for delete/error). For paginated lists, pass the array as `data` and metadata as `pagination`.
-- **JSDoc**: Full JSDoc blocks on every exported function with `@param {type} name - description` and `@returns {type}` tags. Use `@throws` where applicable. One-line JSDoc (`/** description */`) for constants and Joi schemas. No section divider comments (`// ── Section ───`). Controller functions use the `METHOD /path — Short description` pattern as the first JSDoc line, followed by a paragraph explaining behavior, then `@param {Object} req - Express request object` (see `controllers/permissions.js` for reference).
-- **Destructured parameters**: Functions accepting 3 or more semantic parameters must use a destructured object parameter. Express handlers `(req, res, next)` are exempt. Internal helpers with 1-2 params stay positional.
-
-## Environment Variables
-
-Required: `DATABASE_URL`, `REDIS_URL` (Redis connection string — `redis://localhost:6379` locally, `rediss://` for TLS), `ACCESS_TOKEN_SECRET` (≥32 chars), `REFRESH_TOKEN_SECRET` (≥32 chars, must differ), `JWT_ISSUER`, `JWT_AUDIENCE`, `OPENROUTER_API_KEY`, `BREVO_API_KEY`, `EMAIL_FROM_ADDRESS`, `APP_URL`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_ENDPOINT`, `LLAMAINDEX_API_KEY`, `FIRECRAWL_API_KEY`
-
-Optional with defaults: `NODE_ENV` (development), `PORT` (3000), `ACCESS_TOKEN_EXPIRES_IN` (15m), `REFRESH_TOKEN_EXPIRES_IN` (7d), `LOG_LEVEL` (info), `LOG_TO_FILE` (true), `CORS_ALLOWED_ORIGINS` (http://localhost:8080), `RATE_LIMIT_AUTH_MAX` (10, capped at 50), `RATE_LIMIT_GENERAL_MAX` (100), `DEFAULT_EMBEDDINGS_MODEL` (openai/text-embedding-3-small), `DEFAULT_CHAT_MODEL` (openai/gpt-5.4-mini), `UTILITY_MODEL` (openai/gpt-5.4-nano), `S3_REGION` (auto), `EMAIL_FROM_NAME` ("RAGBot"), `LLAMAINDEX_PARSE_TIER` (cost_effective), `OPENROUTER_STREAM_TIMEOUT_MS` (60000), `OPENROUTER_TIMEOUT_MS` (30000), `FIRECRAWL_TIMEOUT_MS` (60000), `LLAMAINDEX_TIMEOUT_MS` (30000), `S3_TIMEOUT_MS` (10000), `IP_GEOLOCATION_ENABLED` (false), `IPGEOLOCATION_TIMEOUT_MS` (5000), `WHISPER_MODEL` (openai/whisper-large-v3-turbo), `OPENROUTER_TRANSCRIBE_TIMEOUT_MS` (120000), `YTDLP_PATH` (yt-dlp), `FFMPEG_PATH` (ffmpeg), `YOUTUBE_AUDIO_SEGMENT_SECONDS` (600), `YOUTUBE_WORKER_CONCURRENCY` (1), `YOUTUBE_DOWNLOAD_TIMEOUT_MS` (600000), `YOUTUBE_MAX_DURATION_SECONDS` (7200), `YOUTUBE_MAX_FILESIZE` (150M), `SANDBOX_ENABLED` (false), `SANDBOX_TIMEOUT_MS` (30000, range 1000–60000), `CHAT_MAX_ITERATIONS` (10, range 1–20)
-
-> Code sandbox: when `SANDBOX_ENABLED=true`, both `SANDBOX_URL` and `SANDBOX_API_TOKEN` are **required** (`validateEnv` exits otherwise). `SANDBOX_API_TOKEN` is a shared secret — the `sandbox` container must get the same value, and it fails closed when the token is unset. When the sandbox is disabled the API runs no tabular profiling and never offers the `execute_code` tool. `uploadFile` then sends `csv`, `xls`, and `xlsx` files to LlamaIndex like any other document, and rejects `tsv` and `json` files with HTTP 400. The sandbox accepts one execution at a time (`MAX_CONCURRENCY = 1`), so a second concurrent `execute_code` call gets a `"busy"` observation.
-
-> Session geolocation: when `IP_GEOLOCATION_ENABLED=true`, `IPGEOLOCATION_API_KEY` is **required** (`validateEnv` exits otherwise) and session IPs are resolved to a "City, CC" label shown in the sessions list. Lookups are skipped (location stays `null`) for private/loopback IPs, so locally-originated sessions never resolve a location even when enabled. The denylist's TTL is not a separate env var — it is derived from `ACCESS_TOKEN_EXPIRES_IN`.
-
-> `CORS_ALLOWED_ORIGINS` is **required** when `NODE_ENV=production` and must not be a localhost/loopback origin (`validateEnv` exits otherwise); it defaults to `http://localhost:8080` only outside production.
-
-## Database
-
-- **Config**: `knexfile.js` — loads `.env.test` when `NODE_ENV=test`, connection pool min 2, max 10
-- **Migrations**: `database/migrations/` — 10 migration files using raw SQL:
-  - 001: Extensions (pgcrypto, vector) + 5 ENUM types
-  - 002: Core tenancy (workspaces, users, email_tokens, refresh_tokens)
-  - 003: Roles & permissions (permissions, roles, role_permissions, workspace_members with `invited_email` for unregistered-invite binding)
-  - 004: RAG pipeline (datasets, dataset_files, dataset_file_chunks with HNSW vector index, dataset_file_questions)
-  - 005: Agents (configurable system prompt + model)
-  - 006: Conversations & messages (conversations, conversation_datasets, conversation_messages, conversation_message_citations)
-  - 007: Functions (trigger_set_updated_at on 9 tables, search_chunks SQL function)
-  - 008: Audit logs (append-only, immutable)
-  - 009: Expiry indexes (email_tokens, refresh_tokens)
-  - 010: Session metadata on refresh_tokens (`user_agent`, `ip_address`, `last_used_at`, `location`)
-- **Seeds**: `database/seeds/` — 2 seed files:
-  - 01: 31 permissions across 8 resources (workspace, role, member, audit, dataset, file, agent, conversation)
-  - 02: 2 test users (alice@example.com, bob@example.com, password: "Password123!")
-- 18 tables total, workspace-scoped via `workspace_id` with composite FKs
-- Soft delete pattern on 7 tables (`workspaces`, `users`, `workspace_members`, `datasets`, `dataset_files`, `agents`, `conversations`) via `deleted_at` column with partial unique indexes
-- pgvector `vector(1536)` column for OpenAI embeddings with HNSW index
+No pre-commit hooks. Run `npm run lint:fix && npm run format:fix` before you commit.
+
+## Layout
+
+- `src/models/` Knex queries only, no business logic. Named exports.
+- `src/controllers/` business logic and inline Joi validation. Imported as a namespace.
+- `src/routes/` route definitions, aggregated in `routes/index.js`. Nested routers use `Router({ mergeParams: true })`.
+- `src/middlewares/`, `src/services/` (external APIs), `src/queues/` + `src/workers/` (BullMQ), `src/utils/`.
+- `src/app.js` builds the Express app without `listen()`. `src/index.js` validates env, imports the app, starts the server and the workers. Supertest imports `app.js` directly.
+- `openapi.json` is the full REST reference. Do not add endpoint tables here.
+
+## Rules that the code does not make obvious
+
+- **Middleware order** in `src/app.js`: requestId → helmet/cors → body parsers (100kb) → hpp → cookie-parser → `/health` → generalLimiter → loggers → routes → notFoundHandler → errorHandler (last). `trust proxy` is `1`.
+- **Request context**: `req.id`, `req.user = { id }`, `req.sessionId`, and on workspace routes `req.workspace` + `req.permissions` (set by `resolveWorkspace`).
+- **Errors**: throw `HttpError(status, message)`. Do not log in controllers. `errorHandler` is the only logging point.
+- **Responses**: always `apiResponse({ message, data, pagination })`. `data` is the resource, or `null` on delete.
+- **Sessions**: `POST /auth/refresh` rotates the token hash in place, so `sid` stays stable. Every revoke path calls `denySession(sid)`. The denylist fails open and its TTL derives from `ACCESS_TOKEN_EXPIRES_IN`.
+- **Tenancy**: composite FKs `(id, workspace_id)` and partial unique indexes `WHERE deleted_at IS NULL`. Soft delete on 7 tables.
+- **Search input**: pass through `escapeIlike()` before an ILIKE query.
+- **Chat loop**: `openRouterMessages` is append-only. `CHAT_MAX_ITERATIONS` (default 10) bounds the loop, and the last iteration offers no tools.
+- **Message finders**: `findVisibleByConversationId` feeds the model (input + final_answer only). `findThreadByConversationId` feeds the GET endpoint (adds thought + observation rows). Do not widen the first one.
+- **Sandbox client**: `executeCode()` never throws. Branch on `result.ok`. File `content` must be a Buffer. The sandbox has only `pandas`, `numpy`, `duckdb`, `pyarrow`, `openpyxl`, and no plotting library. Charts are Chart.js specs passed to `show_chart(spec)`. Keep the `execute_code` tool description in step with `sandbox/requirements.txt`.
+- **Tabular files**: the worker runs the server-owned `services/tabular/profile-script.py` in the sandbox and stores the result in `metadata.profile` before the embed pipeline.
+- **Env**: `utils/validate-env.js` is authoritative. `SANDBOX_URL` + `SANDBOX_API_TOKEN` are required only when `SANDBOX_ENABLED=true`. `IPGEOLOCATION_API_KEY` only when `IP_GEOLOCATION_ENABLED=true`. `CORS_ALLOWED_ORIGINS` is required in production. `RATE_LIMIT_AUTH_MAX` is capped at 50.
+- **Audit**: call `logAuditEvent` from `utils/audit.js` on mutating workspace actions.
+
+## Code style
+
+- Prettier: no semicolons, 2 spaces, 100 columns. Oxlint. Kebab-case file names.
+- `crypto.randomUUID()` from `node:crypto`, not the `uuid` package.
+- Full JSDoc on every exported function (`@param`, `@returns`, `@throws`). Controller JSDoc starts with `METHOD /path — Short description`. No section divider comments.
+- Functions with 3 or more semantic parameters take one destructured object. Express handlers are exempt.
 
 ## Testing
 
-- **Runner**: Vitest with `globals: true` (no explicit `describe`/`it` imports needed)
-- **HTTP**: Supertest for integration tests against the Express app
-- **Database**: Real PostgreSQL test database (configured in `.env.test`)
-- **Config**: `vitest.config.js` — `fileParallelism: false` (integration tests share DB state), 10s timeout
-- **Setup**: `tests/global-setup.js` — creates Knex client, runs migrations, seeds permissions, destroys client
-- **Setup file**: `tests/setup.js` — mocks `src/queues/file-processing.js`, `src/utils/session-denylist.js`, `src/services/sandbox.js`, and `src/middlewares/rate-limit.js` with no-op stubs so tests run without Redis, without a sandbox container, and without rate-limit interference (the real denylist is covered in isolation by `tests/unit/session-denylist.test.js`)
-- **Helpers**: `tests/helpers.js`:
-  - `getApp()`, `request()` — app bootstrapping
-  - `createTestUser(overrides)` — inserts user with Argon2-hashed password, returns `{ id, email, full_name, plainPassword }`
-  - `getAuthHeaders(userId)` — generates JWT tokens, stores refresh hash in DB, returns Cookie header
-  - `createTestWorkspace(userId)` — creates workspace + 4 system roles + permissions + adds creator as owner + creates system agent
-  - `addWorkspaceMember(workspaceId, userId, roleId)` — adds member with active status
-  - `cleanAllTables()` — truncates all 18 tables in dependency order
-  - `seedPermissions()` — seeds 31 RAG permissions
-- **Current test status** — static count from the test files; live passing count comes from `corepack pnpm test:api`:
-  - Integration: agents (28), agents-default-conflict (2), auth (41), chat (8), conversations (11), dataset-file-chunks (2), dataset-file-questions (6), dataset-questions (5), dataset-files (23), datasets (14), file-processing (3), health (5), members (8), permissions (13), roles (15), workspaces (7)
-  - Unit: allowed-models (2), consume-stream (3), email-render (4), file-processing-worker (3), http-error (3), ip-geolocation (4), llamaindex-poll (6), pagination (12), redis (5), request-id (4), sanitize (6), session-denylist (10), ssrf (18), test-users-seed (2), url-slug (9), validate-env (22)
-  - Session management (in `tests/`): sessions (5), session-revocation (3), jwt-sid (1), refresh-tokens-model (5)
-  - Skipped (0)
-  - No Redis required for local test runs (queue + session-denylist modules mocked via `tests/setup.js`; the real denylist is unit-tested with `ioredis` mocked)
+- Vitest with `globals: true`, `fileParallelism: false`, real PostgreSQL from `.env.test`. `tests/global-setup.js` migrates and seeds permissions.
+- `tests/setup.js` mocks the queues, the session denylist, the sandbox client, and the rate limiters. No Redis or sandbox is needed locally.
+- Helpers in `tests/helpers.js`: `createTestUser`, `getAuthHeaders`, `createTestWorkspace`, `addWorkspaceMember`, `cleanAllTables`, `seedPermissions`.
+- Seed users: `alice@example.com`, `bob@example.com`, password `Password123!`.
 
-## Adding a New Resource
+## Adding a resource
 
-1. Migration: `npm run migrate:make create_<resource>_table` — include `workspace_id` FK for tenant scoping
-2. Model: `src/models/<resource>.js` — CRUD with workspace-scoped conditions
-3. Controller: `src/controllers/<resource>.js` — Use `req.workspace.id` for scoping, Joi validation inline
-4. Routes: `src/routes/<resource>.js` — Use `Router({ mergeParams: true })` for nested routes, apply `requirePermission()` guards
-5. Wire up in `src/routes/index.js`
-6. Add permissions to `database/seeds/01_permissions.js`
+1. `npm run migrate:make create_<resource>_table`, with a `workspace_id` FK.
+2. Model in `src/models/`, controller in `src/controllers/` (scope by `req.workspace.id`), routes in `src/routes/` with `requirePermission()` guards.
+3. Mount in `src/routes/index.js`. Add permissions to `database/seeds/01_permissions.js`.
