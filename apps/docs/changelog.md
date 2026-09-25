@@ -7,7 +7,7 @@ description: What's new in RAGBot — new features and improvements by version.
 
 What's new in RAGBot. The newest release is listed first.
 
-## 1.6.0 — Unreleased
+## 1.6.0 — 25 September 2026
 
 Conversations can now leave the app. Share a read-only link with anyone, or
 export a conversation as Markdown or PDF.
