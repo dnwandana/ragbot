@@ -30,6 +30,7 @@ const PERMISSIONS = [
   { resource: 'conversation', action: 'update' },
   { resource: 'conversation', action: 'delete' },
   { resource: 'conversation', action: 'chat' },
+  { resource: 'conversation', action: 'share' },
 ]
 
 export async function seed(knex) {

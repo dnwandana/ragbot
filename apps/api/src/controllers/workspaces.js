@@ -57,6 +57,7 @@ const ROLE_PERMISSIONS = {
       "conversation:read",
       "conversation:update",
       "conversation:chat",
+      "conversation:share",
     ],
   },
   viewer: {
