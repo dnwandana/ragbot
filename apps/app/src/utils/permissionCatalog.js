@@ -1,6 +1,6 @@
 /**
  * Static display metadata for the workspace permission system.
- * Mirrors the 31 permissions seeded in apps/api/database/seeds/01_permissions.js.
+ * Mirrors the 32 permissions seeded in apps/api/database/seeds/01_permissions.js.
  * This file MUST stay in sync with that seed when permissions change.
  */
 
@@ -55,6 +55,7 @@ export const PERMISSION_META = {
   "conversation:update": { label: "Edit conversations" },
   "conversation:delete": { label: "Delete conversations", destructive: true },
   "conversation:chat": { label: "Chat with agents" },
+  "conversation:share": { label: "Share conversations" },
 }
 
 /**

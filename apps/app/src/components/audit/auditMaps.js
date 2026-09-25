@@ -9,6 +9,7 @@ const ENTITY_CATEGORY = {
   dataset_file: "datasets",
   conversation: "conversations",
   conversation_dataset: "conversations",
+  conversation_share: "conversations",
   workspace_member: "members",
   role: "members",
   role_permission: "members",
@@ -76,6 +77,7 @@ const ENTITY_ICON = {
   agent: "robot",
   conversation: "message",
   conversation_dataset: "paperclip",
+  conversation_share: "link",
 }
 
 /** @param {string} entityType @returns {string} icon key for the resource pill */
@@ -94,6 +96,7 @@ const ENTITY_NOUN = {
   agent: "agent",
   conversation: "conversation",
   conversation_dataset: "dataset",
+  conversation_share: "share link",
 }
 
 /** @type {Record<string,string>} action → past-tense verb word */
@@ -107,6 +110,8 @@ const ACTION_PAST = {
   reprocessed: "Reprocessed",
   attached: "Attached",
   detached: "Detached",
+  shared: "Shared",
+  unshared: "Unshared",
 }
 
 /** @type {Record<string,string>} actions that don't follow "<verb> <noun>" */
@@ -256,6 +261,7 @@ export const ENTITY_TYPE_OPTIONS = [
   { value: "agent", label: "Agent" },
   { value: "conversation", label: "Conversation" },
   { value: "conversation_dataset", label: "Conversation dataset" },
+  { value: "conversation_share", label: "Share link" },
 ]
 
 export const ACTION_OPTIONS = [
@@ -272,6 +278,8 @@ export const ACTION_OPTIONS = [
   { value: "reprocessed", label: "Reprocessed" },
   { value: "attached", label: "Attached" },
   { value: "detached", label: "Detached" },
+  { value: "shared", label: "Shared" },
+  { value: "unshared", label: "Unshared" },
 ]
 
 /** @param {string} value @returns {string} */
