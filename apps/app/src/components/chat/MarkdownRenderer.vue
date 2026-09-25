@@ -17,6 +17,11 @@ const props = defineProps({
    * default) chips every marker — used while streaming, before citations load.
    */
   citationNumbers: { type: Array, default: null },
+  /**
+   * Remove every [n] marker instead of rendering it. Use it where the message
+   * shows no source list, so a marker would point at nothing.
+   */
+  stripCitations: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(["cite"])
@@ -28,7 +33,7 @@ const renderedHtml = computed(() => {
 
   if (!content) return ""
 
-  let html = render(content, props.citationNumbers)
+  let html = render(content, props.citationNumbers, { stripCitations: props.stripCitations })
 
   // Append streaming cursor outside open code fences
   if (props.streaming) {
