@@ -11,15 +11,12 @@ const route = useRoute()
 const { theme } = useTheme()
 const antThemeConfig = computed(() => buildAntTheme(theme.value))
 
-const isAuthPage = computed(() => {
-  const authPaths = ["/login", "/signup", "/verify-email", "/forgot-password", "/reset-password"]
-  return authPaths.includes(route.path)
-})
+const isBare = computed(() => Boolean(route.meta.bare))
 </script>
 
 <template>
   <ConfigProvider :theme="antThemeConfig">
-    <RouterView v-if="isAuthPage" />
+    <RouterView v-if="isBare" />
     <AppLayout v-else>
       <RouterView :key="routerViewKey($route)" />
     </AppLayout>

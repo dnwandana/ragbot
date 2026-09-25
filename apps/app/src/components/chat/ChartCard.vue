@@ -5,6 +5,7 @@ import { onBeforeUnmount, onMounted, ref, watch } from "vue"
 const props = defineProps({
   spec: { type: Object, default: null },
 })
+const emit = defineEmits(["ready"])
 
 const canvasRef = ref(null)
 let chart = null
@@ -21,6 +22,7 @@ const render = () => {
     data: props.spec.data,
     options: { responsive: true, maintainAspectRatio: false, ...props.spec.options },
   })
+  emit("ready")
 }
 
 onMounted(render)

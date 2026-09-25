@@ -8,31 +8,39 @@ const routes = [
     path: "/login",
     name: "Login",
     component: () => import("@/views/auth/LoginView.vue"),
-    meta: { requiresGuest: true },
+    meta: { requiresGuest: true, bare: true },
   },
   {
     path: "/signup",
     name: "Signup",
     component: () => import("@/views/auth/SignupView.vue"),
-    meta: { requiresGuest: true },
+    meta: { requiresGuest: true, bare: true },
   },
   {
     path: "/verify-email",
     name: "VerifyEmail",
     component: () => import("@/views/auth/VerifyEmailView.vue"),
-    meta: { requiresGuest: false },
+    meta: { requiresGuest: false, bare: true },
   },
   {
     path: "/forgot-password",
     name: "ForgotPassword",
     component: () => import("@/views/auth/ForgotPasswordView.vue"),
-    meta: { requiresGuest: true },
+    meta: { requiresGuest: true, bare: true },
   },
   {
     path: "/reset-password",
     name: "ResetPassword",
     component: () => import("@/views/auth/ResetPasswordView.vue"),
-    meta: { requiresGuest: true },
+    meta: { requiresGuest: true, bare: true },
+  },
+
+  // ── Public share page (no auth) ─────────────────────────────────────
+  {
+    path: "/chat/:id",
+    name: "SharedConversation",
+    component: () => import("@/views/share/SharedConversationView.vue"),
+    meta: { bare: true },
   },
 
   // ── Default redirect ─────────────────────────────────────────────────
@@ -132,6 +140,12 @@ const routes = [
     name: "Chat",
     component: () => import("@/views/conversations/ChatView.vue"),
     meta: { requiresAuth: true },
+  },
+  {
+    path: "/workspaces/:workspaceId/conversations/:conversationId/print",
+    name: "ConversationPrint",
+    component: () => import("@/views/conversations/ConversationPrintView.vue"),
+    meta: { requiresAuth: true, bare: true },
   },
 
   // ── Onboarding ──────────────────────────────────────────────────────
