@@ -2,6 +2,7 @@ import apiResponse from "../utils/response.js"
 import HttpError from "../utils/http-error.js"
 import { HTTP_STATUS_CODE, HTTP_STATUS_MESSAGE } from "../utils/constant.js"
 import logger from "../utils/logger.js"
+import { redactUrl } from "../utils/redact-url.js"
 
 /**
  * Express error-handling middleware.
@@ -24,7 +25,7 @@ export const errorHandler = (err, req, res, _next) => {
     message: err.message,
     status: err.status || HTTP_STATUS_CODE.INTERNAL_SERVER_ERROR,
     method: req.method,
-    url: req.url,
+    url: redactUrl(req.originalUrl),
     ip: req.ip,
     userId: req.user?.id,
   }
@@ -61,7 +62,7 @@ export const notFoundHandler = (req, res, _next) => {
   logger.warn("Route not found", {
     requestId: req.id,
     method: req.method,
-    url: req.url,
+    url: redactUrl(req.originalUrl),
     ip: req.ip,
     userAgent: req.get("user-agent"),
   })

@@ -1,8 +1,12 @@
 import logger from "../utils/logger.js"
 import morgan from "morgan"
+import { redactUrl } from "../utils/redact-url.js"
 
 // Register custom Morgan token for request ID
 morgan.token("request-id", (req) => req.id)
+
+// Override the url token so that the public share token never reaches the log
+morgan.token("url", (req) => redactUrl(req.originalUrl || req.url))
 
 // Use Morgan for HTTP request logging with our logger stream
 const httpLogger = morgan(
@@ -20,7 +24,7 @@ const requestLogger = (req, res, next) => {
   logger.http("Incoming request", {
     requestId: req.id,
     method: req.method,
-    url: req.url,
+    url: redactUrl(req.originalUrl),
     ip: req.ip,
     userAgent: req.get("user-agent"),
   })
@@ -31,7 +35,7 @@ const requestLogger = (req, res, next) => {
     logger.http("Outgoing response", {
       requestId: req.id,
       method: req.method,
-      url: req.url,
+      url: redactUrl(req.originalUrl),
       status: res.statusCode,
       duration: `${duration}ms`,
     })
