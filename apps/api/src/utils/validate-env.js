@@ -38,6 +38,7 @@ const envSchema = joi
     }),
     RATE_LIMIT_AUTH_MAX: joi.number().max(50).default(10),
     RATE_LIMIT_GENERAL_MAX: joi.number().default(100),
+    RATE_LIMIT_SHARE_MAX: joi.number().default(60),
 
     // AI
     OPENROUTER_API_KEY: joi.string().required(),

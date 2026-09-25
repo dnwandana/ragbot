@@ -31,3 +31,15 @@ export const generalLimiter = rateLimit({
   legacyHeaders: false,
   handler: rateLimitHandler,
 })
+
+/**
+ * Rate limiter for the public share page. 60 requests per 15-minute window per IP by default.
+ * Configurable via RATE_LIMIT_SHARE_MAX.
+ */
+export const shareLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: parseInt(process.env.RATE_LIMIT_SHARE_MAX),
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  handler: rateLimitHandler,
+})
