@@ -1,9 +1,7 @@
 import HttpError from "../utils/http-error.js"
 import * as workspaceModel from "../models/workspaces.js"
 import * as workspaceMemberModel from "../models/workspace-members.js"
-
-/** Regex that matches a canonical lowercase UUID v4 string. */
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+import { UUID_REGEX } from "../utils/uuid.js"
 
 /**
  * Express middleware that resolves a workspace from the route parameter and loads the
