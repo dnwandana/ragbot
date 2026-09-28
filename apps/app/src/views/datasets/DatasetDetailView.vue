@@ -1,19 +1,31 @@
 <script setup>
-import { ref, reactive, computed, watch, watchEffect, onMounted, onUnmounted } from "vue"
+import { ref, reactive, computed, watch, onMounted, onUnmounted } from "vue"
 import { useRoute, useRouter } from "vue-router"
 import { message } from "ant-design-vue"
 import { useDatasetsStore } from "@/stores/datasets"
+import { useDatasetItemsStore } from "@/stores/datasetItems"
 import { useDatasetFiles } from "@/composables/useDatasetFiles"
+import { usePermissions } from "@/composables/usePermissions"
+import { fileStatuses } from "@/api/datasetFiles"
+import { moveItems } from "@/api/datasetItems"
+import { useFolderUpload } from "@/composables/useFolderUpload"
+import { hasDroppedFiles, readDroppedItems } from "@/utils/droppedEntries"
 import { relativeTime } from "@/utils/time"
-import { useFormattedTime } from "@/composables/useFormattedTime"
-import { humanSize, fileType, statusLabel, statusChipClass } from "@/utils/files"
 import AddSourceDrawer from "@/components/datasets/AddSourceDrawer.vue"
 import FileDetailPanel from "@/components/datasets/FileDetailPanel.vue"
+import FolderBreadcrumbs from "@/components/datasets/FolderBreadcrumbs.vue"
+import DatasetItemsTable from "@/components/datasets/DatasetItemsTable.vue"
+import FolderNameDialog from "@/components/datasets/FolderNameDialog.vue"
+import MoveToDialog from "@/components/datasets/MoveToDialog.vue"
+import DeleteItemsDialog from "@/components/datasets/DeleteItemsDialog.vue"
+import { itemKey, splitKeys } from "@/components/datasets/itemKeys"
 import {
   ChevronLeft,
-  ChevronRight,
   Ellipsis,
   Eye,
+  FolderInput,
+  FolderOpen,
+  FolderPlus,
   Globe,
   MessageSquare,
   Pencil,
@@ -31,26 +43,12 @@ const datasetId = route.params.datasetId
 const datasetsStore = useDatasetsStore()
 const dataset = ref(null)
 
-const {
-  files,
-  filteredFiles,
-  loading,
-  searchQuery,
-  filterStatus,
-  fetchFiles,
-  handleDelete: deleteFile,
-  handleReprocess,
-  handleRename,
-  bulkDelete,
-} = useDatasetFiles(workspaceId, datasetId)
+const { handleReprocess, handleRename } = useDatasetFiles(workspaceId, datasetId)
 
 const drawerOpen = ref(false)
 const detailFile = ref(null)
-const selected = reactive(new Set())
-const selectAllRef = ref(null)
-const page = ref(1)
 const dsMenuOpen = ref(false)
-const openRowMenuId = ref(null)
+const openRowMenuKey = ref(null)
 const rowMenuPos = ref({ top: 0, left: 0 })
 const editOpen = ref(false)
 const deleteOpen = ref(false)
@@ -58,123 +56,308 @@ const editForm = reactive({ name: "", description: "" })
 const renameOpen = ref(false)
 const renameTarget = ref(null)
 const renameForm = reactive({ filename: "" })
-const deleteFileOpen = ref(false)
-const fileToDelete = ref(null)
-const bulkDeleteOpen = ref(false)
-const bulkDeleting = ref(false)
 const deletingDataset = ref(false)
-const deletingFile = ref(false)
 
-const { shortDate } = useFormattedTime()
+const itemsStore = useDatasetItemsStore()
+const folderId = computed(() => route.query.folder || null)
+const selected = ref(new Set())
 
-const PAGE_SIZE = 25
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredFiles.value.length / PAGE_SIZE)))
-const pagedFiles = computed(() => {
-  const start = (page.value - 1) * PAGE_SIZE
-  return filteredFiles.value.slice(start, start + PAGE_SIZE)
-})
-
-// Reset page when filter/search changes
-watch([searchQuery, filterStatus], () => {
-  page.value = 1
-})
-
-const openRowMenuFile = computed(
-  () => files.value.find((f) => f.id === openRowMenuId.value) ?? null,
-)
-
-const allSelected = computed(
-  () => pagedFiles.value.length > 0 && pagedFiles.value.every((f) => selected.has(f.id)),
-)
-const someSelected = computed(
-  () => !allSelected.value && pagedFiles.value.some((f) => selected.has(f.id)),
-)
-/** Pluralized noun for the current selection count. */
-const selectedNoun = computed(() => `file${selected.size === 1 ? "" : "s"}`)
-
-watchEffect(() => {
-  if (selectAllRef.value) selectAllRef.value.indeterminate = someSelected.value
-})
-
-function toggleAll(checked) {
-  if (checked) pagedFiles.value.forEach((f) => selected.add(f.id))
-  else pagedFiles.value.forEach((f) => selected.delete(f.id))
+// The input changes at once. The search query follows it after a 300 ms wait.
+const searchInput = ref("")
+const searchQuery = ref("")
+/** @type {import("vue").Ref<"all" | "indexed" | "parsing" | "failed">} */
+const filterStatus = ref("all")
+/** Maps a filter chip to the `status` query parameter of `GET /items`. */
+const STATUS_PARAMS = {
+  all: "",
+  indexed: "completed",
+  parsing: "queued,processing",
+  failed: "failed",
 }
+// The path of the current folder for the drawer, for example "Docs / Reports / Q1".
+const folderLabel = computed(() =>
+  [dataset.value?.name ?? "", ...itemsStore.breadcrumbs.map((c) => c.name)].join(" / "),
+)
+const currentName = computed(() => itemsStore.breadcrumbs.at(-1)?.name ?? dataset.value?.name ?? "")
+let searchTimer = null
 
-function toggleOne(id) {
-  if (selected.has(id)) selected.delete(id)
-  else selected.add(id)
-}
+const { can } = usePermissions()
+const canUpload = computed(() => can("file:upload"))
+const canUpdate = computed(() => can("file:update"))
+const canDelete = computed(() => can("file:delete"))
+const selectedItems = computed(() => itemsStore.items.filter((i) => selected.value.has(itemKey(i))))
+const folderDialog = ref({ open: false, folder: null })
+const moveDialog = ref({ open: false, folderIds: [], fileIds: [] })
+const deleteDialog = ref({ open: false, items: [] })
 
-async function handleBulkDelete() {
-  const ids = [...selected]
-  const failedIds = await bulkDelete(ids)
-  for (const id of ids) {
-    if (!failedIds.includes(id)) selected.delete(id)
-  }
+/**
+ * Returns the count and the word, with an "s" when the count is not 1.
+ * @param {number} n
+ * @param {string} word
+ * @returns {string} For example, `"1 file"` or `"3 files"`.
+ */
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`
+
+/**
+ * Maps the output of `splitKeys` to the prop names of `MoveToDialog`.
+ * @param {{ folder_ids: string[], file_ids: string[] }} ids
+ * @returns {{ folderIds: string[], fileIds: string[] }}
+ */
+const mapIds = ({ folder_ids, file_ids }) => ({ folderIds: folder_ids, fileIds: file_ids })
+
+/**
+ * Opens the move dialog for these items.
+ * @param {Array<{ kind: "folder" | "file", id: string }>} items
+ * @returns {void}
+ */
+function openMove(items) {
+  openRowMenuKey.value = null
+  moveDialog.value = { open: true, ...mapIds(splitKeys(items.map(itemKey))) }
 }
 
 /**
- * Delete all selected files after confirmation, then close the confirm modal.
- * Holds `bulkDeleting` while the request is in flight; on an unexpected rejection,
- * toasts and keeps the modal open for retry.
+ * Opens the delete dialog for these items.
+ * @param {Array<{ kind: "folder" | "file", id: string }>} items
+ * @returns {void}
+ */
+function openDeleteItems(items) {
+  openRowMenuKey.value = null
+  deleteDialog.value = { open: true, items }
+}
+
+/**
+ * Closes the move dialog, clears the selection, and loads the folder again. The moved items leave
+ * the folder, and the item count of the target changes. Also updates the open file panel.
+ * @param {object} [payload]
+ * @param {string|null} [payload.targetId=null] - The target folder, or `null` for the dataset root
+ * @param {string[]} [payload.fileIds] - The moved file ids. `MoveToDialog` emits only `targetId`,
+ *   so the ids come from `moveDialog`. A drag move sends its own ids.
  * @returns {Promise<void>}
  */
-async function confirmBulkDelete() {
-  bulkDeleting.value = true
+async function onMoved({ targetId = null, fileIds = moveDialog.value.fileIds } = {}) {
+  moveDialog.value.open = false
+  selected.value = new Set()
+  message.success("Items moved")
+  if (detailFile.value && fileIds.includes(detailFile.value.id)) {
+    detailFile.value = { ...detailFile.value, folder_id: targetId }
+  }
+  await refresh()
+}
+
+/**
+ * Closes the file panel and opens a folder from its Location row. The URL stays the only source
+ * of the current folder.
+ * @param {string|null} id - The folder, or `null` for the dataset root
+ * @returns {void}
+ */
+function openFolderFromPanel(id) {
+  detailFile.value = null
+  goToFolder(id)
+}
+
+/**
+ * Removes the deleted items from the loaded rows. The loaded Load more pages stay.
+ * @param {{ folders: number, files: number }} deleted The counts that the API deleted.
+ * @returns {void}
+ */
+function onDeleted({ folders, files }) {
+  const ids = deleteDialog.value.items.map((i) => i.id)
+  deleteDialog.value.open = false
+  itemsStore.removeItems(ids)
+  if (detailFile.value && ids.includes(detailFile.value.id)) detailFile.value = null
+  selected.value = new Set()
+  message.success(`Deleted ${plural(folders, "folder")} and ${plural(files, "file")}`)
+}
+
+/**
+ * Closes the folder dialog and loads again, because a new name changes the sort order.
+ * @returns {Promise<void>}
+ */
+async function onFolderSaved() {
+  folderDialog.value.open = false
+  await refresh()
+}
+
+const folderUpload = useFolderUpload({ workspaceId, datasetId })
+// dragenter and dragleave also fire for each child element. A counter keeps the overlay stable.
+const dragDepth = ref(0)
+
+/**
+ * Tells if the page accepts this drag as an upload. An internal drag has no `"Files"` type.
+ * @param {DragEvent} event
+ * @returns {boolean}
+ */
+const acceptsDrop = (event) => canUpload.value && hasDroppedFiles(event.dataTransfer)
+
+/**
+ * Moves the dragged items into a folder row or a crumb. The server does the full cycle check.
+ * @param {{ targetId: string | null, keys: string[] }} payload - `null` is the dataset root
+ * @returns {Promise<void>}
+ */
+async function onDragMove({ targetId, keys }) {
   try {
-    await handleBulkDelete()
-    bulkDeleteOpen.value = false
-  } catch {
-    message.error("Failed to delete files")
-  } finally {
-    bulkDeleting.value = false
+    const ids = splitKeys(keys)
+    await moveItems(workspaceId, datasetId, { ...ids, target_folder_id: targetId })
+    // onMoved reads targetId and fileIds to update the open file panel.
+    await onMoved({ targetId, fileIds: ids.file_ids })
+  } catch (err) {
+    message.error(err.message || "Could not move the items")
   }
 }
 
-const ACTIVE_STATUSES = ["processing", "queued"]
-let pollTimer = null
-let consecutiveErrors = 0
-
-function stopPolling() {
-  clearInterval(pollTimer)
-  pollTimer = null
+/** Shows the drop overlay for a drag of files from the computer. @param {DragEvent} event */
+function onPageDragEnter(event) {
+  if (acceptsDrop(event)) dragDepth.value++
 }
 
-function startPolling() {
-  if (pollTimer) return
-  consecutiveErrors = 0
-  pollTimer = setInterval(async () => {
-    try {
-      await fetchFiles()
-      consecutiveErrors = 0
-    } catch {
-      if (++consecutiveErrors >= 3) {
-        stopPolling()
-        message.error("Could not reach server — refresh to check file status")
-      }
-    }
-  }, 5000)
+/** Hides the drop overlay when the drag leaves the page. @param {DragEvent} event */
+function onPageDragLeave(event) {
+  if (acceptsDrop(event)) dragDepth.value = Math.max(0, dragDepth.value - 1)
 }
 
-watch(
-  files,
-  (newFiles) => {
-    const hasActive = newFiles.some((f) => ACTIVE_STATUSES.includes(f.status))
-    if (hasActive) startPolling()
-    else stopPolling()
-  },
-  { immediate: true },
+/** Lets the browser drop files from the computer on the page. @param {DragEvent} event */
+function onPageDragOver(event) {
+  if (acceptsDrop(event)) event.preventDefault()
+}
+
+/**
+ * Uploads the files and folders of a drop from the computer into the current folder.
+ * @param {DragEvent} event
+ * @returns {Promise<void>}
+ */
+async function onPageDrop(event) {
+  if (!acceptsDrop(event)) return
+  event.preventDefault()
+  dragDepth.value = 0
+  // readDroppedItems reads the entries before its first await. The drop data is gone later.
+  const entries = await readDroppedItems(event.dataTransfer)
+  if (!entries.length) return
+  const { uploaded, failed, skipped } = await folderUpload.upload({
+    entries,
+    parentId: folderId.value,
+  })
+  if (folderUpload.error.value) message.error(folderUpload.error.value)
+  if (uploaded) message.success(`Uploaded ${plural(uploaded, "file")}`)
+  if (failed) message.error(`${plural(failed, "file")} failed to upload`)
+  if (skipped.length) {
+    message.warning(`Skipped ${plural(skipped.length, "file")} with a type that is not supported`)
+  }
+  await refresh()
+}
+
+/** Returns the loaded file item with this id, or `null`. */
+const findFile = (id) => itemsStore.items.find((i) => i.kind === "file" && i.id === id) ?? null
+
+const openRowMenuItem = computed(
+  () => itemsStore.items.find((i) => itemKey(i) === openRowMenuKey.value) ?? null,
 )
+
+/** Pushes the folder into the URL. The route watch loads it. */
+function goToFolder(id) {
+  router.push({ query: id ? { folder: id } : {} })
+}
+
+/** Loads the current folder or search. A missing folder sends the user to the root. */
+async function refresh() {
+  try {
+    await itemsStore.load({
+      workspaceId,
+      datasetId,
+      folderId: folderId.value,
+      q: searchQuery.value.trim(),
+      status: STATUS_PARAMS[filterStatus.value],
+    })
+    // A new folder or a new search gives the poll a new start.
+    pollFailures = 0
+    schedulePoll()
+  } catch (err) {
+    // The global toast already shows the server message.
+    if (err.status === 404 && folderId.value) goToFolder(null)
+  }
+}
+
+const POLL_MS = 5000
+const POLL_BATCH = 100
+const POLL_MAX_FAILURES = 3
+let pollTimer = null
+let pollBusy = false
+let pollFailures = 0
+// Set on unmount. A load that finishes after the unmount must not start the poll again.
+let pollStopped = false
+
+/**
+ * Starts the next poll in 5 s. It does this only when a loaded file is active and no poll waits
+ * or runs.
+ * @returns {void}
+ */
+function schedulePoll() {
+  if (pollStopped || pollTimer || pollBusy || pollFailures >= POLL_MAX_FAILURES) return
+  if (!itemsStore.activeFileIds.length) return
+  pollTimer = setTimeout(pollStatuses, POLL_MS)
+}
+
+/**
+ * Stops the waiting poll. A poll that runs now finishes, but it does not schedule a next one.
+ * @returns {void}
+ */
+function stopPolling() {
+  clearTimeout(pollTimer)
+  pollTimer = null
+  pollStopped = true
+}
+
+/**
+ * Asks the API for the status of the active files, in batches of 100 ids, and applies the rows.
+ * After three failures in a row, it stops and shows a message.
+ * @returns {Promise<void>}
+ */
+async function pollStatuses() {
+  pollTimer = null
+  pollBusy = true
+  const ids = itemsStore.activeFileIds
+  try {
+    for (let i = 0; i < ids.length; i += POLL_BATCH) {
+      const batch = ids.slice(i, i + POLL_BATCH)
+      const res = await fileStatuses(workspaceId, datasetId, batch)
+      itemsStore.applyStatuses(batch, res.data.data)
+    }
+    pollFailures = 0
+  } catch {
+    if (++pollFailures === POLL_MAX_FAILURES) {
+      message.error("Could not reach server — refresh to check file status")
+    }
+  } finally {
+    pollBusy = false
+  }
+  schedulePoll()
+}
+
+watch(() => itemsStore.activeFileIds.length, schedulePoll)
+
+watch(searchInput, (value) => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => (searchQuery.value = value), 300)
+})
+watch(folderId, () => {
+  searchInput.value = ""
+  searchQuery.value = ""
+})
+watch([folderId, searchQuery, filterStatus], () => {
+  // A navigation to another page also clears the query before the view unmounts.
+  if (route.params.datasetId !== datasetId) return
+  selected.value = new Set()
+  refresh()
+})
 
 onMounted(async () => {
   window.addEventListener("scroll", closeRowMenuOnViewportChange, true)
   window.addEventListener("resize", closeRowMenuOnViewportChange)
   dataset.value = await datasetsStore.fetchDataset(workspaceId, datasetId)
-  await fetchFiles()
+  await refresh()
 })
 
 onUnmounted(() => {
+  clearTimeout(searchTimer)
   stopPolling()
   window.removeEventListener("scroll", closeRowMenuOnViewportChange, true)
   window.removeEventListener("resize", closeRowMenuOnViewportChange)
@@ -241,63 +424,80 @@ function openDetail(file) {
   detailFile.value = file
 }
 
+/** Reprocesses a file and shows it as queued, so the status poll picks it up. */
 async function handleReindexFile(id) {
   await handleReprocess(id)
+  itemsStore.applyStatuses([id], [{ id, status: "queued", chunk_count: 0, error_message: null }])
   detailFile.value = null
-}
-
-async function handleDeleteFile(id) {
-  await deleteFile(id)
-  if (detailFile.value?.id === id) detailFile.value = null
-  selected.delete(id)
 }
 
 /** Close any open dataset or row dropdown menu. @returns {void} */
 function closeMenus() {
   dsMenuOpen.value = false
-  openRowMenuId.value = null
+  openRowMenuKey.value = null
 }
 
 /**
- * Toggle a file row's action menu, anchoring the teleported popup to the
- * clicked button. Closes the dataset menu too.
- * @param {MouseEvent} event - Click on the row's ⋯ button
- * @param {string} id - The file id whose menu is toggled
+ * Opens or closes the menu of a row, and anchors the teleported popup to the clicked button.
+ * Closes the dataset menu too.
+ * @param {MouseEvent} event - Click on the ⋯ button of the row
+ * @param {{ kind: "folder" | "file", id: string }} item - The item of the row
  * @returns {void}
  */
-function toggleRowMenu(event, id) {
+function toggleRowMenu(event, item) {
   dsMenuOpen.value = false
-  if (openRowMenuId.value === id) {
-    openRowMenuId.value = null
+  const key = itemKey(item)
+  if (openRowMenuKey.value === key) {
+    openRowMenuKey.value = null
     return
   }
   const rect = event.currentTarget.getBoundingClientRect()
   // Right-align the popup under the button (popup min-width 150px).
   rowMenuPos.value = { top: rect.bottom + 6, left: rect.right }
-  openRowMenuId.value = id
+  openRowMenuKey.value = key
+}
+
+/**
+ * Opens the menu of a table row. Vue emits in the same tick, so `event.currentTarget` is still set.
+ * @param {{ event: MouseEvent, item: { kind: "folder" | "file", id: string } }} payload
+ * @returns {void}
+ */
+function onRowMenu({ event, item }) {
+  toggleRowMenu(event, item)
 }
 
 /** Close the row action menu on viewport scroll/resize so it stays anchored. @returns {void} */
 function closeRowMenuOnViewportChange() {
-  openRowMenuId.value = null
+  openRowMenuKey.value = null
 }
 
 /** Open the detail panel for a file from its row menu. @param {object} file @returns {void} */
 function viewDetailFromMenu(file) {
+  openRowMenuKey.value = null
   openDetail(file)
-  openRowMenuId.value = null
 }
 
 /** Open the rename modal for a file from its row menu. @param {object} file @returns {void} */
 function openRenameFromMenu(file) {
+  openRowMenuKey.value = null
   openRename(file)
-  openRowMenuId.value = null
 }
 
-/** Open the delete-file confirm for a file from its row menu. @param {object} file @returns {void} */
+/** Opens the delete dialog for a file from its row menu. @param {object} file @returns {void} */
 function openDeleteFromMenu(file) {
-  openDeleteFile(file)
-  openRowMenuId.value = null
+  openDeleteItems([file])
+}
+
+/** Opens a folder from its row menu. @param {{ id: string }} folder @returns {void} */
+function openFolderFromMenu(folder) {
+  openRowMenuKey.value = null
+  goToFolder(folder.id)
+}
+
+/** Opens the rename dialog for a folder from its row menu. @param {object} folder @returns {void} */
+function renameFolderFromMenu(folder) {
+  openRowMenuKey.value = null
+  folderDialog.value = { open: true, folder }
 }
 
 /** @param {object} file @returns {void} */
@@ -313,6 +513,8 @@ async function submitRename() {
   if (!name) return
   try {
     await handleRename(renameTarget.value.id, name)
+    const item = findFile(renameTarget.value.id)
+    if (item) item.filename = name
     if (detailFile.value?.id === renameTarget.value.id) {
       detailFile.value = { ...detailFile.value, filename: name }
     }
@@ -322,34 +524,14 @@ async function submitRename() {
   }
 }
 
-/** @param {object} file @returns {void} */
-function openDeleteFile(file) {
-  fileToDelete.value = file
-  deleteFileOpen.value = true
-}
-
 /**
- * Delete the file queued in the confirm modal.
- * Holds `deletingFile` while the request is in flight; on rejection, toasts and
- * keeps the modal open for retry.
- * @returns {Promise<void>}
+ * Opens the delete dialog for the file of the detail panel.
+ * @param {string} id
+ * @returns {void}
  */
-async function confirmDeleteFile() {
-  deletingFile.value = true
-  try {
-    await handleDeleteFile(fileToDelete.value.id)
-    deleteFileOpen.value = false
-  } catch {
-    message.error("Failed to delete file")
-  } finally {
-    deletingFile.value = false
-  }
-}
-
-/** Resolve a file id (from the detail panel) to its object and open the confirm modal. @param {string} id @returns {void} */
 function requestDeleteFile(id) {
-  const file = files.value.find((f) => f.id === id) ?? detailFile.value
-  if (file) openDeleteFile(file)
+  const file = findFile(id) ?? (detailFile.value && { kind: "file", ...detailFile.value })
+  if (file) openDeleteItems([file])
 }
 
 /**
@@ -370,21 +552,23 @@ const FILTERS = [
   { value: "parsing", label: "Parsing" },
   { value: "failed", label: "Failed" },
 ]
-
-const PAGE_WINDOW = 5
-const visiblePages = computed(() => {
-  const total = totalPages.value
-  if (total <= PAGE_WINDOW) return Array.from({ length: total }, (_, i) => i + 1)
-  const half = Math.floor(PAGE_WINDOW / 2)
-  let start = Math.max(1, page.value - half)
-  const end = Math.min(total, start + PAGE_WINDOW - 1)
-  if (end - start < PAGE_WINDOW - 1) start = Math.max(1, end - PAGE_WINDOW + 1)
-  return Array.from({ length: end - start + 1 }, (_, i) => start + i)
-})
 </script>
 
 <template>
-  <div class="page" @click="closeMenus">
+  <div
+    class="page"
+    @click="closeMenus"
+    @dragenter="onPageDragEnter"
+    @dragleave="onPageDragLeave"
+    @dragover="onPageDragOver"
+    @drop="onPageDrop"
+  >
+    <div v-if="dragDepth > 0" class="drop-overlay">Drop to upload to {{ currentName }}</div>
+    <p v-if="folderUpload.running.value" class="upload-progress" role="status">
+      Uploading
+      {{ folderUpload.uploads.value.filter((u) => u.status !== "uploading").length }} of
+      {{ folderUpload.uploads.value.length }} files…
+    </p>
     <!-- Page header -->
     <div class="page-head">
       <div class="head-left">
@@ -437,22 +621,38 @@ const visiblePages = computed(() => {
           <MessageSquare :size="13" :stroke-width="2" />
           Start chat
         </button>
-        <button class="btn-primary" @click="openDrawer">
+        <button
+          v-if="canUpload"
+          class="btn-secondary"
+          @click="folderDialog = { open: true, folder: null }"
+        >
+          <FolderPlus :size="13" :stroke-width="1.8" />
+          New folder
+        </button>
+        <button v-if="canUpload" class="btn-primary" @click="openDrawer">
           <Plus :size="16" />
           Add source
         </button>
       </div>
     </div>
 
+    <FolderBreadcrumbs
+      :dataset-name="dataset?.name ?? ''"
+      :breadcrumbs="itemsStore.breadcrumbs"
+      :droppable="canUpdate"
+      @navigate="goToFolder"
+      @drop="onDragMove"
+    />
+
     <!-- Toolbar -->
     <div class="toolbar">
       <div class="search-box">
         <Search :size="13" :stroke-width="1.7" style="color: var(--ink-3)" />
         <input
-          v-model="searchQuery"
+          v-model="searchInput"
           class="search-input"
-          aria-label="Search files in this dataset"
-          placeholder="Search files in this dataset…"
+          :aria-label="`Search in ${currentName} and subfolders…`"
+          :placeholder="`Search in ${currentName} and subfolders…`"
         />
       </div>
       <div class="filter-chips">
@@ -467,26 +667,40 @@ const visiblePages = computed(() => {
         </button>
       </div>
       <span class="count-label">
-        {{ selected.size > 0 ? `${selected.size} selected` : `${filteredFiles.length} files` }}
+        {{ selected.size > 0 ? `${selected.size} selected` : `${itemsStore.items.length} items` }}
       </span>
     </div>
 
     <!-- Bulk action bar -->
     <div v-if="selected.size > 0" class="bulk-bar">
-      <span class="bulk-label">{{ selected.size }} {{ selectedNoun }} selected</span>
+      <span class="bulk-label">{{ plural(selected.size, "item") }} selected</span>
       <span class="bulk-sep">·</span>
-      <button class="bulk-clear" @click="selected.clear()">Clear selection</button>
-      <div style="flex: 1" />
-      <button class="btn-danger" @click="bulkDeleteOpen = true">
-        <Trash2 :size="12" :stroke-width="1.7" />
-        Delete selected
-      </button>
+      <button class="bulk-clear" @click="selected = new Set()">Clear selection</button>
+      <div class="bulk-actions">
+        <button v-if="canUpdate" class="btn-secondary" @click="openMove(selectedItems)">
+          <FolderInput :size="12" :stroke-width="1.8" />
+          Move to…
+        </button>
+        <button v-if="canDelete" class="btn-danger" @click="openDeleteItems(selectedItems)">
+          <Trash2 :size="12" :stroke-width="1.8" />
+          Delete
+        </button>
+      </div>
     </div>
 
-    <!-- File table -->
-    <div v-if="!loading || files.length" class="file-table">
+    <!-- Items -->
+    <div v-if="!itemsStore.loading || itemsStore.items.length" class="items-wrap">
       <!-- Empty dataset -->
-      <div v-if="!loading && !files.length" class="files-empty">
+      <div
+        v-if="
+          !itemsStore.loading &&
+          !itemsStore.items.length &&
+          !folderId &&
+          !searchQuery &&
+          filterStatus === 'all'
+        "
+        class="files-empty"
+      >
         <svg
           viewBox="0 0 100 80"
           width="120"
@@ -515,7 +729,7 @@ const visiblePages = computed(() => {
           Add a PDF, document, or URL to start. Once indexed, the agent will search and cite this
           corpus.
         </p>
-        <div class="files-empty-actions">
+        <div v-if="canUpload" class="files-empty-actions">
           <button class="btn-primary" @click="drawerOpen = true">
             <Upload :size="12" :stroke-width="2" />
             Upload files
@@ -526,118 +740,27 @@ const visiblePages = computed(() => {
           </button>
         </div>
       </div>
-
-      <template v-else>
-        <!-- Header row -->
-        <div class="file-cols file-thead">
-          <div>
-            <input
-              ref="selectAllRef"
-              type="checkbox"
-              class="cb"
-              aria-label="Select all files"
-              :checked="allSelected"
-              @change="toggleAll($event.target.checked)"
-            />
-          </div>
-          <div>Type</div>
-          <div>Name</div>
-          <div class="col-right">Size</div>
-          <div>Chunks</div>
-          <div>Status</div>
-          <div>Added</div>
-          <div></div>
-        </div>
-
-        <!-- File rows -->
-        <div
-          v-for="file in pagedFiles"
-          :key="file.id"
-          class="file-cols file-row"
-          :class="{ 'file-row--selected': selected.has(file.id) }"
-          @click="openDetail(file)"
-        >
-          <div @click.stop>
-            <input
-              type="checkbox"
-              class="cb"
-              :aria-label="'Select ' + file.filename"
-              :checked="selected.has(file.id)"
-              @change="toggleOne(file.id)"
-            />
-          </div>
-          <div>
-            <span
-              class="type-badge"
-              :class="`type-${fileType(file.filename, file.metadata?.source_type)}`"
-              >{{ fileType(file.filename, file.metadata?.source_type) }}</span
-            >
-          </div>
-          <div class="col-name">
-            <span class="file-name">{{ file.filename }}</span>
-            <span v-if="file.status === 'failed' && file.error_message" class="file-error">{{
-              file.error_message
-            }}</span>
-          </div>
-          <div class="col-right mono">{{ humanSize(file.file_size_bytes) }}</div>
-          <div class="mono" :style="{ color: file.chunk_count ? 'var(--ink-2)' : 'var(--ink-4)' }">
-            {{ file.chunk_count || "—" }}
-          </div>
-          <div>
-            <span class="chip" :class="statusChipClass(file.status)">
-              <span class="status-dot" :class="{ pulse: ACTIVE_STATUSES.includes(file.status) }" />
-              {{ statusLabel(file.status) }}
-            </span>
-          </div>
-          <div class="muted">{{ shortDate(file.created_at) || "—" }}</div>
-          <div @click.stop>
-            <button
-              class="row-menu-btn"
-              aria-label="File options"
-              @click="toggleRowMenu($event, file.id)"
-            >
-              ⋯
-            </button>
-          </div>
-        </div>
-
-        <!-- Pagination -->
-        <div v-if="totalPages > 1" class="pagination">
-          <span class="pg-info">
-            Showing
-            <strong class="mono"
-              >{{ (page - 1) * PAGE_SIZE + 1 }}–{{
-                Math.min(page * PAGE_SIZE, filteredFiles.length)
-              }}</strong
-            >
-            of
-            <strong class="mono">{{ filteredFiles.length }}</strong>
-          </span>
-          <div class="pg-buttons">
-            <button class="pg-nav" :disabled="page === 1" @click="page--">
-              <ChevronLeft :size="12" :stroke-width="1.8" />
-              Prev
-            </button>
-            <span v-if="visiblePages[0] > 1" class="pg-ellipsis">…</span>
-            <button
-              v-for="p in visiblePages"
-              :key="p"
-              class="pg-btn"
-              :class="{ active: p === page }"
-              @click="page = p"
-            >
-              {{ p }}
-            </button>
-            <span v-if="visiblePages[visiblePages.length - 1] < totalPages" class="pg-ellipsis"
-              >…</span
-            >
-            <button class="pg-nav" :disabled="page === totalPages" @click="page++">
-              Next
-              <ChevronRight :size="12" :stroke-width="1.8" />
-            </button>
-          </div>
-        </div>
-      </template>
+      <p v-else-if="!itemsStore.loading && !itemsStore.items.length" class="items-none">
+        {{
+          searchQuery || filterStatus !== "all"
+            ? "No items match the search."
+            : "This folder is empty."
+        }}
+      </p>
+      <DatasetItemsTable
+        v-else
+        v-model:selected="selected"
+        :items="itemsStore.items"
+        :selectable="canUpdate || canDelete"
+        :draggable="canUpdate"
+        :has-more="!!itemsStore.nextCursor"
+        :loading-more="itemsStore.loadingMore"
+        @open-folder="goToFolder"
+        @open-file="openDetail"
+        @menu="onRowMenu"
+        @load-more="itemsStore.loadMore()"
+        @move="onDragMove"
+      />
     </div>
 
     <!-- Add source drawer -->
@@ -645,10 +768,12 @@ const visiblePages = computed(() => {
       :open="drawerOpen"
       :workspace-id="workspaceId"
       :dataset-id="datasetId"
+      :folder-id="folderId"
+      :folder-label="folderLabel"
       @close="drawerOpen = false"
-      @uploaded="fetchFiles()"
-      @scraped="fetchFiles()"
-      @youtube="fetchFiles()"
+      @uploaded="refresh()"
+      @scraped="refresh()"
+      @youtube="refresh()"
     />
 
     <!-- File detail panel -->
@@ -657,7 +782,11 @@ const visiblePages = computed(() => {
       :open="!!detailFile"
       :workspace-id="workspaceId"
       :dataset-id="datasetId"
+      :dataset-name="dataset?.name ?? ''"
+      :can-move="canUpdate"
       @close="detailFile = null"
+      @move="(file) => openMove([{ ...file, kind: 'file' }])"
+      @navigate="openFolderFromPanel"
       @reindex="handleReindexFile"
       @delete="requestDeleteFile"
       @ask="onAskQuestion"
@@ -666,24 +795,42 @@ const visiblePages = computed(() => {
     <!-- Floating row action menu (teleported so the table's overflow:hidden doesn't clip it) -->
     <Teleport to="body">
       <div
-        v-if="openRowMenuFile"
+        v-if="openRowMenuItem"
         class="menu-popup menu-popup--floating"
         :style="{ top: rowMenuPos.top + 'px', left: rowMenuPos.left + 'px' }"
         @click.stop
       >
-        <button class="menu-item" @click="viewDetailFromMenu(openRowMenuFile)">
-          <Eye :size="13" :stroke-width="1.6" />
-          View details
+        <template v-if="openRowMenuItem.kind === 'folder'">
+          <button class="menu-item" @click="openFolderFromMenu(openRowMenuItem)">
+            <FolderOpen :size="13" :stroke-width="1.6" />
+            Open
+          </button>
+          <button v-if="canUpdate" class="menu-item" @click="renameFolderFromMenu(openRowMenuItem)">
+            <Pencil :size="13" :stroke-width="1.6" />
+            Rename
+          </button>
+        </template>
+        <template v-else>
+          <button class="menu-item" @click="viewDetailFromMenu(openRowMenuItem)">
+            <Eye :size="13" :stroke-width="1.6" />
+            View details
+          </button>
+          <button v-if="canUpdate" class="menu-item" @click="openRenameFromMenu(openRowMenuItem)">
+            <Pencil :size="13" :stroke-width="1.6" />
+            Edit
+          </button>
+        </template>
+        <button v-if="canUpdate" class="menu-item" @click="openMove([openRowMenuItem])">
+          <FolderInput :size="13" :stroke-width="1.6" />
+          Move to…
         </button>
-        <button class="menu-item" @click="openRenameFromMenu(openRowMenuFile)">
-          <Pencil :size="13" :stroke-width="1.6" />
-          Edit
-        </button>
-        <hr class="menu-divider" />
-        <button class="menu-item menu-item--danger" @click="openDeleteFromMenu(openRowMenuFile)">
-          <Trash2 :size="13" :stroke-width="1.6" />
-          Delete
-        </button>
+        <template v-if="canDelete">
+          <hr class="menu-divider" />
+          <button class="menu-item menu-item--danger" @click="openDeleteFromMenu(openRowMenuItem)">
+            <Trash2 :size="13" :stroke-width="1.6" />
+            Delete
+          </button>
+        </template>
       </div>
     </Teleport>
 
@@ -751,44 +898,61 @@ const visiblePages = computed(() => {
       </a-form>
     </a-modal>
 
-    <!-- Delete file confirm -->
-    <a-modal
-      :open="deleteFileOpen"
-      :confirm-loading="deletingFile"
-      title="Delete file?"
-      ok-text="Delete"
-      ok-type="danger"
-      cancel-text="Cancel"
-      @ok="confirmDeleteFile"
-      @cancel="deleteFileOpen = false"
-    >
-      <p style="margin: 8px 0">
-        <strong>{{ fileToDelete?.filename }}</strong> will be permanently removed.
-      </p>
-    </a-modal>
-
-    <!-- Bulk delete confirm -->
-    <a-modal
-      :open="bulkDeleteOpen"
-      :confirm-loading="bulkDeleting"
-      title="Delete files?"
-      ok-text="Delete"
-      ok-type="danger"
-      cancel-text="Cancel"
-      @ok="confirmBulkDelete"
-      @cancel="bulkDeleteOpen = false"
-    >
-      <p style="margin: 8px 0">
-        <strong>{{ selected.size }}</strong> {{ selectedNoun }} will be permanently removed. This
-        can't be undone.
-      </p>
-    </a-modal>
+    <FolderNameDialog
+      :open="folderDialog.open"
+      :workspace-id="workspaceId"
+      :dataset-id="datasetId"
+      :parent-id="folderId"
+      :folder="folderDialog.folder"
+      @close="folderDialog.open = false"
+      @saved="onFolderSaved"
+    />
+    <MoveToDialog
+      :open="moveDialog.open"
+      :workspace-id="workspaceId"
+      :dataset-id="datasetId"
+      :dataset-name="dataset?.name ?? ''"
+      :current-folder-id="folderId"
+      :folder-ids="moveDialog.folderIds"
+      :file-ids="moveDialog.fileIds"
+      @close="moveDialog.open = false"
+      @moved="onMoved"
+    />
+    <DeleteItemsDialog
+      :open="deleteDialog.open"
+      :workspace-id="workspaceId"
+      :dataset-id="datasetId"
+      :items="deleteDialog.items"
+      @close="deleteDialog.open = false"
+      @deleted="onDeleted"
+    />
   </div>
 </template>
 
 <style scoped>
 .page {
+  position: relative;
   padding: 20px 24px;
+}
+
+.drop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  border: 2px dashed var(--brand);
+  border-radius: 12px;
+  background: var(--brand-tint);
+  color: var(--brand);
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.upload-progress {
+  margin: 0 0 12px;
+  color: var(--ink-3);
+  font-size: 13px;
 }
 
 /* Header */
@@ -1053,232 +1217,17 @@ const visiblePages = computed(() => {
   color: var(--bg);
 }
 
-/* File table */
-.file-table {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  overflow: hidden;
-}
-
-.file-cols {
-  display: grid;
-  grid-template-columns: 32px 54px minmax(0, 1fr) 72px 72px 110px 100px 36px;
-  gap: 10px;
-  align-items: center;
-}
-
-.file-thead {
-  padding: 10px 16px;
-  background: var(--bg);
-  border-bottom: 1px solid var(--line);
-  font-size: 10.5px;
-  font-weight: 600;
-  color: var(--ink-3);
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-}
-
-.file-row {
-  padding: 10px 16px;
-  border-top: 1px solid var(--line);
-  cursor: pointer;
-  transition: background var(--dur) var(--ease);
-}
-
-.file-row:hover {
-  background: var(--bg);
-}
-
-.file-row--selected {
-  background: var(--brand-tint);
-}
-
-.file-row--selected:hover {
-  background: var(--brand-tint);
-}
-
-/* Checkbox */
-.cb {
-  width: 14px;
-  height: 14px;
-  cursor: pointer;
-  accent-color: var(--ink);
-}
-
-/* Type badge */
-.type-badge {
-  display: inline-flex;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 600;
-  font-family: var(--font-mono);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  border: 1px solid;
-}
-
-.type-pdf {
-  background: var(--err-bg);
-  color: var(--err);
-  border-color: var(--err-border);
-}
-
-.type-md {
-  background: var(--ok-bg);
-  color: var(--ok);
-  border-color: var(--ok-border);
-}
-
-.type-url {
-  background: var(--brand-tint);
-  color: var(--brand-3);
-  border-color: rgba(255, 107, 53, 0.2);
-}
-
-.type-youtube {
-  background: rgba(220, 38, 38, 0.1);
-  color: #dc2626;
-  border-color: rgba(220, 38, 38, 0.2);
-}
-
-.type-docx {
-  background: #f0f4ff;
-  color: #1d4ed8;
-  border-color: rgba(29, 78, 216, 0.2);
-}
-
-.type-tabular {
-  background: rgba(16, 124, 65, 0.1);
-  color: #107c41;
-  border-color: rgba(16, 124, 65, 0.2);
-}
-
-.type-file {
-  background: var(--bg-2);
-  color: var(--ink-3);
-  border-color: var(--line-2);
-}
-
-.col-name {
+.bulk-actions {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+  gap: 6px;
+  margin-left: auto;
 }
 
-.file-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.file-error {
-  font-size: 11px;
-  color: var(--err);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.col-right {
-  text-align: right;
-}
-
+/* Header stats */
 .mono {
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--ink-2);
-}
-
-.muted {
-  font-size: 12px;
-  color: var(--ink-3);
-}
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 2px 8px;
-  border-radius: 20px;
-  font-size: 11.5px;
-  font-weight: 500;
-  border: 1px solid;
-}
-
-.chip--ok {
-  background: var(--ok-bg);
-  color: var(--ok);
-  border-color: var(--ok-border);
-}
-
-.chip--brand {
-  background: var(--brand-tint);
-  color: var(--brand-2);
-  border-color: rgba(255, 107, 53, 0.2);
-}
-
-.chip--err {
-  background: var(--err-bg);
-  color: var(--err);
-  border-color: var(--err-border);
-}
-
-.status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-  flex-shrink: 0;
-}
-
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 0.35;
-    transform: scale(0.85);
-  }
-
-  50% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.status-dot.pulse {
-  animation: pulse 1.4s ease-in-out infinite;
-}
-
-.row-menu-btn {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
-  color: var(--ink-4);
-  border-radius: var(--r-sm);
-  cursor: pointer;
-  font-size: 16px;
-  font-weight: 700;
-  opacity: 0;
-  transition: opacity var(--dur) var(--ease);
-}
-
-.file-row:hover .row-menu-btn,
-.file-row--selected .row-menu-btn {
-  opacity: 1;
-}
-
-.row-menu-btn:hover {
-  background: var(--bg-2);
-  color: var(--ink);
 }
 
 /* Empty dataset state */
@@ -1315,67 +1264,11 @@ const visiblePages = computed(() => {
   margin-top: 4px;
 }
 
-/* Pagination */
-.pagination {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  border-top: 1px solid var(--line);
-  font-size: 12px;
+/* Empty folder or search */
+.items-none {
+  padding: 32px;
+  text-align: center;
   color: var(--ink-3);
-}
-
-.pg-info strong {
-  color: var(--ink-2);
-}
-
-.pg-buttons {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-}
-
-.pg-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: var(--r-sm);
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--ink-3);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.pg-btn.active {
-  border-color: var(--ink);
-  background: var(--surface);
-  color: var(--ink);
-}
-
-.pg-nav {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 5px 9px;
-  border: 1px solid var(--line-2);
-  border-radius: var(--r-sm);
-  background: var(--surface);
-  color: var(--ink-2);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.pg-nav:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.pg-ellipsis {
-  color: var(--ink-4);
-  padding: 0 4px;
 }
 
 /* ⋯ menu */
