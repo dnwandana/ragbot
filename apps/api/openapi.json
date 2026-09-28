@@ -41,6 +41,10 @@
       "description": "File upload, URL scrape, processing status, download"
     },
     {
+      "name": "Folders",
+      "description": "Dataset folders: browse, search, move, and recursive delete"
+    },
+    {
       "name": "Agents",
       "description": "Agent CRUD with system prompt and model configuration"
     },
@@ -2330,6 +2334,12 @@
                     "type": "string",
                     "format": "binary",
                     "description": "File to upload (PDF, DOCX, TXT, etc.)"
+                  },
+                  "folder_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "nullable": true,
+                    "description": "Target folder. Omit or null for the dataset root."
                   }
                 },
                 "required": ["file"]
@@ -4597,6 +4607,490 @@
           }
         }
       }
+    },
+    "/api/workspaces/{workspace_id}/datasets/{dataset_id}/items": {
+      "get": {
+        "tags": ["Folders"],
+        "summary": "Browse or search the items of a folder",
+        "operationId": "listItems",
+        "description": "**Permission required**: `file:read`. Folders come first, then files. With `q` or `status`, the search covers the folder and all its subfolders.",
+        "security": [{ "AccessToken": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/WorkspaceIdParam" },
+          { "$ref": "#/components/parameters/DatasetIdParam" },
+          {
+            "name": "folder_id",
+            "in": "query",
+            "required": false,
+            "description": "Omit for the dataset root",
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "description": "Opaque cursor from next_cursor" }
+          },
+          { "$ref": "#/components/parameters/LimitParam" },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Search the folder and all its subfolders",
+            "schema": { "type": "string", "maxLength": 255 }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "Comma list of file statuses. Hides the folders.",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Browse or search the items of a folder",
+            "headers": { "X-Request-Id": { "$ref": "#/components/headers/X-Request-Id" } },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/ApiResponse" },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "items": {
+                              "type": "array",
+                              "items": {
+                                "oneOf": [
+                                  { "$ref": "#/components/schemas/FolderItem" },
+                                  { "$ref": "#/components/schemas/FileItem" }
+                                ]
+                              }
+                            },
+                            "next_cursor": { "type": "string", "nullable": true },
+                            "breadcrumbs": {
+                              "type": "array",
+                              "items": { "$ref": "#/components/schemas/PathSegment" }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/workspaces/{workspace_id}/datasets/{dataset_id}/items/move": {
+      "post": {
+        "tags": ["Folders"],
+        "summary": "Move folders and files",
+        "operationId": "moveItems",
+        "description": "**Permission required**: `file:update`. All or nothing. Items that are already in the target are skipped.",
+        "security": [{ "AccessToken": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/WorkspaceIdParam" },
+          { "$ref": "#/components/parameters/DatasetIdParam" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/MoveItemsRequest" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Move folders and files",
+            "headers": { "X-Request-Id": { "$ref": "#/components/headers/X-Request-Id" } },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/ApiResponse" },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": { "moved": { "$ref": "#/components/schemas/ItemCounts" } }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" }
+        }
+      }
+    },
+    "/api/workspaces/{workspace_id}/datasets/{dataset_id}/items/summary": {
+      "post": {
+        "tags": ["Folders"],
+        "summary": "Count the items below a selection",
+        "operationId": "summarizeItems",
+        "description": "**Permission required**: `file:read`.",
+        "security": [{ "AccessToken": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/WorkspaceIdParam" },
+          { "$ref": "#/components/parameters/DatasetIdParam" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/ItemIdsRequest" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Count the items below a selection",
+            "headers": { "X-Request-Id": { "$ref": "#/components/headers/X-Request-Id" } },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/ApiResponse" },
+                    {
+                      "type": "object",
+                      "properties": { "data": { "$ref": "#/components/schemas/ItemCounts" } }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/workspaces/{workspace_id}/datasets/{dataset_id}/items/delete": {
+      "post": {
+        "tags": ["Folders"],
+        "summary": "Delete folders recursively and files",
+        "operationId": "deleteItems",
+        "description": "**Permission required**: `file:delete`.",
+        "security": [{ "AccessToken": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/WorkspaceIdParam" },
+          { "$ref": "#/components/parameters/DatasetIdParam" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/ItemIdsRequest" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Delete folders recursively and files",
+            "headers": { "X-Request-Id": { "$ref": "#/components/headers/X-Request-Id" } },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/ApiResponse" },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "deleted": { "$ref": "#/components/schemas/ItemCounts" }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/workspaces/{workspace_id}/datasets/{dataset_id}/folders": {
+      "get": {
+        "tags": ["Folders"],
+        "summary": "List the child folders",
+        "operationId": "listFolders",
+        "description": "**Permission required**: `file:read`.",
+        "security": [{ "AccessToken": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/WorkspaceIdParam" },
+          { "$ref": "#/components/parameters/DatasetIdParam" },
+          {
+            "name": "parent_id",
+            "in": "query",
+            "required": false,
+            "description": "Omit for the dataset root",
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "description": "Opaque cursor from next_cursor" }
+          },
+          { "$ref": "#/components/parameters/LimitParam" }
+        ],
+        "responses": {
+          "200": {
+            "description": "List the child folders",
+            "headers": { "X-Request-Id": { "$ref": "#/components/headers/X-Request-Id" } },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/ApiResponse" },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "items": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "kind": { "type": "string", "enum": ["folder"] },
+                                  "id": { "type": "string", "format": "uuid" },
+                                  "name": { "type": "string" },
+                                  "has_children": { "type": "boolean" }
+                                }
+                              }
+                            },
+                            "next_cursor": { "type": "string", "nullable": true }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "post": {
+        "tags": ["Folders"],
+        "summary": "Create a folder",
+        "operationId": "createFolder",
+        "description": "**Permission required**: `file:upload`.",
+        "security": [{ "AccessToken": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/WorkspaceIdParam" },
+          { "$ref": "#/components/parameters/DatasetIdParam" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateFolderRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Create a folder",
+            "headers": { "X-Request-Id": { "$ref": "#/components/headers/X-Request-Id" } },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/ApiResponse" },
+                    {
+                      "type": "object",
+                      "properties": { "data": { "$ref": "#/components/schemas/DatasetFolder" } }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" }
+        }
+      }
+    },
+    "/api/workspaces/{workspace_id}/datasets/{dataset_id}/folders/ensure-paths": {
+      "post": {
+        "tags": ["Folders"],
+        "summary": "Create the missing folders of relative paths",
+        "operationId": "ensureFolderPaths",
+        "description": "**Permission required**: `file:upload`. An existing folder with the same name (case ignored) is used again.",
+        "security": [{ "AccessToken": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/WorkspaceIdParam" },
+          { "$ref": "#/components/parameters/DatasetIdParam" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/EnsurePathsRequest" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Create the missing folders of relative paths",
+            "headers": { "X-Request-Id": { "$ref": "#/components/headers/X-Request-Id" } },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/ApiResponse" },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "paths": {
+                              "type": "object",
+                              "additionalProperties": { "type": "string", "format": "uuid" },
+                              "description": "Each requested path mapped to its folder id"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" }
+        }
+      }
+    },
+    "/api/workspaces/{workspace_id}/datasets/{dataset_id}/folders/{folder_id}": {
+      "put": {
+        "tags": ["Folders"],
+        "summary": "Rename a folder",
+        "operationId": "renameFolder",
+        "description": "**Permission required**: `file:update`.",
+        "security": [{ "AccessToken": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/WorkspaceIdParam" },
+          { "$ref": "#/components/parameters/DatasetIdParam" },
+          { "$ref": "#/components/parameters/FolderIdParam" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RenameFolderRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rename a folder",
+            "headers": { "X-Request-Id": { "$ref": "#/components/headers/X-Request-Id" } },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/ApiResponse" },
+                    {
+                      "type": "object",
+                      "properties": { "data": { "$ref": "#/components/schemas/DatasetFolder" } }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
+    },
+    "/api/workspaces/{workspace_id}/datasets/{dataset_id}/files/status": {
+      "post": {
+        "tags": ["Files"],
+        "summary": "Get the status of up to 100 files",
+        "operationId": "getFileStatuses",
+        "description": "**Permission required**: `file:read`. A deleted file is not in the result. Treat a missing id as a deleted file.",
+        "security": [{ "AccessToken": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/WorkspaceIdParam" },
+          { "$ref": "#/components/parameters/DatasetIdParam" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/FileStatusRequest" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Get the status of up to 100 files",
+            "headers": { "X-Request-Id": { "$ref": "#/components/headers/X-Request-Id" } },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/ApiResponse" },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": { "$ref": "#/components/schemas/FileStatus" }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
     }
   },
   "components": {
@@ -4751,6 +5245,13 @@
           "type": "string",
           "format": "uuid"
         }
+      },
+      "FolderIdParam": {
+        "name": "folder_id",
+        "in": "path",
+        "required": true,
+        "description": "UUID of the folder",
+        "schema": { "type": "string", "format": "uuid" }
       }
     },
     "responses": {
@@ -4863,6 +5364,20 @@
               "data": null
             }
           }
+        }
+      },
+      "Conflict": {
+        "description": "A folder with the same name already exists",
+        "headers": { "X-Request-Id": { "$ref": "#/components/headers/X-Request-Id" } },
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+        }
+      },
+      "UnprocessableEntity": {
+        "description": "The folder tree would be deeper than 20 levels, or a folder would move into its own subfolder",
+        "headers": { "X-Request-Id": { "$ref": "#/components/headers/X-Request-Id" } },
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
         }
       }
     },
@@ -5608,6 +6123,12 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "folder_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "null means the dataset root"
           }
         },
         "required": [
@@ -5636,6 +6157,11 @@
                 "format": "uri",
                 "nullable": true,
                 "description": "Pre-signed R2 download URL (1-hour expiry). null when file has no storage_path — e.g. URL-scraped files before processing completes."
+              },
+              "path": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/PathSegment" },
+                "description": "Folders from the root to the file. Empty for a file at the root."
               }
             }
           }
@@ -5647,6 +6173,12 @@
           "url": {
             "type": "string",
             "format": "uri"
+          },
+          "folder_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Target folder. Omit or null for the dataset root."
           }
         },
         "required": ["url"]
@@ -5658,6 +6190,12 @@
             "type": "string",
             "format": "uri",
             "description": "A YouTube video URL (youtube.com/watch?v=… or youtu.be/…)."
+          },
+          "folder_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Target folder. Omit or null for the dataset root."
           }
         },
         "required": ["url"]
@@ -6301,6 +6839,163 @@
             "type": "string",
             "format": "date-time"
           }
+        }
+      },
+      "PathSegment": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" }
+        },
+        "required": ["id", "name"]
+      },
+      "DatasetFolder": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "dataset_id": { "type": "string", "format": "uuid" },
+          "workspace_id": { "type": "string", "format": "uuid" },
+          "parent_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "null means the dataset root"
+          },
+          "name": { "type": "string", "maxLength": 255 },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "FolderItem": {
+        "type": "object",
+        "properties": {
+          "kind": { "type": "string", "enum": ["folder"] },
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "item_count": {
+            "type": "object",
+            "properties": { "folders": { "type": "integer" }, "files": { "type": "integer" } },
+            "description": "Direct child folders and files"
+          },
+          "path": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/PathSegment" },
+            "description": "Search results only. The path is relative to the current folder."
+          }
+        }
+      },
+      "FileItem": {
+        "allOf": [
+          { "$ref": "#/components/schemas/DatasetFile" },
+          {
+            "type": "object",
+            "properties": {
+              "kind": { "type": "string", "enum": ["file"] },
+              "path": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/PathSegment" },
+                "description": "Search results only. The path is relative to the current folder."
+              }
+            }
+          }
+        ]
+      },
+      "ItemIdsRequest": {
+        "type": "object",
+        "properties": {
+          "folder_ids": {
+            "type": "array",
+            "items": { "type": "string", "format": "uuid" },
+            "uniqueItems": true
+          },
+          "file_ids": {
+            "type": "array",
+            "items": { "type": "string", "format": "uuid" },
+            "uniqueItems": true
+          }
+        },
+        "description": "500 ids maximum in total. At least one id."
+      },
+      "MoveItemsRequest": {
+        "allOf": [{ "$ref": "#/components/schemas/ItemIdsRequest" }],
+        "type": "object",
+        "properties": {
+          "target_folder_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "null means the dataset root"
+          }
+        },
+        "required": ["target_folder_id"]
+      },
+      "ItemCounts": {
+        "type": "object",
+        "properties": { "folders": { "type": "integer" }, "files": { "type": "integer" } }
+      },
+      "CreateFolderRequest": {
+        "type": "object",
+        "properties": {
+          "parent_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "null means the dataset root"
+          },
+          "name": { "type": "string", "minLength": 1, "maxLength": 255 }
+        },
+        "required": ["name"]
+      },
+      "RenameFolderRequest": {
+        "type": "object",
+        "properties": { "name": { "type": "string", "minLength": 1, "maxLength": 255 } },
+        "required": ["name"]
+      },
+      "EnsurePathsRequest": {
+        "type": "object",
+        "properties": {
+          "parent_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "null means the dataset root"
+          },
+          "paths": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1000,
+            "uniqueItems": true,
+            "items": { "type": "string", "maxLength": 4096 },
+            "description": "Folder paths relative to parent_id, with / between the names"
+          }
+        },
+        "required": ["paths"]
+      },
+      "FileStatusRequest": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "uniqueItems": true,
+            "items": { "type": "string", "format": "uuid" }
+          }
+        },
+        "required": ["ids"]
+      },
+      "FileStatus": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "queued", "processing", "completed", "failed", "cancelled"]
+          },
+          "chunk_count": { "type": "integer" },
+          "error_message": { "type": "string", "nullable": true }
         }
       }
     }
