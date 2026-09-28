@@ -29,6 +29,7 @@ No pre-commit hooks. Run `npm run lint:fix && npm run format:fix` before you com
 - **Responses**: always `apiResponse({ message, data, pagination })`. `data` is the resource, or `null` on delete.
 - **Sessions**: `POST /auth/refresh` rotates the token hash in place, so `sid` stays stable. Every revoke path calls `denySession(sid)`. The denylist fails open and its TTL derives from `ACCESS_TOKEN_EXPIRES_IN`.
 - **Tenancy**: composite FKs `(id, workspace_id)` and partial unique indexes `WHERE deleted_at IS NULL`. Soft delete on 7 tables.
+- **Folders**: `dataset_files.folder_id` NULL means the dataset root. Every folder write and file move takes `lockDatasetTree(trx, datasetId)` first, so the cycle and name checks see a stable tree.
 - **Search input**: pass through `escapeIlike()` before an ILIKE query.
 - **Chat loop**: `openRouterMessages` is append-only. `CHAT_MAX_ITERATIONS` (default 10) bounds the loop, and the last iteration offers no tools.
 - **Message finders**: `findVisibleByConversationId` feeds the model (input + final_answer only). `findThreadByConversationId` feeds the GET endpoint (adds thought + observation rows). Do not widen the first one.
