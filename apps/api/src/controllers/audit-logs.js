@@ -12,6 +12,7 @@ const ENTITY_TYPES = [
   "role_permission",
   "dataset",
   "dataset_file",
+  "dataset_folder",
   "agent",
   "conversation",
   "conversation_dataset",

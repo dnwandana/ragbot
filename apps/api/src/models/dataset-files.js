@@ -1,10 +1,12 @@
 import db from "../config/database.js"
+import { NIL_UUID } from "./dataset-folders.js"
 
 const TABLE = "dataset_files"
-const COLUMNS = [
+export const COLUMNS = [
   "id",
   "dataset_id",
   "workspace_id",
+  "folder_id",
   "filename",
   "mime_type",
   "file_size_bytes",
@@ -22,9 +24,10 @@ const COLUMNS = [
  * Insert a new dataset file record and return all selected columns.
  *
  * @param {Object} file - File data object including all required fields
+ * @param {import('knex').Knex} [trx] - Transaction or db
  * @returns {Promise<Object[]>} Array containing the created file record
  */
-export const create = (file) => db.insert(file).into(TABLE).returning(COLUMNS)
+export const create = (file, trx = db) => trx.insert(file).into(TABLE).returning(COLUMNS)
 
 /**
  * Find a single active dataset file matching the given conditions.
@@ -103,9 +106,11 @@ export const findCompletedTabularByDatasetIds = (datasetIds, workspaceId) =>
  *
  * @param {string} id - UUID of the file to update
  * @param {Object} data - Fields to update (e.g. { status, chunk_count, error_message })
+ * @param {import('knex').Knex.Transaction} [trx] - Optional Knex transaction
  * @returns {Promise<Object[]>} Array containing the updated file record
  */
-export const update = (id, data) => db(TABLE).where({ id }).update(data).returning(COLUMNS)
+export const update = (id, data, trx = db) =>
+  trx(TABLE).where({ id }).update(data).returning(COLUMNS)
 
 /**
  * Soft-delete a dataset file by setting deleted_at to the current timestamp.
@@ -131,3 +136,37 @@ export const softDeleteByDataset = (datasetId, trx) => {
     .whereNull("deleted_at")
     .update({ deleted_at: new Date() })
 }
+
+/**
+ * Returns one page of the active files of a folder, ordered by (lower(filename), id).
+ * The dataset_files_folder_name index gives the filter, the order, and the keyset: O(log n + k).
+ *
+ * @param {{ datasetId: string, folderId: string|null, after: { name: string, id: string }|null, limit: number }} params - Page request
+ * @param {import('knex').Knex} [trx] - Transaction or db
+ * @returns {Promise<Object[]>} File rows with sort_key
+ */
+export const listInFolder = async ({ datasetId, folderId, after, limit }, trx = db) => {
+  const nil = `'${NIL_UUID}'::uuid`
+  const { rows } = await trx.raw(
+    `SELECT ${COLUMNS.join(", ")}, lower(filename) AS sort_key FROM dataset_files
+     WHERE dataset_id = ? AND COALESCE(folder_id, ${nil}) = COALESCE(?::uuid, ${nil})
+       AND deleted_at IS NULL
+       AND (?::text IS NULL OR (lower(filename), id) > (?::text, ?::uuid))
+     ORDER BY lower(filename), id LIMIT ?`,
+    [datasetId, folderId, after?.name ?? null, after?.name ?? null, after?.id ?? null, limit],
+  )
+  return rows
+}
+
+/**
+ * Returns the status fields of the active files among `ids`: O(a log n).
+ *
+ * @param {{ datasetId: string, ids: string[] }} params - Dataset UUID and file UUIDs
+ * @returns {Promise<Array<{ id: string, status: string, chunk_count: number, error_message: string|null }>>} One row for each active file
+ */
+export const statusMany = ({ datasetId, ids }) =>
+  db(TABLE)
+    .select("id", "status", "chunk_count", "error_message")
+    .where({ dataset_id: datasetId })
+    .whereIn("id", ids)
+    .whereNull("deleted_at")
