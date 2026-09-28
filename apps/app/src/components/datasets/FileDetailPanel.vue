@@ -5,14 +5,19 @@ import { humanSize, fileType, statusLabel, statusChipClass } from "@/utils/files
 import { useFileDetail } from "@/composables/useFileDetail"
 import { useMarkdown } from "@/composables/useMarkdown"
 import { useFormattedTime } from "@/composables/useFormattedTime"
+import { getFile } from "@/api/datasetFiles"
 
 const props = defineProps({
   file: { type: Object, default: null },
   open: { type: Boolean, default: false },
   workspaceId: { type: String, required: true },
   datasetId: { type: String, required: true },
+  // The first crumb of the Location row.
+  datasetName: { type: String, default: "" },
+  // Shows the Move to… button. The view sets it from the file:update permission.
+  canMove: { type: Boolean, default: false },
 })
-const emit = defineEmits(["close", "reindex", "delete", "ask"])
+const emit = defineEmits(["close", "reindex", "delete", "ask", "move", "navigate"])
 
 // workspaceId/datasetId are captured once here; safe because they are route-stable
 // for this component's lifetime (the panel is keyed per dataset detail route).
@@ -91,6 +96,28 @@ watch(
   },
   { immediate: true },
 )
+
+// null while the path loads, "error" when it fails, else Array<{ id, name }>.
+const location = ref(null)
+// A newer file replaces the request of an older file.
+let locationSeq = 0
+
+// The watch includes folder_id, so the Location row updates after a move.
+watch(
+  () => [props.open, props.file?.id, props.file?.folder_id],
+  async () => {
+    const mine = ++locationSeq
+    location.value = null
+    if (!props.open || !props.file) return
+    try {
+      const res = await getFile(props.workspaceId, props.datasetId, props.file.id)
+      if (mine === locationSeq) location.value = res.data.data.path ?? []
+    } catch {
+      if (mine === locationSeq) location.value = "error"
+    }
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -138,6 +165,23 @@ watch(
               <div class="info-row">
                 <dt>Added</dt>
                 <dd>{{ shortDate(file.created_at) || "—" }}</dd>
+              </div>
+              <div class="info-row">
+                <dt>Location</dt>
+                <dd class="location">
+                  <template v-if="location === 'error'">—</template>
+                  <template v-else-if="location">
+                    <button class="location-crumb" @click="emit('navigate', null)">
+                      {{ datasetName }}
+                    </button>
+                    <template v-for="crumb in location" :key="crumb.id">
+                      <span class="location-sep">/</span>
+                      <button class="location-crumb" @click="emit('navigate', crumb.id)">
+                        {{ crumb.name }}
+                      </button>
+                    </template>
+                  </template>
+                </dd>
               </div>
               <div class="info-row">
                 <dt>Chunks</dt>
@@ -316,6 +360,7 @@ watch(
 
         <!-- Footer actions -->
         <div class="panel-foot">
+          <button v-if="canMove" class="btn-secondary" @click="emit('move', file)">Move to…</button>
           <button class="btn-secondary" :disabled="isActive" @click="emit('reindex', file.id)">
             Re-index
           </button>
@@ -327,6 +372,30 @@ watch(
 </template>
 
 <style scoped>
+.location {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.location-crumb {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--brand);
+  font: inherit;
+  cursor: pointer;
+}
+
+.location-crumb:hover {
+  text-decoration: underline;
+}
+
+.location-sep {
+  color: var(--ink-3);
+}
+
 .scrim {
   position: fixed;
   inset: 0;
