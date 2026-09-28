@@ -7,6 +7,7 @@
 const ENTITY_CATEGORY = {
   dataset: "datasets",
   dataset_file: "datasets",
+  dataset_folder: "datasets",
   conversation: "conversations",
   conversation_dataset: "conversations",
   conversation_share: "conversations",
@@ -74,6 +75,7 @@ const ENTITY_ICON = {
   role_permission: "safety",
   dataset: "database",
   dataset_file: "file",
+  dataset_folder: "folder",
   agent: "robot",
   conversation: "message",
   conversation_dataset: "paperclip",
@@ -93,6 +95,7 @@ const ENTITY_NOUN = {
   role_permission: "permission",
   dataset: "dataset",
   dataset_file: "file",
+  dataset_folder: "folder",
   agent: "agent",
   conversation: "conversation",
   conversation_dataset: "dataset",
@@ -149,6 +152,8 @@ function resourceName(event) {
   const c = event.changes || {}
   const ctx = event.context || {}
   if (c.name && typeof c.name === "object" && "to" in c.name) return String(c.name.to)
+  // Folder rows keep the name in `changes`, because a folder has no other readable label.
+  if (event.entity_type === "dataset_folder" && typeof c.name === "string") return c.name
   return ctx.name || ctx.title || ctx.email || ctx.invited_email || ctx.removed_email || null
 }
 
@@ -258,6 +263,7 @@ export const ENTITY_TYPE_OPTIONS = [
   { value: "role_permission", label: "Role permission" },
   { value: "dataset", label: "Dataset" },
   { value: "dataset_file", label: "Dataset file" },
+  { value: "dataset_folder", label: "Dataset folder" },
   { value: "agent", label: "Agent" },
   { value: "conversation", label: "Conversation" },
   { value: "conversation_dataset", label: "Conversation dataset" },

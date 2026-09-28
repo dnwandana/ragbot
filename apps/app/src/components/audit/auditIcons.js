@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   Paperclip,
   Link,
+  Folder,
 } from "lucide-vue-next"
 
 /** @type {Record<string, object>} icon key → Lucide icon component */
@@ -23,6 +24,7 @@ const AUDIT_ICONS = {
   safety: ShieldCheck,
   paperclip: Paperclip,
   link: Link,
+  folder: Folder,
 }
 
 /**
