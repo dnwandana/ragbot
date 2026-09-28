@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { fileType, isYouTubeUrl } from "@/utils/files"
+import { fileType, isYouTubeUrl, isUploadable, UPLOAD_EXTENSIONS } from "@/utils/files"
 
 describe("isYouTubeUrl", () => {
   it("accepts youtube.com and youtu.be", () => {
@@ -40,5 +40,16 @@ describe("fileType", () => {
   })
   it("classifies a tabular source by metadata even when the filename has no extension", () => {
     expect(fileType("quarterly report", "tabular")).toBe("tabular")
+  })
+})
+
+describe("isUploadable", () => {
+  it("accepts the upload extensions in any case and rejects the others", () => {
+    expect(UPLOAD_EXTENSIONS).toHaveLength(16)
+    expect(isUploadable("Report.PDF")).toBe(true)
+    expect(isUploadable("notes.md")).toBe(true)
+    expect(isUploadable("setup.exe")).toBe(false)
+    expect(isUploadable(".DS_Store")).toBe(false)
+    expect(isUploadable("README")).toBe(false)
   })
 })

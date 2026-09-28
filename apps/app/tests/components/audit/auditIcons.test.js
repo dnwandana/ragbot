@@ -9,6 +9,7 @@ import {
   User,
   ShieldCheck,
   Paperclip,
+  Folder,
 } from "lucide-vue-next"
 import { auditIcon } from "@/components/audit/auditIcons"
 
@@ -23,6 +24,7 @@ describe("auditIcon", () => {
     expect(auditIcon("user")).toBe(User)
     expect(auditIcon("safety")).toBe(ShieldCheck)
     expect(auditIcon("paperclip")).toBe(Paperclip)
+    expect(auditIcon("folder")).toBe(Folder)
   })
 
   it("defaults unknown keys to FileText", () => {

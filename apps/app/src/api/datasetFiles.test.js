@@ -5,7 +5,15 @@ vi.mock("@/utils/http", () => ({
 }))
 
 import { request } from "@/utils/http"
-import { listFileQuestions, listFileChunks, updateFile, addYouTube } from "@/api/datasetFiles"
+import {
+  listFileQuestions,
+  listFileChunks,
+  updateFile,
+  addYouTube,
+  scrapeUrl,
+  getFile,
+  fileStatuses,
+} from "@/api/datasetFiles"
 
 describe("datasetFiles api", () => {
   beforeEach(() => {
@@ -43,6 +51,29 @@ describe("datasetFiles api", () => {
     expect(request.post).toHaveBeenCalledWith(
       "/workspaces/ws1/datasets/ds1/files/youtube",
       { url: "https://youtu.be/aircAruvnKk" },
+      { silent: true },
+    )
+  })
+
+  it("sends folder_id only when it is set", () => {
+    request.post.mockResolvedValue({ data: { data: {} } })
+    scrapeUrl("ws1", "ds1", "https://a.example", "f9")
+    addYouTube("ws1", "ds1", "https://youtu.be/x", "f9")
+    scrapeUrl("ws1", "ds1", "https://a.example")
+    expect(request.post.mock.calls.map((c) => c[1])).toEqual([
+      { url: "https://a.example", folder_id: "f9" },
+      { url: "https://youtu.be/x", folder_id: "f9" },
+      { url: "https://a.example" },
+    ])
+  })
+
+  it("gets one file and posts the status poll", () => {
+    getFile("ws1", "ds1", "f1")
+    fileStatuses("ws1", "ds1", ["f1", "f2"])
+    expect(request.get).toHaveBeenCalledWith("/workspaces/ws1/datasets/ds1/files/f1")
+    expect(request.post).toHaveBeenCalledWith(
+      "/workspaces/ws1/datasets/ds1/files/status",
+      { ids: ["f1", "f2"] },
       { silent: true },
     )
   })

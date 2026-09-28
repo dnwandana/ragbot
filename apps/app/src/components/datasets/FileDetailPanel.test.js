@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { ref } from "vue"
-import { mount } from "@vue/test-utils"
+import { mount, flushPromises } from "@vue/test-utils"
 
 vi.mock("@/composables/useFileDetail", () => ({ useFileDetail: vi.fn() }))
+vi.mock("@/api/datasetFiles", () => ({ getFile: vi.fn() }))
 vi.mock("@/composables/useMarkdown", () => ({
   useMarkdown: () => ({ renderChunk: (s) => s ?? "" }),
 }))
@@ -12,6 +13,7 @@ vi.mock("@/composables/useFormattedTime", () => ({
 }))
 
 import { useFileDetail } from "@/composables/useFileDetail"
+import { getFile } from "@/api/datasetFiles"
 import FileDetailPanel from "@/components/datasets/FileDetailPanel.vue"
 
 function stubState(overrides = {}) {
@@ -31,9 +33,15 @@ function stubState(overrides = {}) {
   }
 }
 
-function mountPanel(file) {
+// Every test opens the panel, and the panel loads the location of the file. The block body
+// is necessary: Vitest calls a function that beforeEach returns as a teardown.
+beforeEach(() => {
+  getFile.mockResolvedValue({ data: { data: { path: [] } } })
+})
+
+function mountPanel(file, props = {}) {
   return mount(FileDetailPanel, {
-    props: { file, open: true, workspaceId: "ws1", datasetId: "ds1" },
+    props: { file, open: true, workspaceId: "ws1", datasetId: "ds1", ...props },
     global: { stubs: { teleport: true } },
   })
 }
@@ -251,5 +259,48 @@ describe("tabular schema section", () => {
       metadata: { source_type: "tabular", profile: { ...profile, truncated: true } },
     }
     expect(mountPanel(truncated).text()).toContain("truncated")
+  })
+})
+
+describe("FileDetailPanel location", () => {
+  beforeEach(() => vi.mocked(useFileDetail).mockReturnValue(stubState()))
+  const file = { id: "f1", filename: "a.md", status: "completed", folder_id: "d2" }
+
+  it("shows the folder path and opens a folder from a crumb", async () => {
+    getFile.mockResolvedValue({
+      data: {
+        data: {
+          path: [
+            { id: "d1", name: "Reports" },
+            { id: "d2", name: "Q1" },
+          ],
+        },
+      },
+    })
+    const wrapper = mountPanel(file, { datasetName: "Docs" })
+    await flushPromises()
+    expect(getFile).toHaveBeenCalledWith("ws1", "ds1", "f1")
+    const crumbs = wrapper.findAll(".location-crumb")
+    expect(crumbs.map((c) => c.text())).toEqual(["Docs", "Reports", "Q1"])
+    await crumbs[0].trigger("click")
+    await crumbs[1].trigger("click")
+    expect(wrapper.emitted("navigate")).toEqual([[null], ["d1"]])
+  })
+
+  it("shows a dash when the location does not load", async () => {
+    getFile.mockRejectedValue(new Error("offline"))
+    const wrapper = mountPanel(file, { datasetName: "Docs" })
+    await flushPromises()
+    expect(wrapper.find(".location").text()).toBe("—")
+  })
+
+  it("shows Move to… only with canMove and emits the file", async () => {
+    expect(mountPanel(file).text()).not.toContain("Move to…")
+    const wrapper = mountPanel(file, { canMove: true })
+    await wrapper
+      .findAll("button")
+      .find((b) => b.text() === "Move to…")
+      .trigger("click")
+    expect(wrapper.emitted("move")).toEqual([[file]])
   })
 })

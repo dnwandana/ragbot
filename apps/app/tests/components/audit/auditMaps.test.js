@@ -1,5 +1,14 @@
 import { describe, it, expect } from "vitest"
-import { diffRows, memberFilterOptions, shortId } from "@/components/audit/auditMaps"
+import {
+  category,
+  diffRows,
+  entityIcon,
+  entityTypeLabel,
+  memberFilterOptions,
+  resourceLabel,
+  shortId,
+  verb,
+} from "@/components/audit/auditMaps"
 
 describe("diffRows", () => {
   it("renders a pure diff field as before → after", () => {
@@ -84,5 +93,46 @@ describe("memberFilterOptions", () => {
   it("returns an empty array for null/undefined input", () => {
     expect(memberFilterOptions(null)).toEqual([])
     expect(memberFilterOptions(undefined)).toEqual([])
+  })
+})
+
+describe("dataset_folder rows", () => {
+  it("uses the Datasets category, the folder icon, and the folder noun", () => {
+    expect(category("dataset_folder").label).toBe("Datasets")
+    expect(entityIcon("dataset_folder")).toBe("folder")
+    expect(verb("created", "dataset_folder")).toBe("Created folder")
+    expect(verb("deleted", "dataset_folder")).toBe("Deleted folder")
+    expect(entityTypeLabel("dataset_folder")).toBe("Dataset folder")
+  })
+
+  it("labels the row with the folder name", () => {
+    const id = "11111111-2222-3333-4444-555555555555"
+    expect(
+      resourceLabel({
+        entity_type: "dataset_folder",
+        entity_id: id,
+        changes: { name: "Reports", folders: 1, files: 4 },
+      }),
+    ).toBe("Reports")
+    expect(
+      resourceLabel({
+        entity_type: "dataset_folder",
+        entity_id: id,
+        changes: { name: { from: "A", to: "B" } },
+      }),
+    ).toBe("B")
+    expect(
+      resourceLabel({
+        entity_type: "dataset_folder",
+        entity_id: id,
+        changes: { parent_id: { from: null, to: id } },
+      }),
+    ).toBe("dataset_folder · 11111111")
+  })
+
+  it("keeps the old label for other entities with a plain name", () => {
+    expect(
+      resourceLabel({ entity_type: "agent", entity_id: "abcdef12-0", changes: { name: "Bot" } }),
+    ).toBe("agent · abcdef12")
   })
 })

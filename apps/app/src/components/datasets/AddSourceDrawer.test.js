@@ -11,6 +11,20 @@ vi.mock("@/stores/datasetFiles", () => ({
   useDatasetFilesStore: () => ({ uploadFile, scrapeUrl, addYouTube }),
 }))
 
+const { folderUpload } = vi.hoisted(() => ({ folderUpload: vi.fn() }))
+vi.mock("@/composables/useFolderUpload", async () => {
+  const { ref } = await import("vue")
+  return {
+    useFolderUpload: () => ({
+      uploads: ref([]),
+      running: ref(false),
+      error: ref(""),
+      upload: folderUpload,
+      reset: vi.fn(),
+    }),
+  }
+})
+
 import AddSourceDrawer from "@/components/datasets/AddSourceDrawer.vue"
 
 // a-drawer stub: teleports its default slot to document.body, applies root-class-name
@@ -64,11 +78,12 @@ const STUBS = {
 
 /**
  * Mount AddSourceDrawer with the drawer open and return a body-scoped query helper.
+ * @param {object} [props] - Extra props, for example `folderId` and `folderLabel`
  * @returns {{ wrapper: import("@vue/test-utils").VueWrapper, q: (sel: string) => Element|null, qq: (sel: string) => NodeListOf<Element> }}
  */
-function mountDrawer() {
+function mountDrawer(props = {}) {
   const wrapper = mount(AddSourceDrawer, {
-    props: { open: true, workspaceId: "ws1", datasetId: "ds1" },
+    props: { open: true, workspaceId: "ws1", datasetId: "ds1", ...props },
     attachTo: document.body,
     global: { stubs: STUBS },
   })
@@ -116,11 +131,11 @@ describe("AddSourceDrawer a-tabs panes", () => {
     document.body.innerHTML = ""
   })
 
-  it("renders both tab panes — Upload files and Link", async () => {
+  it("renders the three tab panes — Upload files, Upload folder, and Link", async () => {
     const { wrapper, qq } = mountDrawer()
     await wrapper.vm.$nextTick()
     const panes = qq(".a-tab-pane-stub")
-    expect(panes.length).toBe(2)
+    expect(panes.length).toBe(3)
     wrapper.unmount()
   })
 
@@ -219,7 +234,7 @@ describe("AddSourceDrawer URL flow", () => {
     await flushPromises()
     await wrapper.vm.$nextTick()
 
-    expect(scrapeUrl).toHaveBeenCalledWith("ws1", "ds1", "https://example.com")
+    expect(scrapeUrl).toHaveBeenCalledWith("ws1", "ds1", "https://example.com", null)
     expect(wrapper.emitted("scraped")[0]).toEqual(["https://example.com"])
     expect(q(".url-input").value).toBe("")
     wrapper.unmount()
@@ -370,7 +385,7 @@ describe("AddSourceDrawer Link detection", () => {
     await flushPromises()
     await wrapper.vm.$nextTick()
 
-    expect(addYouTube).toHaveBeenCalledWith("ws1", "ds1", "https://youtu.be/aircAruvnKk")
+    expect(addYouTube).toHaveBeenCalledWith("ws1", "ds1", "https://youtu.be/aircAruvnKk", null)
     expect(scrapeUrl).not.toHaveBeenCalled()
     expect(wrapper.emitted().youtube).toBeTruthy()
     expect(q(".url-input").value).toBe("")
@@ -413,6 +428,59 @@ describe("AddSourceDrawer Reset (onClose)", () => {
     expect(q(".url-error")).toBe(null)
     expect(q(".upload-list")).toBe(null)
     expect(q(".url-input").value).toBe("")
+    wrapper.unmount()
+  })
+})
+
+describe("AddSourceDrawer folder", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    document.body.innerHTML = ""
+  })
+
+  it("shows the target folder and sends it with an upload and a link", async () => {
+    uploadFile.mockResolvedValue({})
+    scrapeUrl.mockResolvedValue({})
+    const { wrapper, q } = mountDrawer({ folderId: "d1", folderLabel: "Docs / Reports" })
+    await wrapper.vm.$nextTick()
+    expect(q(".adding-to").textContent).toContain("Adding to Docs / Reports")
+    const fileInput = q('.drop-zone input[type="file"]')
+    Object.defineProperty(fileInput, "files", {
+      value: [new File(["x"], "a.pdf")],
+      configurable: true,
+    })
+    fileInput.dispatchEvent(new Event("change"))
+    await flushPromises()
+    expect(uploadFile).toHaveBeenCalledWith("ws1", "ds1", expect.any(File), "d1")
+    const input = q(".url-input")
+    input.value = "https://example.com"
+    input.dispatchEvent(new Event("input"))
+    await wrapper.vm.$nextTick()
+    q(".btn-primary").click()
+    await flushPromises()
+    expect(scrapeUrl).toHaveBeenCalledWith("ws1", "ds1", "https://example.com", "d1")
+    wrapper.unmount()
+  })
+
+  it("uploads a picked folder into the target folder and reports the skipped files", async () => {
+    folderUpload.mockResolvedValue({ uploaded: 1, failed: 0, skipped: ["docs/x.exe"] })
+    const { wrapper, q } = mountDrawer({ folderId: "d1" })
+    await wrapper.vm.$nextTick()
+    const input = q(".folder-zone input[type='file']")
+    expect(input.hasAttribute("webkitdirectory")).toBe(true)
+    const file = new File(["x"], "b.pdf")
+    Object.defineProperty(file, "webkitRelativePath", { value: "docs/b.pdf" })
+    Object.defineProperty(input, "files", { value: [file], configurable: true })
+    input.dispatchEvent(new Event("change"))
+    await flushPromises()
+    expect(folderUpload).toHaveBeenCalledWith({
+      entries: [{ file, relativePath: "docs/b.pdf" }],
+      parentId: "d1",
+    })
+    expect(wrapper.emitted("uploaded")).toBeTruthy()
+    expect(q(".folder-summary").textContent).toContain(
+      "Skipped 1 file with a type that is not supported",
+    )
     wrapper.unmount()
   })
 })
