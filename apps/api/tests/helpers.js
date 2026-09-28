@@ -213,6 +213,7 @@ export async function cleanAllTables() {
       dataset_file_questions,
       dataset_file_chunks,
       dataset_files,
+      dataset_folders,
       datasets,
       workspace_members,
       role_permissions,

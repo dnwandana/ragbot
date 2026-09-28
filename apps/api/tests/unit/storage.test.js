@@ -21,10 +21,14 @@ vi.mock("@aws-sdk/client-s3", () => ({
     this.input = input
     this.cmd = "get"
   }),
+  DeleteObjectsCommand: vi.fn(function (input) {
+    this.input = input
+    this.cmd = "deleteMany"
+  }),
 }))
 vi.mock("@aws-sdk/s3-request-presigner", () => ({ getSignedUrl: vi.fn() }))
 
-const { getObjectBuffer } = await import("../../src/services/storage.js")
+const { getObjectBuffer, deleteObjects } = await import("../../src/services/storage.js")
 
 describe("getObjectBuffer", () => {
   // A block body is required: Vitest runs a function returned by a hook as a
@@ -46,5 +50,41 @@ describe("getObjectBuffer", () => {
   it("propagates client errors", async () => {
     sendMock.mockRejectedValue(new Error("NoSuchKey"))
     await expect(getObjectBuffer("missing")).rejects.toThrow("NoSuchKey")
+  })
+})
+
+describe("deleteObjects", () => {
+  beforeEach(() => {
+    sendMock.mockReset()
+  })
+
+  it("sends nothing when no key is left", async () => {
+    expect(await deleteObjects([null, undefined, ""])).toEqual({ failed: [] })
+    expect(sendMock).not.toHaveBeenCalled()
+  })
+
+  it("sends quiet batches of at most 1000 unique keys", async () => {
+    sendMock.mockResolvedValue({})
+    const keys = Array.from({ length: 2500 }, (_, i) => `k/${i}`)
+    await deleteObjects([...keys, "k/0"])
+    const sizes = sendMock.mock.calls.map(([cmd]) => cmd.input.Delete.Objects.length)
+    expect(sizes).toEqual([1000, 1000, 500])
+    const first = sendMock.mock.calls[0][0]
+    expect(first.cmd).toBe("deleteMany")
+    expect(first.input.Delete.Quiet).toBe(true)
+    expect(first.input.Delete.Objects[0]).toEqual({ Key: "k/0" })
+  })
+
+  it("returns the keys that R2 reports as failed", async () => {
+    sendMock.mockResolvedValue({ Errors: [{ Key: "b", Code: "AccessDenied" }] })
+    expect(await deleteObjects(["a", "b"])).toEqual({ failed: ["b"] })
+  })
+
+  it("treats a rejected batch as failed and continues with the next batch", async () => {
+    sendMock.mockRejectedValueOnce(new Error("timeout")).mockResolvedValueOnce({})
+    const keys = Array.from({ length: 1001 }, (_, i) => `k/${i}`)
+    const { failed } = await deleteObjects(keys)
+    expect(failed).toHaveLength(1000)
+    expect(sendMock).toHaveBeenCalledTimes(2)
   })
 })
