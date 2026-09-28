@@ -7,6 +7,58 @@ description: What's new in RAGBot — new features and improvements by version.
 
 What's new in RAGBot. The newest release is listed first.
 
+## 1.7.0 — 28 September 2026
+
+Datasets can now hold folders. Put your sources in folders and subfolders,
+move them with a drag, and upload a full folder from your computer in one
+step.
+
+### New
+
+**Folders in datasets**
+
+- Choose **New folder** to add a folder in the folder that is open now.
+  Folders can hold more folders. Two items in the same folder cannot have the
+  same name, and the check ignores case. See
+  [Organize with folders](/concepts/datasets#organize-with-folders).
+- Breadcrumbs above the table show where you are. The browser back button
+  goes back to the previous folder, and you can bookmark or share the link to
+  a folder.
+- Select rows and choose **Move to…**, or drag the rows onto a folder row or
+  onto a crumb.
+- Delete a folder to delete everything inside it. Before you confirm, RAGBot
+  tells you how many subfolders and files the delete includes.
+- Open a file to see its **Location**. Select a folder in the location to open
+  that folder.
+- Folders only organize files. A chat that uses a dataset still searches every
+  file in it, in all folders.
+- The audit log records every folder create, rename, move, and delete as a
+  **Dataset folder** entry.
+
+**Upload a folder**
+
+- The Add source panel has a new **Upload folder** tab. RAGBot creates the
+  same subfolders in the dataset and uploads each file into its folder. Files
+  of a type that RAGBot does not support are skipped, and the panel tells you
+  how many.
+- You can also drag files or full folders from your computer into the dataset
+  page. They go into the folder that is open.
+- The top of the Add source panel shows the folder that receives the new
+  sources.
+
+### Improvements
+
+- The search box looks in the open folder and in all its subfolders. Each
+  result shows the folder it is in.
+- The file list loads in pages. Choose **Load more** to see the next page, so
+  a large dataset opens quickly.
+
+### Fixes
+
+- A file that you delete while it is still processing now stays deleted. Its
+  passages and suggested questions no longer come back after the processing
+  ends.
+
 ## 1.6.0 — 25 September 2026
 
 Conversations can now leave the app. Share a read-only link with anyone, or
