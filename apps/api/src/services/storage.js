@@ -2,6 +2,7 @@ import {
   S3Client,
   PutObjectCommand,
   DeleteObjectCommand,
+  DeleteObjectsCommand,
   GetObjectCommand,
 } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
@@ -76,4 +77,33 @@ export const getSignedDownloadUrl = async (key, expiresIn = 3600) => {
 export const getObjectBuffer = async (key) => {
   const response = await client.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }))
   return Buffer.from(await response.Body.transformToByteArray())
+}
+
+export const DELETE_BATCH_SIZE = 1000
+
+/**
+ * Deletes many objects from R2/S3. R2 accepts at most 1000 keys in one DeleteObjects call.
+ * The batches run one after the other, so memory stays at one batch.
+ *
+ * @param {Array<string|null|undefined>} keys - Object keys; empty values are ignored
+ * @returns {Promise<{ failed: string[] }>} The keys that were not deleted
+ */
+export const deleteObjects = async (keys) => {
+  const unique = [...new Set(keys.filter(Boolean))]
+  const failed = []
+  for (let i = 0; i < unique.length; i += DELETE_BATCH_SIZE) {
+    const batch = unique.slice(i, i + DELETE_BATCH_SIZE)
+    try {
+      const out = await client.send(
+        new DeleteObjectsCommand({
+          Bucket: BUCKET,
+          Delete: { Objects: batch.map((Key) => ({ Key })), Quiet: true },
+        }),
+      )
+      for (const err of out?.Errors ?? []) failed.push(err.Key)
+    } catch {
+      failed.push(...batch)
+    }
+  }
+  return { failed }
 }

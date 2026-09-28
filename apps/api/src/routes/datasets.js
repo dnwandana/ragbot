@@ -1,7 +1,10 @@
 import { Router } from "express"
 import { requirePermission } from "../middlewares/require-permission.js"
+import { resolveDataset } from "../middlewares/resolve-dataset.js"
 import * as datasets from "../controllers/datasets.js"
 import datasetFilesRouter from "./dataset-files.js"
+import datasetItemsRouter from "./dataset-items.js"
+import datasetFoldersRouter from "./dataset-folders.js"
 
 const router = Router({ mergeParams: true })
 
@@ -24,6 +27,8 @@ router.post(
   datasets.createConversationFromDataset,
 )
 
-router.use("/:dataset_id/files", datasetFilesRouter)
+router.use("/:dataset_id/files", resolveDataset, datasetFilesRouter)
+router.use("/:dataset_id/items", resolveDataset, datasetItemsRouter)
+router.use("/:dataset_id/folders", resolveDataset, datasetFoldersRouter)
 
 export default router

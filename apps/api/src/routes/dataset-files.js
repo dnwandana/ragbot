@@ -12,6 +12,7 @@ router.post(
 )
 router.post("/scrape-url", requirePermission("file:upload"), datasetFiles.scrapeUrl)
 router.post("/youtube", requirePermission("file:upload"), datasetFiles.addYouTube)
+router.post("/status", requirePermission("file:read"), datasetFiles.fileStatuses)
 router.get("/", requirePermission("file:read"), datasetFiles.listFiles)
 router.get("/:file_id", requirePermission("file:read"), datasetFiles.getFile)
 router.get("/:file_id/questions", requirePermission("file:read"), datasetFiles.listFileQuestions)

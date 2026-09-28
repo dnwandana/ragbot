@@ -10,6 +10,7 @@ import { assertPublicHttpUrl } from "../utils/ssrf.js"
 import { validatePaginationQuery, executePaginatedQuery } from "../utils/pagination.js"
 import * as datasetFileModel from "../models/dataset-files.js"
 import * as datasetModel from "../models/datasets.js"
+import * as folderModel from "../models/dataset-folders.js"
 import * as chunkModel from "../models/dataset-file-chunks.js"
 import * as questionModel from "../models/dataset-file-questions.js"
 import * as storageService from "../services/storage.js"
@@ -18,6 +19,7 @@ import { isSandboxEnabled } from "../services/sandbox.js"
 import { addProcessingJob } from "../queues/file-processing.js"
 import { parseYouTubeUrl } from "../services/youtube.js"
 import { addYoutubeJob } from "../queues/youtube-processing.js"
+import { readUuidParam } from "./dataset-items.js"
 
 /** Extensions the pipeline accepts; uploads outside this set are rejected. */
 const ALLOWED_UPLOAD_EXTENSIONS = new Set([
@@ -66,6 +68,7 @@ const urlBodySchema = joi
       .string()
       .uri({ scheme: ["http", "https"] })
       .required(),
+    folder_id: joi.string().uuid().allow(null, "").default(null),
   })
   .options({ stripUnknown: true })
 
@@ -73,6 +76,48 @@ const urlBodySchema = joi
 const updateSchema = joi
   .object({ filename: joi.string().max(255).optional() })
   .options({ stripUnknown: true })
+
+/** @type {import('joi').ObjectSchema} Validation schema for the status poll: 1 to 100 file UUIDs. */
+const statusSchema = joi.object({
+  ids: joi.array().items(joi.string().uuid()).min(1).max(100).unique().required(),
+})
+
+/**
+ * Inserts a file row. When folderId is set, the folder row stays locked FOR SHARE until the
+ * commit. A folder delete updates the folder row first, so it waits for this insert and then
+ * deletes the new file too. An insert that comes after the delete finds no active folder.
+ *
+ * @param {Object} row - File row without folder_id
+ * @param {string|null} folderId - Target folder UUID, or null for the root
+ * @returns {Promise<Object>} The new file row
+ * @throws {HttpError} 404 when the folder is not active in the dataset
+ */
+const insertFileRow = (row, folderId) =>
+  db.transaction(async (trx) => {
+    if (
+      folderId &&
+      !(await folderModel.lockForInsert({ id: folderId, datasetId: row.dataset_id }, trx))
+    ) {
+      throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "Folder not found")
+    }
+    const [file] = await datasetFileModel.create({ ...row, folder_id: folderId }, trx)
+    return file
+  })
+
+/**
+ * Throws 404 when the folder is not active in the dataset. It runs before any slow work.
+ * Only the lock in insertFileRow is a guarantee.
+ *
+ * @param {string|null} folderId - Target folder UUID, or null for the root
+ * @param {string} datasetId - Dataset UUID
+ * @returns {Promise<void>}
+ * @throws {HttpError} 404 when the folder is not active in the dataset
+ */
+const assertFolder = async (folderId, datasetId) => {
+  if (folderId && !(await folderModel.findActive({ id: folderId, datasetId }))) {
+    throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "Folder not found")
+  }
+}
 
 /**
  * POST /api/workspaces/:workspace_id/datasets/:dataset_id/files/upload — Upload a file to a dataset.
@@ -96,6 +141,9 @@ export const uploadFile = async (req, res, next) => {
       workspace_id: req.workspace.id,
     })
     if (!dataset) throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "Dataset not found")
+
+    const folderId = readUuidParam(req.body?.folder_id, "folder_id")
+    await assertFolder(folderId, dataset.id)
 
     const fileId = crypto.randomUUID()
     const ext = req.file.originalname.split(".").pop().toLowerCase()
@@ -129,19 +177,26 @@ export const uploadFile = async (req, res, next) => {
       metadata = { llamaindex_job_id: jobId }
     }
 
-    const [file] = await datasetFileModel.create({
-      id: fileId,
-      dataset_id: dataset.id,
-      workspace_id: req.workspace.id,
-      filename: req.file.originalname,
-      mime_type: req.file.mimetype,
-      file_size_bytes: req.file.size,
-      storage_provider: "r2",
-      storage_path: storagePath,
-      status: "processing",
-      metadata: JSON.stringify(metadata),
-      created_at: new Date(),
-      updated_at: new Date(),
+    const file = await insertFileRow(
+      {
+        id: fileId,
+        dataset_id: dataset.id,
+        workspace_id: req.workspace.id,
+        filename: req.file.originalname,
+        mime_type: req.file.mimetype,
+        file_size_bytes: req.file.size,
+        storage_provider: "r2",
+        storage_path: storagePath,
+        status: "processing",
+        metadata: JSON.stringify(metadata),
+        created_at: new Date(),
+        updated_at: new Date(),
+      },
+      folderId,
+    ).catch(async (err) => {
+      // No file row points to the object, so remove it.
+      await storageService.deleteFile(storagePath).catch(() => {})
+      throw err
     })
 
     await addProcessingJob({ datasetFileId: file.id, datasetId: dataset.id })
@@ -188,23 +243,29 @@ export const scrapeUrl = async (req, res, next) => {
     })
     if (!dataset) throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "Dataset not found")
 
+    const folderId = value.folder_id || null
+    await assertFolder(folderId, dataset.id)
+
     const fileId = crypto.randomUUID()
     const filename = urlToFilename(value.url)
 
-    const [file] = await datasetFileModel.create({
-      id: fileId,
-      dataset_id: dataset.id,
-      workspace_id: req.workspace.id,
-      filename,
-      mime_type: "text/markdown",
-      file_size_bytes: 0,
-      storage_provider: null,
-      storage_path: null,
-      status: "processing",
-      metadata: JSON.stringify({ source_url: value.url }),
-      created_at: new Date(),
-      updated_at: new Date(),
-    })
+    const file = await insertFileRow(
+      {
+        id: fileId,
+        dataset_id: dataset.id,
+        workspace_id: req.workspace.id,
+        filename,
+        mime_type: "text/markdown",
+        file_size_bytes: 0,
+        storage_provider: null,
+        storage_path: null,
+        status: "processing",
+        metadata: JSON.stringify({ source_url: value.url }),
+        created_at: new Date(),
+        updated_at: new Date(),
+      },
+      folderId,
+    )
 
     await logAuditEvent({
       workspace_id: req.workspace.id,
@@ -256,26 +317,32 @@ export const addYouTube = async (req, res, next) => {
     })
     if (!dataset) throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "Dataset not found")
 
+    const folderId = value.folder_id || null
+    await assertFolder(folderId, dataset.id)
+
     const fileId = crypto.randomUUID()
-    const [file] = await datasetFileModel.create({
-      id: fileId,
-      dataset_id: dataset.id,
-      workspace_id: req.workspace.id,
-      filename: parsed.canonicalUrl,
-      mime_type: "text/markdown",
-      file_size_bytes: 0,
-      storage_provider: null,
-      storage_path: null,
-      status: "processing",
-      metadata: JSON.stringify({
-        source_type: "youtube",
-        video_id: parsed.videoId,
-        source_url: value.url,
-        canonical_url: parsed.canonicalUrl,
-      }),
-      created_at: new Date(),
-      updated_at: new Date(),
-    })
+    const file = await insertFileRow(
+      {
+        id: fileId,
+        dataset_id: dataset.id,
+        workspace_id: req.workspace.id,
+        filename: parsed.canonicalUrl,
+        mime_type: "text/markdown",
+        file_size_bytes: 0,
+        storage_provider: null,
+        storage_path: null,
+        status: "processing",
+        metadata: JSON.stringify({
+          source_type: "youtube",
+          video_id: parsed.videoId,
+          source_url: value.url,
+          canonical_url: parsed.canonicalUrl,
+        }),
+        created_at: new Date(),
+        updated_at: new Date(),
+      },
+      folderId,
+    )
 
     await logAuditEvent({
       workspace_id: req.workspace.id,
@@ -326,8 +393,9 @@ export const listFiles = async (req, res, next) => {
 /**
  * GET /api/workspaces/:workspace_id/datasets/:dataset_id/files/:file_id — Get a single dataset file.
  *
- * Returns the file record. If the file has a storage_path, a pre-signed R2 download
- * URL valid for 1 hour is generated and appended as signed_url.
+ * Returns the file record with `path`, the folders from the root to the file's folder. If the
+ * file has a storage_path, a pre-signed R2 download URL valid for 1 hour is generated and
+ * appended as signed_url.
  *
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
@@ -343,12 +411,38 @@ export const getFile = async (req, res, next) => {
     })
     if (!file) throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "File not found")
 
+    const path = (
+      await folderModel.ancestors({ folderId: file.folder_id, datasetId: file.dataset_id })
+    ).map(({ id, name }) => ({ id, name }))
+
     let signedUrl = null
     if (file.storage_path) {
       signedUrl = await storageService.getSignedDownloadUrl(file.storage_path)
     }
 
-    return res.json(apiResponse({ message: "OK", data: { ...file, signed_url: signedUrl } }))
+    return res.json(apiResponse({ message: "OK", data: { ...file, path, signed_url: signedUrl } }))
+  } catch (error) {
+    return next(error)
+  }
+}
+
+/**
+ * POST /api/workspaces/:workspace_id/datasets/:dataset_id/files/status — Get the status of files.
+ *
+ * Returns one row for each active file among `ids`. A deleted file is not in the result, so
+ * the client treats a missing id as a deleted file.
+ *
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next middleware function
+ * @returns {Promise<void>}
+ */
+export const fileStatuses = async (req, res, next) => {
+  try {
+    const { error, value } = statusSchema.validate(req.body)
+    if (error) throw new HttpError(HTTP_STATUS_CODE.BAD_REQUEST, error.details[0].message)
+    const rows = await datasetFileModel.statusMany({ datasetId: req.dataset.id, ids: value.ids })
+    return res.json(apiResponse({ message: "OK", data: rows }))
   } catch (error) {
     return next(error)
   }
@@ -457,8 +551,8 @@ export const updateFile = async (req, res, next) => {
 /**
  * DELETE /api/workspaces/:workspace_id/datasets/:dataset_id/files/:file_id — Delete a dataset file.
  *
- * Deletes all dataset_file_questions and dataset_file_chunks for the file, soft-deletes
- * the file record, removes the object from R2 storage (failure is silently ignored to
+ * Soft-deletes the file record, deletes all dataset_file_questions and dataset_file_chunks
+ * for the file, removes the object from R2 storage (failure is silently ignored to
  * avoid blocking), and logs the audit event.
  *
  * @param {Object} req - Express request object
@@ -476,9 +570,11 @@ export const deleteFile = async (req, res, next) => {
     if (!file) throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "File not found")
 
     await db.transaction(async (trx) => {
+      // Lock the file row first, as the processing pipeline does. The same lock order
+      // prevents a deadlock with a pipeline that writes chunks for this file.
+      await datasetFileModel.softDelete(file.id, trx)
       await questionModel.deleteByFileId(file.id, trx)
       await chunkModel.deleteByFileId(file.id, trx)
-      await datasetFileModel.softDelete(file.id, trx)
     })
 
     if (file.storage_path) {
