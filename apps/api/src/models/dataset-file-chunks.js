@@ -10,11 +10,12 @@ const CHUNK_COLUMNS = ["id", "dataset_file_id", "content", "chunk_index"]
  * No-ops if chunks is empty.
  *
  * @param {Array<{ id: string, dataset_file_id: string, content: string, chunk_index: number, embedding: number[] }>} chunks
+ * @param {import('knex').Knex.Transaction} [trx] - Optional Knex transaction
  * @returns {Promise<void>}
  */
-export const bulkInsert = async (chunks) => {
+export const bulkInsert = async (chunks, trx) => {
   if (!chunks.length) return
-  await db.raw(
+  await (trx ?? db).raw(
     `INSERT INTO dataset_file_chunks (id, dataset_file_id, content, chunk_index, embedding) VALUES ${chunks.map(() => "(?, ?, ?, ?, ?::vector)").join(", ")}`,
     chunks.flatMap((c) => [
       c.id,

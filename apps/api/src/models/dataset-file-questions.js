@@ -7,11 +7,12 @@ const COLUMNS = ["id", "dataset_file_id", "question", "created_at"]
  * Bulk-insert exploration questions for a dataset file. No-ops if questions is empty.
  *
  * @param {Array<{ id: string, dataset_file_id: string, question: string }>} questions
+ * @param {import('knex').Knex.Transaction} [trx] - Optional Knex transaction
  * @returns {Promise<void>}
  */
-export const bulkInsert = async (questions) => {
+export const bulkInsert = async (questions, trx) => {
   if (!questions.length) return
-  await db(TABLE).insert(questions)
+  await (trx ?? db)(TABLE).insert(questions)
 }
 
 /**

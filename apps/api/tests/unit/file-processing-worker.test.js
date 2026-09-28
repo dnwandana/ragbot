@@ -111,6 +111,21 @@ describe("processJob", () => {
     expect(order).toEqual(["update", "pipeline"])
   })
 
+  it("finishes without a retry when the file is deleted", async () => {
+    datasetFileModel.findOne.mockResolvedValueOnce(undefined)
+    datasetModel.findOne.mockResolvedValueOnce(dataset)
+    await expect(
+      processJob({ data: { datasetFileId: "f1", datasetId: "d1" } }),
+    ).resolves.toBeUndefined()
+    expect(runProcessingPipeline).not.toHaveBeenCalled()
+  })
+
+  it("still throws when the dataset is missing", async () => {
+    datasetFileModel.findOne.mockResolvedValueOnce(tabularFile)
+    datasetModel.findOne.mockResolvedValueOnce(undefined)
+    await expect(processJob(jobFor(tabularFile))).rejects.toThrow(/Dataset d1 not found/)
+  })
+
   it("propagates a profiling failure so the file is marked failed", async () => {
     datasetFileModel.findOne.mockResolvedValue(tabularFile)
     vi.mocked(profileTabularFile).mockRejectedValue(new Error("Tabular profiling failed"))

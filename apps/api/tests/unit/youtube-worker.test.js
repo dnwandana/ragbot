@@ -23,6 +23,13 @@ const job = (overrides = {}) => ({
 })
 
 describe("processYoutubeJob", () => {
+  it("finishes without a retry when the file is deleted", async () => {
+    datasetFileModel.findOne.mockResolvedValueOnce(undefined)
+    datasetModel.findOne.mockResolvedValueOnce({ id: "ds1" })
+    await expect(processYoutubeJob(job())).resolves.toBeUndefined()
+    expect(youtube.getTranscript).not.toHaveBeenCalled()
+  })
+
   it("transcribes and runs the shared pipeline with a titled markdown header", async () => {
     datasetFileModel.findOne.mockResolvedValue({
       id: "file1",

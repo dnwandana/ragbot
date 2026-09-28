@@ -15,6 +15,7 @@ vi.mock("../../src/services/question-generator.js", () => ({
 }))
 
 const { runProcessingPipeline } = await import("../../src/workers/file-processing.js")
+const openrouter = await import("../../src/services/openrouter.js")
 
 let dsId, fileId
 
@@ -102,6 +103,58 @@ describe("runProcessingPipeline", () => {
     const file = await db("dataset_files").where({ id: fileId }).first()
     expect(file.chunk_count).toBe(0)
     expect(file.status).toBe("completed")
+  })
+
+  it("writes nothing for a file that is already deleted", async () => {
+    await db("dataset_files").where({ id: fileId }).update({ deleted_at: new Date() })
+    const wrote = await runProcessingPipeline({
+      datasetFileId: fileId,
+      markdownContent: "# T\n\nBody.",
+      dataset: await loadDataset(),
+    })
+    expect(wrote).toBe(false)
+    expect(await db("dataset_file_chunks").where({ dataset_file_id: fileId })).toHaveLength(0)
+    expect(await db("dataset_file_questions").where({ dataset_file_id: fileId })).toHaveLength(0)
+    expect((await db("dataset_files").where({ id: fileId }).first()).status).toBe("processing")
+  })
+
+  it("writes nothing when a delete removes the file during the embedding call", async () => {
+    vi.mocked(openrouter.embedBatch).mockImplementationOnce(async (chunks) => {
+      await db("dataset_files").where({ id: fileId }).update({ deleted_at: new Date() })
+      return chunks.map(() => Array.from({ length: 1536 }, () => 0))
+    })
+    const wrote = await runProcessingPipeline({
+      datasetFileId: fileId,
+      markdownContent: "# T\n\nBody.",
+      dataset: await loadDataset(),
+    })
+    expect(wrote).toBe(false)
+    expect(await db("dataset_file_chunks").where({ dataset_file_id: fileId })).toHaveLength(0)
+    expect(await db("dataset_file_questions").where({ dataset_file_id: fileId })).toHaveLength(0)
+  })
+
+  it("waits for an open delete and then writes nothing", async () => {
+    const del = await db.transaction()
+    await del("dataset_files").where({ id: fileId }).update({ deleted_at: new Date() })
+    const pending = runProcessingPipeline({
+      datasetFileId: fileId,
+      markdownContent: "# T\n\nBody.",
+      dataset: await loadDataset(),
+    })
+    await new Promise((r) => setTimeout(r, 200))
+    await del.commit()
+    expect(await pending).toBe(false)
+    expect(await db("dataset_file_chunks").where({ dataset_file_id: fileId })).toHaveLength(0)
+  })
+
+  it("returns true after the writes", async () => {
+    const wrote = await runProcessingPipeline({
+      datasetFileId: fileId,
+      markdownContent: "# T\n\nBody.",
+      dataset: await loadDataset(),
+    })
+    expect(wrote).toBe(true)
+    expect(await db("dataset_file_chunks").where({ dataset_file_id: fileId })).not.toHaveLength(0)
   })
 
   it("clears prior questions when reprocessing", async () => {

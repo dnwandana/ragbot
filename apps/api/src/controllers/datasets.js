@@ -223,9 +223,11 @@ export const deleteDataset = async (req, res, next) => {
     if (!dataset) throw new HttpError(HTTP_STATUS_CODE.NOT_FOUND, "Dataset not found")
 
     await db.transaction(async (trx) => {
+      // Lock the file rows first, as the processing pipeline does. The same lock order
+      // prevents a deadlock with a pipeline that writes chunks for a file of this dataset.
+      await datasetFileModel.softDeleteByDataset(dataset.id, trx)
       await questionModel.deleteByDatasetId(dataset.id, trx)
       await chunkModel.deleteByDatasetId(dataset.id, trx)
-      await datasetFileModel.softDeleteByDataset(dataset.id, trx)
       await datasetModel.softDelete(dataset.id, trx)
     })
 

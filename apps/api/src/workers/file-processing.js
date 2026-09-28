@@ -20,8 +20,8 @@ export { runProcessingPipeline } from "../services/processing-pipeline.js"
  * Throws on failure so BullMQ retries with exponential backoff.
  *
  * @param {import('bullmq').Job<{ datasetFileId: string, datasetId: string }>} job - BullMQ job
- * @returns {Promise<void>}
- * @throws {Error} If file or dataset not found, no source in metadata, or pipeline fails
+ * @returns {Promise<void>} Resolves without work when the file is missing or deleted
+ * @throws {Error} If the dataset is not found, no source in metadata, or pipeline fails
  */
 export const processJob = async (job) => {
   const { datasetFileId, datasetId } = job.data
@@ -31,8 +31,12 @@ export const processJob = async (job) => {
     datasetModel.findOne({ id: datasetId }),
   ])
 
-  if (!file) throw new Error(`Dataset file ${datasetFileId} not found`)
   if (!dataset) throw new Error(`Dataset ${datasetId} not found`)
+  if (!file) {
+    // A deleted file has no work left. A throw would only cause useless retries.
+    logger.info("Skipped a job for a deleted dataset file", { datasetFileId })
+    return
+  }
 
   const metadata =
     typeof file.metadata === "string" ? JSON.parse(file.metadata) : (file.metadata ?? {})
