@@ -1,14 +1,20 @@
 <script setup>
 import { ref, computed } from "vue"
-import { Check, CloudUpload, FileText, Link2, Upload, X } from "lucide-vue-next"
+import { Check, CloudUpload, FileText, FolderUp, Link2, Upload, X } from "lucide-vue-next"
 import { useDatasetFilesStore } from "@/stores/datasetFiles"
-import { humanSize } from "@/utils/files"
+import { useFolderUpload } from "@/composables/useFolderUpload"
+import { humanSize, UPLOAD_EXTENSIONS } from "@/utils/files"
+import { filesFromInput } from "@/utils/droppedEntries"
 import { SOURCE_DETECTORS, detectSource } from "@/components/datasets/sourceDetectors"
 
 const props = defineProps({
   open: { type: Boolean, default: false },
   workspaceId: { type: String, required: true },
   datasetId: { type: String, required: true },
+  // The target folder of each new file. `null` is the dataset root.
+  folderId: { type: String, default: null },
+  // The path of the target folder, for example "Docs / Reports / Q1".
+  folderLabel: { type: String, default: "" },
 })
 
 const emit = defineEmits(["close", "uploaded", "scraped", "youtube"])
@@ -21,29 +27,8 @@ const urlInput = ref("")
 const urlError = ref("")
 const urlLoading = ref(false)
 
-/**
- * Extensions the file picker offers. Mirrors ALLOWED_UPLOAD_EXTENSIONS in
- * apps/api/src/controllers/dataset-files.js. A missing entry hides the file in
- * the OS picker even though the upload itself would succeed.
- */
-const ACCEPTED_EXTENSIONS = [
-  ".pdf",
-  ".doc",
-  ".docx",
-  ".ppt",
-  ".pptx",
-  ".xls",
-  ".xlsx",
-  ".csv",
-  ".tsv",
-  ".json",
-  ".txt",
-  ".md",
-  ".html",
-  ".htm",
-  ".rtf",
-  ".epub",
-].join(",")
+/** The extensions that the file picker offers. A missing entry hides the file in the OS picker. */
+const ACCEPTED_EXTENSIONS = UPLOAD_EXTENSIONS.join(",")
 
 /**
  * Per-source submit dispatch keyed by detector key. Each entry calls the right
@@ -51,11 +36,11 @@ const ACCEPTED_EXTENSIONS = [
  */
 const SOURCE_ACTIONS = {
   youtube: {
-    call: (url) => store.addYouTube(props.workspaceId, props.datasetId, url),
+    call: (url) => store.addYouTube(props.workspaceId, props.datasetId, url, props.folderId),
     event: "youtube",
   },
   web: {
-    call: (url) => store.scrapeUrl(props.workspaceId, props.datasetId, url),
+    call: (url) => store.scrapeUrl(props.workspaceId, props.datasetId, url, props.folderId),
     event: "scraped",
   },
 }
@@ -83,7 +68,7 @@ async function processFiles(fileList) {
   let succeeded = 0
   for (const entry of entries) {
     try {
-      await store.uploadFile(props.workspaceId, props.datasetId, entry.file)
+      await store.uploadFile(props.workspaceId, props.datasetId, entry.file, props.folderId)
       const i = uploadItems.value.findIndex((x) => x.id === entry.id)
       if (i !== -1) uploadItems.value[i] = { ...uploadItems.value[i], status: "done" }
       succeeded++
@@ -133,8 +118,42 @@ async function submitLink() {
   }
 }
 
+const folderUpload = useFolderUpload({
+  workspaceId: () => props.workspaceId,
+  datasetId: () => props.datasetId,
+})
+const folderSummary = ref("")
+
+/**
+ * Returns the count and the word, with an "s" when the count is not 1.
+ * @param {number} n
+ * @param {string} word
+ * @returns {string}
+ */
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`
+
+/**
+ * Uploads the folder that the user picked into the target folder. The subfolders keep their
+ * structure. The upload skips the file types that the API does not accept.
+ * @param {Event} e - The `change` event of the `webkitdirectory` input
+ * @returns {Promise<void>}
+ */
+async function onFolderInput(e) {
+  const entries = filesFromInput(e.target.files)
+  e.target.value = ""
+  if (!entries.length) return
+  folderSummary.value = ""
+  const { uploaded, skipped } = await folderUpload.upload({ entries, parentId: props.folderId })
+  if (skipped.length) {
+    folderSummary.value = `Skipped ${plural(skipped.length, "file")} with a type that is not supported.`
+  }
+  if (uploaded > 0) emit("uploaded")
+}
+
 function onClose() {
   uploadItems.value = []
+  folderUpload.reset()
+  folderSummary.value = ""
   urlInput.value = ""
   urlError.value = ""
   activeTab.value = "upload"
@@ -162,6 +181,9 @@ function onClose() {
           <X :size="14" :stroke-width="1.8" />
         </button>
       </div>
+      <p v-if="folderLabel" class="adding-to">
+        Adding to <strong>{{ folderLabel }}</strong>
+      </p>
 
       <!-- Tabs -->
       <a-tabs v-model:active-key="activeTab" class="source-tabs">
@@ -200,6 +222,65 @@ function onClose() {
 
             <div v-if="uploadItems.length" class="upload-list">
               <div v-for="item in uploadItems" :key="item.id" class="upload-row">
+                <FileText :size="13" :stroke-width="1.5" class="upload-file-icon" />
+                <div class="upload-info">
+                  <span class="upload-name">{{ item.name }}</span>
+                  <span v-if="item.error" class="upload-error">{{ item.error }}</span>
+                </div>
+                <span class="upload-size">{{ item.size }}</span>
+                <Check
+                  v-if="item.status === 'done'"
+                  :size="14"
+                  :stroke-width="2"
+                  class="status-ok"
+                />
+                <X
+                  v-else-if="item.status === 'failed'"
+                  :size="14"
+                  :stroke-width="2"
+                  class="status-err"
+                />
+                <span v-else class="upload-spinner" />
+              </div>
+            </div>
+          </div>
+        </a-tab-pane>
+
+        <!-- Upload folder tab -->
+        <a-tab-pane key="folder">
+          <template #tab>
+            <span class="tab-label">
+              <FolderUp :size="12" :stroke-width="1.8" />
+              Upload folder
+            </span>
+          </template>
+          <div class="drawer-body">
+            <div class="drop-zone folder-zone">
+              <div class="drop-icon">
+                <FolderUp :size="20" :stroke-width="1.5" />
+              </div>
+              <p class="drop-text">Upload a folder</p>
+              <p class="drop-sub">
+                The subfolders keep their structure. Other file types are skipped.
+              </p>
+              <label class="btn-secondary" style="margin-top: 6px; cursor: pointer">
+                Choose folder
+                <input
+                  type="file"
+                  webkitdirectory
+                  multiple
+                  style="display: none"
+                  @change="onFolderInput"
+                />
+              </label>
+            </div>
+            <p v-if="folderUpload.error.value" class="upload-error" role="alert">
+              {{ folderUpload.error.value }}
+            </p>
+            <p v-if="folderSummary" class="folder-summary">{{ folderSummary }}</p>
+
+            <div v-if="folderUpload.uploads.value.length" class="upload-list">
+              <div v-for="item in folderUpload.uploads.value" :key="item.id" class="upload-row">
                 <FileText :size="13" :stroke-width="1.5" class="upload-file-icon" />
                 <div class="upload-info">
                   <span class="upload-name">{{ item.name }}</span>
@@ -291,6 +372,19 @@ function onClose() {
   padding: 14px 16px;
   border-bottom: 1px solid var(--line);
   flex-shrink: 0;
+}
+
+.add-source-drawer-root .adding-to {
+  margin: 0;
+  padding: 8px 16px;
+  font-size: 12px;
+  color: var(--ink-3);
+  border-bottom: 1px solid var(--line);
+}
+
+.add-source-drawer-root .folder-summary {
+  font-size: 12px;
+  color: var(--ink-3);
 }
 
 .add-source-drawer-root .drawer-title {
