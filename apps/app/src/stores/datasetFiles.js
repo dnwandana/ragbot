@@ -18,20 +18,22 @@ export const useDatasetFilesStore = defineStore("datasetFiles", () => {
     }
   }
 
-  async function uploadFile(workspaceId, datasetId, file) {
+  async function uploadFile(workspaceId, datasetId, file, folderId = null) {
     const form = new FormData()
     form.append("file", file)
+    // A root upload sends no folder_id, so the API stores NULL.
+    if (folderId) form.append("folder_id", folderId)
     const res = await filesApi.uploadFile(workspaceId, datasetId, form)
     return res.data.data
   }
 
-  async function scrapeUrl(workspaceId, datasetId, url) {
-    const res = await filesApi.scrapeUrl(workspaceId, datasetId, url)
+  async function scrapeUrl(workspaceId, datasetId, url, folderId = null) {
+    const res = await filesApi.scrapeUrl(workspaceId, datasetId, url, folderId)
     return res.data.data
   }
 
-  async function addYouTube(workspaceId, datasetId, url) {
-    const res = await filesApi.addYouTube(workspaceId, datasetId, url)
+  async function addYouTube(workspaceId, datasetId, url, folderId = null) {
+    const res = await filesApi.addYouTube(workspaceId, datasetId, url, folderId)
     return res.data.data
   }
 

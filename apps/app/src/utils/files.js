@@ -55,3 +55,40 @@ export function statusChipClass(status) {
   if (status === "failed") return "chip--err"
   return ""
 }
+
+/**
+ * Extensions that the upload accepts, with a leading dot. Mirrors ALLOWED_UPLOAD_EXTENSIONS in
+ * apps/api/src/controllers/dataset-files.js.
+ * @type {string[]}
+ */
+export const UPLOAD_EXTENSIONS = [
+  ".pdf",
+  ".doc",
+  ".docx",
+  ".ppt",
+  ".pptx",
+  ".xls",
+  ".xlsx",
+  ".csv",
+  ".tsv",
+  ".json",
+  ".txt",
+  ".md",
+  ".html",
+  ".htm",
+  ".rtf",
+  ".epub",
+]
+
+const UPLOAD_EXTENSION_SET = new Set(UPLOAD_EXTENSIONS)
+
+/**
+ * Tells if the upload accepts a file name. The check ignores case. A name that starts with a dot,
+ * such as `.DS_Store`, is a hidden file and is not accepted.
+ * @param {string} name The file name.
+ * @returns {boolean} True when the extension is in `UPLOAD_EXTENSIONS`.
+ */
+export function isUploadable(name) {
+  const dot = name.lastIndexOf(".")
+  return dot > 0 && UPLOAD_EXTENSION_SET.has(name.slice(dot).toLowerCase())
+}

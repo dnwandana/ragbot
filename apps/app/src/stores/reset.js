@@ -7,6 +7,7 @@ import { useConversationsStore } from "./conversations.js"
 import { useChatStore } from "./chat.js"
 import { useDatasetsStore } from "./datasets.js"
 import { useDatasetFilesStore } from "./datasetFiles.js"
+import { useDatasetItemsStore } from "./datasetItems.js"
 import { useAuditLogsStore } from "./auditLogs.js"
 import { useSessionsStore } from "./sessions.js"
 
@@ -24,6 +25,7 @@ export function resetAllStores() {
   useChatStore().reset()
   useDatasetsStore().reset()
   useDatasetFilesStore().reset()
+  useDatasetItemsStore().reset()
   useAuditLogsStore().reset()
   useSessionsStore().reset()
 }
