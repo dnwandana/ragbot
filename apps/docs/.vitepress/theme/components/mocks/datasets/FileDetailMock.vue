@@ -67,6 +67,14 @@ function padIndex(i) {
               <dd>Jan 3, 2009</dd>
             </div>
             <div class="fd-info-row">
+              <dt>Location</dt>
+              <dd class="fd-location">
+                <span class="fd-location-crumb">Company handbook</span>
+                <span class="fd-location-sep">/</span>
+                <span class="fd-location-crumb">Policies</span>
+              </dd>
+            </div>
+            <div class="fd-info-row">
               <dt>Chunks</dt>
               <dd class="fd-mono">34</dd>
             </div>
@@ -118,6 +126,7 @@ function padIndex(i) {
 
       <!-- Footer -->
       <div class="fd-foot">
+        <button class="fd-btn-secondary">Move to…</button>
         <button class="fd-btn-secondary">Re-index</button>
         <button class="fd-btn-danger">Delete</button>
       </div>
@@ -244,6 +253,18 @@ function padIndex(i) {
 .fd-info-row dd {
   color: var(--ink-2);
   margin: 0;
+}
+.fd-location {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+}
+.fd-location-crumb {
+  color: var(--brand);
+}
+.fd-location-sep {
+  color: var(--ink-3);
 }
 .fd-mono {
   font-family: var(--font-mono);

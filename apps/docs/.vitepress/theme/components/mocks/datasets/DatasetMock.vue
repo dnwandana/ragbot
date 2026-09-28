@@ -1,5 +1,20 @@
 <script setup>
-import { ChevronLeft, MessageSquare, Plus, Search, Ellipsis } from "lucide-vue-next"
+import {
+  ChevronLeft,
+  ChevronRight,
+  Ellipsis,
+  Folder,
+  FolderPlus,
+  House,
+  MessageSquare,
+  Plus,
+  Search,
+} from "lucide-vue-next"
+
+const folders = [
+  { name: "Leave", meta: "0 folders · 3 files", added: "Jun 14" },
+  { name: "Travel", meta: "1 folder · 2 files", added: "Jun 14" },
+]
 
 const files = [
   {
@@ -29,21 +44,12 @@ const files = [
     label: "Parsing",
     added: "Jun 12",
   },
-  {
-    name: "org-chart.png",
-    type: "file",
-    size: "280 KB",
-    chunks: "—",
-    status: "err",
-    label: "Failed",
-    added: "Jun 12",
-  },
 ]
 </script>
 
 <template>
   <MockFrame
-    label="ragbot — datasets / Company handbook"
+    label="ragbot — datasets / Company handbook / Policies"
     caption="Documents are ready to use the moment processing finishes."
   >
     <div class="ds-page">
@@ -70,6 +76,10 @@ const files = [
             <MessageSquare :size="13" :stroke-width="2" />
             Start chat
           </button>
+          <button class="ds-btn-secondary">
+            <FolderPlus :size="13" :stroke-width="1.8" />
+            New folder
+          </button>
           <button class="ds-btn-primary">
             <Plus :size="16" />
             Add source
@@ -77,11 +87,18 @@ const files = [
         </div>
       </div>
 
+      <!-- Breadcrumbs -->
+      <nav class="ds-crumbs" aria-label="Folder path">
+        <span class="ds-crumb"><House :size="13" :stroke-width="1.7" /> Company handbook</span>
+        <ChevronRight :size="12" :stroke-width="1.8" class="ds-crumb-sep" />
+        <span class="ds-crumb ds-crumb--current">Policies</span>
+      </nav>
+
       <!-- Toolbar -->
       <div class="ds-toolbar">
         <div class="ds-search">
           <Search :size="13" :stroke-width="1.7" style="color: var(--ink-3)" />
-          <span class="ds-search-ph">Search files in this dataset…</span>
+          <span class="ds-search-ph">Search in Policies and subfolders…</span>
         </div>
         <div class="ds-filters">
           <span class="ds-chip-filter ds-chip-filter--active">All</span>
@@ -89,7 +106,7 @@ const files = [
           <span class="ds-chip-filter">Parsing</span>
           <span class="ds-chip-filter">Failed</span>
         </div>
-        <span class="ds-count">4 files</span>
+        <span class="ds-count">5 items</span>
       </div>
 
       <!-- File table -->
@@ -104,6 +121,27 @@ const files = [
           <div>Status</div>
           <div>Added</div>
           <div></div>
+        </div>
+
+        <!-- Folder rows come first -->
+        <div v-for="folder in folders" :key="folder.name" class="ds-file-cols ds-file-row">
+          <div>
+            <span class="ds-cb" />
+          </div>
+          <div>
+            <Folder :size="15" :stroke-width="1.7" class="ds-folder-icon" />
+          </div>
+          <div class="ds-col-name">
+            <span class="ds-file-name">{{ folder.name }}</span>
+            <span class="ds-item-meta">{{ folder.meta }}</span>
+          </div>
+          <div class="ds-col-right ds-mono">—</div>
+          <div class="ds-mono">—</div>
+          <div></div>
+          <div class="ds-muted">{{ folder.added }}</div>
+          <div>
+            <span class="ds-row-menu">⋯</span>
+          </div>
         </div>
 
         <!-- File rows -->
@@ -246,6 +284,20 @@ const files = [
   cursor: default;
 }
 
+.ds-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 11px;
+  background: var(--surface);
+  color: var(--ink-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: default;
+}
+
 .ds-btn-icon {
   display: inline-flex;
   align-items: center;
@@ -311,6 +363,46 @@ const files = [
   font-size: 12px;
   color: var(--ink-3);
   margin-left: auto;
+  white-space: nowrap;
+}
+
+/* ── Breadcrumbs ── */
+.ds-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.ds-crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 6px;
+  color: var(--ink-2);
+}
+
+.ds-crumb--current {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.ds-crumb-sep {
+  color: var(--ink-4);
+}
+
+/* ── Folder rows ── */
+.ds-folder-icon {
+  color: var(--brand);
+}
+
+.ds-item-meta {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -395,6 +487,7 @@ const files = [
 .ds-col-name {
   display: flex;
   flex-direction: column;
+  gap: 2px;
   min-width: 0;
 }
 

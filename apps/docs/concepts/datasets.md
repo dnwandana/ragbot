@@ -18,9 +18,12 @@ Smaller, focused datasets give sharper answers than one giant pile of everything
 
 ## Add sources
 
-Open a dataset and choose **Add source**. A panel slides in with two tabs:
+Open a dataset and choose **Add source**. A panel slides in. The top of the panel shows the folder
+that receives the new sources, for example **Adding to Handbook / Policies**. The panel has three
+tabs:
 
 - **Upload files** — drag documents or spreadsheets into the drop zone, or browse to select them. You can add several at once.
+- **Upload folder** — select a folder on your computer. RAGBot creates the same subfolders in the dataset and uploads each file into its folder. Files of a type that RAGBot does not support are skipped, and the panel tells you how many.
 - **Link** — paste a web page or YouTube link. RAGBot detects which it is: a web page is scraped for its readable text, and a YouTube link is indexed from its transcript.
 
 Either way, each new source uploads and then begins processing automatically — there's nothing else to press.
@@ -79,12 +82,44 @@ A **data file** shows one more section, **Schema**: each sheet with its row coun
 
 <FileDetailMock />
 
-## Organizing and deleting
+## Organize with folders
 
-Rename a dataset or a file whenever its contents drift. Inside a dataset you can remove a single document — handy when a file is out of date — without touching the rest. Deleting a document removes it from every answer that drew on it, so chats simply stop citing it.
+A dataset can hold folders, and a folder can hold more folders. Choose **New folder** to add one
+in the folder that is open now. Two items in the same folder cannot have the same name. The check
+ignores case, so `Reports` and `reports` count as the same name.
+
+The breadcrumbs above the table show where you are. Select a crumb to go back up. The browser back
+button also goes back to the previous folder, and you can bookmark or share the link to a folder.
+
+The search box looks in the open folder and in all its subfolders. Each result shows the folder it
+is in. The status filters show files only.
+
+### Move items
+
+Select one or more rows and choose **Move to…**, then pick a folder and choose **Move here**. You
+can also drag the rows onto a folder row or onto a crumb. You cannot move a folder into itself or
+into one of its own subfolders.
+
+To upload, you can also drag files or whole folders from your computer into the dataset page. They
+go into the folder that is open.
+
+Open a file to see its **Location**. Select a folder in the location to open that folder.
+
+::: tip Folders do not limit a chat
+Folders only organize files. A chat that uses a dataset still searches every file in it, in all
+folders.
+:::
+
+## Rename and delete
+
+Rename a dataset, a folder, or a file whenever its contents drift. Deleting a document removes it
+from every answer that drew on it, so chats simply stop citing it.
+
+Deleting a folder also deletes everything inside it. Before you confirm, RAGBot tells you how many
+subfolders and files the delete includes.
 
 Deleting an entire dataset removes all of its documents and unlinks it from any conversations that used it. Those chats keep working; they just have one fewer source to draw on.
 
 ::: warning Deleting is permanent
-Removing a document or a dataset can't be undone. If you're replacing a file with a newer version, add the new one first and confirm it's **Indexed** before deleting the old.
+Removing a document, a folder, or a dataset can't be undone. If you're replacing a file with a newer version, add the new one first and confirm it's **Indexed** before deleting the old.
 :::
