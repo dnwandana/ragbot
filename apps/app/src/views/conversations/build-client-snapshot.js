@@ -1,6 +1,45 @@
 import { groupThreadMessages } from "./chat-thread-grouping.js"
 
 const UNTITLED = "Untitled conversation"
+const LEGACY_EXCERPT_CHARS = 500
+
+/** Removes the Markdown link, emphasis, code, and table syntax from a passage. */
+const toPlainText = (s) =>
+  s
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/\*\*(?=\S)(.+?)(?<=\S)\*\*/g, "$1")
+    .replace(/(?<!\w)__(?=\S)(.+?)(?<=\S)__(?!\w)/g, "$1")
+    .replace(/\*(?=\S)(.+?)(?<=\S)\*/g, "$1")
+    .replace(/(?<!\w)_(?=\S)(.+?)(?<=\S)_(?!\w)/g, "$1")
+    .replace(/`/g, "")
+    .replace(/\|/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+
+/**
+ * Returns the plain text of the cited passage.
+ * Keep this rule the same as passageText in apps/api/src/utils/conversation-snapshot.js.
+ * Valid offsets are integers with `0 <= start < end <= cited_text.length`. Without
+ * valid offsets (for example an old row), returns the first 500 characters of
+ * `cited_text` with no other change.
+ *
+ * @param {Object} citation - A citation row.
+ * @param {string} [citation.cited_text] - The full chunk text.
+ * @param {number|null} [citation.snippet_start_char] - The start of the passage (UTF-16 index).
+ * @param {number|null} [citation.snippet_end_char] - The end of the passage (UTF-16 index, exclusive).
+ * @returns {string} The passage as plain text, or the legacy excerpt.
+ */
+export const passageText = ({ cited_text, snippet_start_char: start, snippet_end_char: end }) => {
+  const text = cited_text ?? ""
+  const valid =
+    Number.isInteger(start) &&
+    Number.isInteger(end) &&
+    start >= 0 &&
+    start < end &&
+    end <= text.length
+  if (!valid) return text.slice(0, LEGACY_EXCERPT_CHARS)
+  return toPlainText(text.slice(start, end))
+}
 
 /**
  * Maps one citation row to the snapshot citation shape.
@@ -10,7 +49,7 @@ const UNTITLED = "Untitled conversation"
 const toCitation = (c) => ({
   n: c.citation_number,
   filename: c.filename || `Source ${c.citation_number}`,
-  cited_text: c.cited_text || "",
+  cited_text: passageText(c),
   relevance_score: c.relevance_score,
 })
 
