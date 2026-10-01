@@ -32,6 +32,7 @@ No pre-commit hooks. Run `npm run lint:fix && npm run format:fix` before you com
 - **Folders**: `dataset_files.folder_id` NULL means the dataset root. Every folder write and file move takes `lockDatasetTree(trx, datasetId)` first, so the cycle and name checks see a stable tree.
 - **Search input**: pass through `escapeIlike()` before an ILIKE query.
 - **Chat loop**: `openRouterMessages` is append-only. `CHAT_MAX_ITERATIONS` (default 10) bounds the loop, and the last iteration offers no tools.
+- **Citations**: one `createCitationRegistry()` numbers every chunk of a turn, so a tool search continues after the prompt excerpts. The API stores a row only for a `[n]` that the answer cites. `cited_text` is the full chunk, and `snippet_start_char`/`snippet_end_char` are UTF-16 offsets into it (null when no passage matched).
 - **Message finders**: `findVisibleByConversationId` feeds the model (input + final_answer only). `findThreadByConversationId` feeds the GET endpoint (adds thought + observation rows). Do not widen the first one.
 - **Sandbox client**: `executeCode()` never throws. Branch on `result.ok`. File `content` must be a Buffer. The sandbox has only `pandas`, `numpy`, `duckdb`, `pyarrow`, `openpyxl`, and no plotting library. Charts are Chart.js specs passed to `show_chart(spec)`. Keep the `execute_code` tool description in step with `sandbox/requirements.txt`.
 - **Tabular files**: the worker runs the server-owned `services/tabular/profile-script.py` in the sandbox and stores the result in `metadata.profile` before the embed pipeline.

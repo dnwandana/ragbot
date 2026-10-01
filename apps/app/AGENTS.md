@@ -26,6 +26,7 @@ npm test          # Vitest, jsdom
 - **Chat stream**: `useChat` probes `GET /auth/me` through the HTTP client before it opens the raw-fetch SSE stream, so a stale token refreshes first. `chart` SSE events go into `useChatStore().charts`.
 - **Reloaded threads**: `views/conversations/chat-thread-grouping.js` folds `thought` and `observation` rows into their assistant message, so a reload renders the same code cells and charts as the live stream.
 - **Markdown**: `useMarkdown().render()` sanitizes with DOMPurify and turns `[N]` into citation chips. `renderChunk()` renders document chunks without the citation extension.
+- **Citations**: the Sources panel renders `CitationExcerpt`, which marks `cited_text.slice(snippet_start_char, snippet_end_char)` with `markPassage()`. Never build HTML strings from chunk text; `markPassage()` creates nodes after DOMPurify.
 - **Time**: use `useFormattedTime` for absolute dates. It binds the signed-in user's saved timezone and falls back to UTC.
 - **Permissions**: `usePermissions().can(name)` reads `currentPermissions` from the workspaces store.
 - **Invitations**: `fetchMyInvitations` is a no-op stub. The backend list endpoint is not wired yet, so `/invitations` renders empty.
