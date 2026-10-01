@@ -79,7 +79,7 @@
             <X :size="16" />
           </button>
         </div>
-        <div class="chat-view__sources-list">
+        <div ref="sourcesListRef" class="chat-view__sources-list">
           <div v-for="group in activeSources" :key="group.title" class="chat-view__source-group">
             <div class="chat-view__source-group-header">
               <span class="chat-view__source-group-title">{{ group.title }}</span>
@@ -92,6 +92,7 @@
               v-for="citation in group.citations"
               :key="citation.n"
               class="chat-view__source-card"
+              :data-citation="citation.n"
               :class="{ 'chat-view__source-card--highlight': citation.n === highlightedN }"
             >
               <div class="chat-view__source-meta">
@@ -101,7 +102,11 @@
                 <span class="chat-view__source-num">[{{ citation.n }}]</span>
               </div>
               <div v-if="citation.cited_text" class="chat-view__source-excerpt">
-                <MarkdownRenderer :text="citation.cited_text" :citation-numbers="[]" />
+                <CitationExcerpt
+                  :text="citation.cited_text"
+                  :start="citation.start"
+                  :end="citation.end"
+                />
               </div>
             </div>
           </div>
@@ -131,7 +136,7 @@ import { useSuggestedPrompts } from "@/composables/useSuggestedPrompts"
 import { useFormattedTime } from "@/composables/useFormattedTime"
 import ChatThread from "@/components/chat/ChatThread.vue"
 import ChatComposer from "@/components/chat/ChatComposer.vue"
-import MarkdownRenderer from "@/components/chat/MarkdownRenderer.vue"
+import CitationExcerpt from "@/components/chat/CitationExcerpt.vue"
 import { relevanceLabel } from "@/components/chat/relevance.js"
 import { groupThreadMessages } from "./chat-thread-grouping.js"
 
@@ -298,6 +303,7 @@ function initPendingConfig() {
 // Local state
 const sourcesPanelOpen = ref(false)
 const highlightedN = ref(null)
+const sourcesListRef = ref(null)
 const activeMsgId = ref(null)
 // One-shot signal: the id of the conversation onSend just created. The watcher
 // consumes it to skip its abort/reset/refetch exactly once, so the optimistic
@@ -479,6 +485,8 @@ const activeSources = computed(() => {
       relevance: c.relevance_score,
       relevanceLabel: relevanceLabel(c.relevance_score),
       cited_text: c.cited_text || "",
+      start: c.snippet_start_char ?? null,
+      end: c.snippet_end_char ?? null,
     })
   }
   return Array.from(groupMap.entries()).map(([title, cits]) => ({ title, citations: cits }))
@@ -517,10 +525,16 @@ async function onSend(text) {
   await chat.sendMessage(text)
 }
 
-function onCite(msgId, n) {
+/** Opens the sources panel on citation n and scrolls its card into view. */
+async function onCite(msgId, n) {
   highlightedN.value = n
   activeMsgId.value = msgId
   sourcesPanelOpen.value = true
+  // The card renders only after the panel opens.
+  await nextTick()
+  sourcesListRef.value
+    ?.querySelector(`[data-citation="${n}"]`)
+    ?.scrollIntoView({ block: "nearest" })
 }
 
 function onOpenPanel(msgId) {

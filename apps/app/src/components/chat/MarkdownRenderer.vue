@@ -22,6 +22,11 @@ const props = defineProps({
    * shows no source list, so a marker would point at nothing.
    */
   stripCitations: { type: Boolean, default: false },
+  /**
+   * Changes the sanitized HTML before display. It gets HTML after DOMPurify,
+   * and must not add HTML from untrusted text.
+   */
+  transform: { type: Function, default: null },
 })
 
 const emit = defineEmits(["cite"])
@@ -34,6 +39,7 @@ const renderedHtml = computed(() => {
   if (!content) return ""
 
   let html = render(content, props.citationNumbers, { stripCitations: props.stripCitations })
+  if (props.transform) html = props.transform(html)
 
   // Append streaming cursor outside open code fences
   if (props.streaming) {
