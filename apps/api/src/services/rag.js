@@ -29,18 +29,19 @@ export const searchChunks = async ({ embedding, datasetIds, matchCount = 10, thr
  * context block. Returns the agent prompt unchanged when there are no chunks.
  *
  * @param {string} agentSystemPrompt - The agent's base system prompt.
- * @param {Object[]} chunks - Retrieved chunk rows (each with a `content` field).
+ * @param {Array<{ n: number, content: string }>} chunks - Retrieved chunk rows. The citation
+ *   registry of the turn must number them, so the prompt and the tool results use one number space.
  * @returns {string} The composed system message.
  */
 export const buildSystemMessage = (agentSystemPrompt, chunks) => {
   if (!chunks.length) return agentSystemPrompt
 
-  const contextBlock = chunks.map((c, i) => `[${i + 1}] ${c.content}`).join("\n\n")
+  const contextBlock = chunks.map((c) => `[${c.n}] ${c.content}`).join("\n\n")
 
   return `${agentSystemPrompt}
 
 <context>
-Use the following retrieved document excerpts to answer the user's question. Cite sources using [N] notation where N matches the excerpt number.
+Use the following retrieved document excerpts to answer the user's question. Cite sources with [N], where N is the excerpt number. This also applies to excerpts from search_knowledge_base results. Use one number in each bracket. For two sources, write [1][3].
 
 ${contextBlock}
 </context>`

@@ -72,24 +72,30 @@ const SEARCH_TOOL = {
  * Falls back to the user message when the model sends no query, so a
  * malformed tool call still returns context instead of an error.
  *
+ * The citation registry of the turn numbers the chunks, so the numbers continue
+ * after the excerpts in the system prompt. A chunk that the model saw before
+ * keeps its number.
+ *
  * @param {Object} args - Tool-call arguments (`query`).
- * @param {Object} context - The request context (`datasetIds`, `userContent`).
- * @returns {Promise<{ observation: Object, extra: Object }>} Excerpt text plus the raw chunk rows for citations.
+ * @param {Object} context - The request context (`datasetIds`, `userContent`, `citationRegistry`).
+ * @returns {Promise<{ observation: Object, extra: Object }>} Excerpt text plus the numbered chunk rows for citations.
  */
 const executeSearch = async (args, context) => {
   const query = args?.query || context.userContent || ""
 
   const embedding = await openrouterService.embedText(query, process.env.DEFAULT_EMBEDDINGS_MODEL)
 
-  const chunks = await ragService.searchChunks({
-    embedding,
-    datasetIds: context.datasetIds,
-    matchCount: 10,
-    threshold: 0.0,
-  })
+  const chunks = context.citationRegistry.register(
+    await ragService.searchChunks({
+      embedding,
+      datasetIds: context.datasetIds,
+      matchCount: 10,
+      threshold: 0.0,
+    }),
+  )
 
   const content = chunks.length
-    ? chunks.map((c, i) => `[${i + 1}] ${c.content.slice(0, 200)}`).join("\n")
+    ? chunks.map((c) => `[${c.n}] ${c.content}`).join("\n\n")
     : "No relevant documents found."
 
   return { observation: { content }, extra: { chunks } }

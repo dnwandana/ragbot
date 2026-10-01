@@ -8,6 +8,8 @@ const COLUMNS = [
   "citation_number",
   "relevance_score",
   "cited_text",
+  "snippet_start_char",
+  "snippet_end_char",
   "created_at",
 ]
 

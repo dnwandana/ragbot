@@ -13,6 +13,8 @@ import * as datasetFileModel from "../models/dataset-files.js"
 import * as openrouterService from "../services/openrouter.js"
 import * as ragService from "../services/rag.js"
 import { executeTool, getAvailableTools, sanitizeFileName } from "../services/chat-tools.js"
+import { createCitationRegistry } from "../services/citation-registry.js"
+import { buildCitationRows } from "../services/citation-rows.js"
 import { isSandboxEnabled } from "../services/sandbox.js"
 import { generateTitle } from "../services/title-generator.js"
 
@@ -160,13 +162,18 @@ async function runReActLoop({
     process.env.DEFAULT_EMBEDDINGS_MODEL,
   )
 
+  // One number space for the turn, so a tool search never reuses a number.
+  const citationRegistry = createCitationRegistry()
+
   // 2. Initial RAG search
-  let chunks = await ragService.searchChunks({
-    embedding: queryEmbedding,
-    datasetIds,
-    matchCount: 10,
-    threshold: 0.0,
-  })
+  const initialChunks = citationRegistry.register(
+    await ragService.searchChunks({
+      embedding: queryEmbedding,
+      datasetIds,
+      matchCount: 10,
+      threshold: 0.0,
+    }),
+  )
 
   // 3. Build conversation history (only visible messages)
   const history = await messageModel.findVisibleByConversationId(conversation.id)
@@ -185,7 +192,8 @@ async function runReActLoop({
       : []
 
   const systemContent =
-    ragService.buildSystemMessage(agent.system_prompt, chunks) + buildDataFilesSection(tabularFiles)
+    ragService.buildSystemMessage(agent.system_prompt, initialChunks) +
+    buildDataFilesSection(tabularFiles)
 
   // One append-only message array for the whole run: every tool turn is pushed
   // onto it, so the model keeps seeing all earlier tool calls and observations.
@@ -202,6 +210,7 @@ async function runReActLoop({
     conversation,
     userContent,
     tabularFiles,
+    citationRegistry,
   }
 
   let finalContent = ""
@@ -283,9 +292,6 @@ async function runReActLoop({
 
       const { observation, extra } = await executeTool(toolCall.name, args, toolContext)
 
-      // Citations follow the newest search result the model was shown.
-      if (extra?.chunks) chunks = extra.chunks
-
       const observationContent = observation?.content ?? JSON.stringify(observation)
 
       // Charts ride alongside the observation for the UI; the model never sees them.
@@ -359,18 +365,13 @@ async function runReActLoop({
     created_at: new Date(),
   })
 
-  // Store a citation for every retrieved chunk the model was shown, so each [n]
-  // marker in the reply resolves to a source (bulkInsert is a no-op on []).
-  const citations = chunks.map((chunk, i) => ({
-    id: crypto.randomUUID(),
-    message_id: finalMessageId,
-    workspace_id: conversation.workspace_id,
-    chunk_id: chunk.chunk_id || null,
-    citation_number: i + 1,
-    relevance_score: chunk.similarity ? parseFloat(chunk.similarity) : null,
-    cited_text: chunk.content?.slice(0, 500) || "",
-    created_at: new Date(),
-  }))
+  // Store a citation only for a number that the answer cites and the registry knows.
+  const citations = buildCitationRows({
+    answer: finalContent,
+    registry: citationRegistry,
+    messageId: finalMessageId,
+    workspaceId: conversation.workspace_id,
+  })
 
   await citationModel.bulkInsert(citations)
   citations.forEach((c) =>
@@ -379,6 +380,8 @@ async function runReActLoop({
       chunk_id: c.chunk_id,
       relevance_score: c.relevance_score,
       cited_text: c.cited_text,
+      snippet_start_char: c.snippet_start_char,
+      snippet_end_char: c.snippet_end_char,
     }),
   )
 
