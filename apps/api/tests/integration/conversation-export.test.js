@@ -97,4 +97,28 @@ describe("GET /export", () => {
       .set(await getAuthHeaders(stranger.id))
     expect(res.status).toBe(404)
   })
+  it("writes only the cited passage for each source", async () => {
+    const user = await createTestUser()
+    const ws = await createTestWorkspace(user.id)
+    const { path, headers } = await seedExport(user, ws)
+    const answer = await db("conversation_messages").where({ step_type: "final_answer" }).first()
+    const text = "Intro text.\n\n| APAC | $4.10M | +12.0% |"
+    const row = "| APAC | $4.10M | +12.0% |"
+    await db("conversation_message_citations").insert({
+      message_id: answer.id,
+      workspace_id: ws.id,
+      chunk_id: null,
+      citation_number: 6,
+      relevance_score: 0.8,
+      cited_text: text,
+      snippet_start_char: text.indexOf(row),
+      snippet_end_char: text.indexOf(row) + row.length,
+      created_at: new Date(),
+    })
+
+    const res = await (await request()).get(`${path}?format=markdown`).set(headers)
+    expect(res.status).toBe(200)
+    expect(res.text).toContain('- **[6] Source 6** — "APAC $4.10M +12.0%"')
+    expect(res.text).not.toContain("Intro text.")
+  })
 })

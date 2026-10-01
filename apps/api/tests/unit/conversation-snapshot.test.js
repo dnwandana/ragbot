@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest"
 import {
   buildSnapshot,
+  passageText,
   renderMarkdown,
   titleToFilename,
   MAX_SNAPSHOT_BYTES,
@@ -105,12 +106,68 @@ describe("renderMarkdown", () => {
     expect(md).toContain("## You\n\nWhich region grew?")
     expect(md).toContain("## Sales analyst\n\nAPAC grew fastest [1]")
     expect(md).toContain("```json\n" + JSON.stringify(chart, null, 2) + "\n```")
-    expect(md).toContain('### Sources\n\n1. **sales.csv** — "region, revenue"')
+    expect(md).toContain('### Sources\n\n- **[1] sales.csv** — "region, revenue"')
   })
 
   it("omits the Sources heading when an answer has no citations", () => {
     const md = renderMarkdown(buildSnapshot({ ...input, citations: [] }))
     expect(md).not.toContain("### Sources")
+  })
+})
+
+/** Builds a citation whose offsets select `passage` in `text`. */
+const withPassage = (text, passage) => ({
+  cited_text: text,
+  snippet_start_char: text.indexOf(passage),
+  snippet_end_char: text.indexOf(passage) + passage.length,
+})
+
+describe("passageText", () => {
+  it("returns a table row as plain cells", () => {
+    const row = "| Japan | 2.05M | 2.32M | +13.2% | 61% |"
+    expect(passageText(withPassage(`| Country | Q1 |\n${row}`, row))).toBe(
+      "Japan 2.05M 2.32M +13.2% 61%",
+    )
+  })
+
+  it("removes bold, emphasis, code, and link syntax", () => {
+    const s = "APAC revenue increased **12%** to `$4.1M`."
+    expect(passageText(withPassage(`Intro. ${s}`, s))).toBe("APAC revenue increased 12% to $4.1M.")
+    const note = "*Note:* Japan grew, see [the export](https://x.io)."
+    expect(passageText(withPassage(note, note))).toBe("Note: Japan grew, see the export.")
+  })
+
+  it("keeps underscores in snake_case names", () => {
+    const s = "Use workspace_id and dataset_id."
+    expect(passageText(withPassage(s, s))).toBe(s)
+    expect(passageText(withPassage("a_b_c", "a_b_c"))).toBe("a_b_c")
+  })
+
+  it("keeps a lone asterisk with spaces on both sides", () => {
+    const s = "2 * 3 * 4"
+    expect(passageText(withPassage(s, s))).toBe(s)
+  })
+
+  it("removes underscore emphasis at word boundaries", () => {
+    const s = "_Note_ and __bold__"
+    expect(passageText(withPassage(s, s))).toBe("Note and bold")
+  })
+
+  it("falls back to the first 500 characters without valid offsets", () => {
+    const text = "A".repeat(600)
+    expect(
+      passageText({ cited_text: text, snippet_start_char: null, snippet_end_char: null }),
+    ).toBe("A".repeat(500))
+    expect(passageText({ cited_text: "Short.", snippet_start_char: 4, snippet_end_char: 99 })).toBe(
+      "Short.",
+    )
+    expect(passageText({ cited_text: "Short.", snippet_start_char: 3, snippet_end_char: 3 })).toBe(
+      "Short.",
+    )
+  })
+
+  it("returns an empty string for a missing cited_text", () => {
+    expect(passageText({})).toBe("")
   })
 })
 

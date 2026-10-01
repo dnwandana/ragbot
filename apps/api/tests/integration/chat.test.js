@@ -121,9 +121,9 @@ const toolCallStream = (id) => {
   })
 }
 
-const finalAnswerStream = () => {
+const finalAnswerStream = (content = "Here is the answer [1].") => {
   const sseChunks = [
-    `data: ${JSON.stringify({ choices: [{ delta: { content: "Here is the answer [1]." }, finish_reason: null }] })}\n\n`,
+    `data: ${JSON.stringify({ choices: [{ delta: { content }, finish_reason: null }] })}\n\n`,
     `data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: "stop" }], usage: { prompt_tokens: 50, completion_tokens: 10, total_tokens: 60 } })}\n\n`,
     "data: [DONE]\n\n",
   ]
@@ -428,95 +428,114 @@ describe("POST .../messages — ReAct tool-call + citation linkage", () => {
     expect(citations).toHaveLength(1)
     expect(citations[0].chunk_id).toBe(chunkId)
   })
+})
 
-  it("persists a citation for every retrieved chunk (no 5-citation cap)", async () => {
-    // Model is shown up to matchCount (10) chunks; all must be persisted so that
-    // every [n] marker in the reply resolves to a source in the drawer.
-    const user = await createTestUser()
-    const ws = await createTestWorkspace(user.id)
+describe("POST .../messages — cited-only citations", () => {
+  // (dataset_file_id, chunk_index) is unique, so each seeded chunk takes the next index.
+  let nextChunkIndex = 100
 
-    const agentsRes = await (await request())
-      .get(`/api/workspaces/${ws.id}/agents`)
-      .set(await getAuthHeaders(user.id))
-    const agentId = agentsRes.body.data.find((a) => a.is_system).id
-
-    // Create a dataset + file so we can insert real chunks. Each citation needs a
-    // distinct, non-null chunk_id: UNIQUE (message_id, chunk_id) plus a partial
-    // unique index on (message_id) WHERE chunk_id IS NULL (at most one null per
-    // message) together rule out repeated or null chunk references on one message.
-    const dsRes = await (
-      await request()
-    )
-      .post(`/api/workspaces/${ws.id}/datasets`)
-      .set(await getAuthHeaders(user.id))
-      .send({ name: "Cap Test" })
-    const datasetId = dsRes.body.data.id
-
-    const fileId = crypto.randomUUID()
-    await db("dataset_files").insert({
-      id: fileId,
-      dataset_id: datasetId,
-      workspace_id: ws.id,
-      filename: "doc.pdf",
-      mime_type: "application/pdf",
-      file_size_bytes: 100,
-      storage_provider: "r2",
-      storage_path: "doc/file.pdf",
-      status: "completed",
-      metadata: JSON.stringify({}),
-      created_at: new Date(),
-      updated_at: new Date(),
-    })
-
-    const chunkIds = await Promise.all(
-      Array.from({ length: 7 }, async (_, i) => {
+  /** Inserts n chunks for the file and returns search rows for them. */
+  const seedChunks = async ({ datasetId, fileId }, contents, similarity = 0.8) =>
+    Promise.all(
+      contents.map(async (content) => {
         const id = crypto.randomUUID()
+        const chunk_index = nextChunkIndex++
         await db("dataset_file_chunks").insert({
           id,
           dataset_file_id: fileId,
-          content: `Chunk ${i + 1} content about the topic.`,
-          chunk_index: i,
+          content,
+          chunk_index,
           created_at: new Date(),
         })
-        return id
+        return {
+          chunk_id: id,
+          content,
+          similarity,
+          dataset_id: datasetId,
+          file_id: fileId,
+          filename: "doc.pdf",
+          chunk_index,
+        }
       }),
     )
 
-    const convRes = await (
-      await request()
+  it("stores only cited rows, with tool numbers, offsets, and a score", async () => {
+    const ctx = await setupConversationWithDataset()
+    const initial = await seedChunks(
+      ctx,
+      Array.from({ length: 10 }, (_, i) => `Filler text number ${i + 1}.`),
     )
-      .post(`/api/workspaces/${ws.id}/conversations`)
-      .set(await getAuthHeaders(user.id))
-      .send({ agent_id: agentId, dataset_ids: [datasetId] })
-    const conversation = convRes.body.data
-
-    ragService.searchChunks.mockResolvedValue(
-      chunkIds.map((chunk_id, i) => ({
-        chunk_id,
-        content: `Chunk ${i + 1} content about the topic.`,
-        similarity: 0.9 - i * 0.05,
-        dataset_id: datasetId,
-        file_id: fileId,
-        filename: "doc.pdf",
-        chunk_index: i,
-      })),
+    initial[1].content = "Intro. Gross margin held at 71% in Q2. Outro."
+    await db("dataset_file_chunks")
+      .where({ id: initial[1].chunk_id })
+      .update({ content: initial[1].content })
+    const [tool] = await seedChunks(
+      ctx,
+      ["Header. APAC revenue increased 12% to $4.1M. Footer."],
+      null,
     )
+    ragService.searchChunks.mockResolvedValueOnce(initial).mockResolvedValueOnce([tool])
+    openrouterService.chatCompletionStream
+      .mockImplementationOnce(async () => toolCallStream("call_1"))
+      .mockImplementationOnce(async () =>
+        finalAnswerStream(
+          "Margin held at 71% [2]. APAC revenue grew 12% to $4.1M [11]. Unknown [40].",
+        ),
+      )
 
-    const res = await (
-      await request()
-    )
-      .post(`/api/workspaces/${ws.id}/conversations/${conversation.id}/messages`)
-      .set({ ...(await getAuthHeaders(user.id)), Accept: "application/json" })
-      .send({ content: "Tell me everything, citing as many sources as possible" })
-
+    const res = await postChatMessage({ ...ctx, content: "How did Q2 go?" })
     expect(res.status).toBe(200)
 
-    const citations = await db("conversation_message_citations")
+    const rows = await db("conversation_message_citations")
       .where({ message_id: res.body.data.message_id })
       .orderBy("citation_number")
+    expect(rows.map((r) => r.citation_number)).toEqual([2, 11])
+    expect(rows[1].chunk_id).toBe(tool.chunk_id)
+    expect(rows[1].cited_text).toBe(tool.content)
+    expect(rows[1].cited_text.slice(rows[1].snippet_start_char, rows[1].snippet_end_char)).toBe(
+      "APAC revenue increased 12% to $4.1M.",
+    )
+    expect(rows[1].relevance_score).toBe(0)
+    expect(rows[0].relevance_score).toBeCloseTo(0.8)
 
-    expect(citations).toHaveLength(7)
-    expect(citations.map((c) => c.citation_number)).toEqual([1, 2, 3, 4, 5, 6, 7])
+    const events = res.body.data.events.filter((e) => e.event === "citation")
+    expect(events.map((e) => e.data.citation_number)).toEqual([2, 11])
+    expect(events[1].data).toMatchObject({
+      snippet_start_char: rows[1].snippet_start_char,
+      snippet_end_char: rows[1].snippet_end_char,
+    })
+  })
+
+  it("stores no rows when the answer cites nothing", async () => {
+    const ctx = await setupConversationWithDataset()
+    ragService.searchChunks.mockResolvedValue(await seedChunks(ctx, ["Some text."]))
+    openrouterService.chatCompletionStream.mockImplementationOnce(async () =>
+      finalAnswerStream("No markers here."),
+    )
+    const res = await postChatMessage({ ...ctx, content: "Hi" })
+    const rows = await db("conversation_message_citations").where({
+      message_id: res.body.data.message_id,
+    })
+    expect(rows).toEqual([])
+  })
+
+  it("returns the offsets on the conversation detail", async () => {
+    const ctx = await setupConversationWithDataset()
+    ragService.searchChunks.mockResolvedValue(
+      await seedChunks(ctx, ["Intro. Japan grew 13% in April."]),
+    )
+    openrouterService.chatCompletionStream.mockImplementationOnce(async () =>
+      finalAnswerStream("Japan grew 13% [1]."),
+    )
+    await postChatMessage({ ...ctx, content: "Japan?" })
+
+    const detail = await (await request())
+      .get(`/api/workspaces/${ctx.ws.id}/conversations/${ctx.conversation.id}`)
+      .set(await getAuthHeaders(ctx.user.id))
+    const [c] = detail.body.data.citations
+    expect(c.cited_text.slice(c.snippet_start_char, c.snippet_end_char)).toBe(
+      "Japan grew 13% in April.",
+    )
   })
 })
 
@@ -547,6 +566,47 @@ describe("POST .../messages — ReAct loop mechanics", () => {
     expect(assistantTurn.tool_calls[0].id).toBe("call_1")
     expect(assistantTurn.tool_calls[0].function.name).toBe("search_knowledge_base")
     expect(toolTurn.tool_call_id).toBe("call_1")
+  })
+
+  it("numbers a tool search after the initial chunks, and keeps a repeated chunk", async () => {
+    const { user, ws, conversation, datasetId, fileId, chunkId } =
+      await setupConversationWithDataset()
+    const secondId = crypto.randomUUID()
+    await db("dataset_file_chunks").insert({
+      id: secondId,
+      dataset_file_id: fileId,
+      content: "Second excerpt.",
+      chunk_index: 1,
+      created_at: new Date(),
+    })
+    const row = (chunk_id, content) => ({
+      chunk_id,
+      content,
+      similarity: 0.9,
+      dataset_id: datasetId,
+      file_id: fileId,
+      filename: "doc.pdf",
+      chunk_index: 0,
+    })
+    ragService.searchChunks
+      .mockResolvedValueOnce([row(chunkId, "Relevant excerpt about the topic.")])
+      .mockResolvedValueOnce([
+        row(chunkId, "Relevant excerpt about the topic."),
+        row(secondId, "Second excerpt."),
+      ])
+    scriptToolCallsThenAnswer("call_1")
+
+    const res = await postChatMessage({ user, ws, conversation, content: "what is our revenue?" })
+    expect(res.status).toBe(200)
+
+    const [firstMessages] = openrouterService.chatCompletionStream.mock.calls[0]
+    expect(firstMessages[0].content).toContain("[1] Relevant excerpt about the topic.")
+    const toolTurn = openrouterService.chatCompletionStream.mock.calls[1][0].find(
+      (m) => m.role === "tool",
+    )
+    expect(JSON.parse(toolTurn.content).content).toBe(
+      "[1] Relevant excerpt about the topic.\n\n[2] Second excerpt.",
+    )
   })
 
   it("keeps every prior tool turn across two tool calls", async () => {
