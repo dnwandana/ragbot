@@ -6558,7 +6558,7 @@
       },
       "ChatEvent": {
         "type": "object",
-        "description": "A single event in the JSON-mode chat response. Payloads by event type: token → {text:string}, thought → {text:string}, observation → {text:string}, citation → {chunk_id,citation_number,cited_text,filename,relevance_score}, done → {message_id,prompt_tokens,completion_tokens,latency_ms}",
+        "description": "A single event in the JSON-mode chat response. Payloads by event type: token → {text:string}, thought → {text:string}, observation → {text:string}, citation → {citation_number,chunk_id,relevance_score,cited_text,snippet_start_char,snippet_end_char}, done → {message_id,prompt_tokens,completion_tokens,latency_ms}",
         "properties": {
           "event": {
             "type": "string",
@@ -6590,8 +6590,8 @@
       },
       "SseStream": {
         "type": "string",
-        "description": "Returned when Accept: text/event-stream. The connection streams standard SSE frames until the done event closes it.\n\nEvent types and payloads:\n- token: {\"text\":\"...\"} — append to UI response\n- thought: {\"text\":\"...\"} — internal ReAct reasoning (show in collapsible)\n- observation: {\"text\":\"...\"} — RAG search result summary\n- citation: {\"chunk_id\":\"uuid\",\"citation_number\":1,\"cited_text\":\"...\",\"filename\":\"doc.pdf\",\"relevance_score\":0.91}\n- done: {\"message_id\":\"uuid\",\"prompt_tokens\":312,\"completion_tokens\":88,\"latency_ms\":1420}",
-        "example": "event: thought\ndata: {\"text\":\"I need to search the dataset.\"}\n\nevent: citation\ndata: {\"chunk_id\":\"...\",\"citation_number\":1,\"cited_text\":\"...\",\"filename\":\"doc.pdf\",\"relevance_score\":0.91}\n\nevent: token\ndata: {\"text\":\"Based on the document, \"}\n\nevent: done\ndata: {\"message_id\":\"...\",\"prompt_tokens\":312,\"completion_tokens\":88,\"latency_ms\":1420}"
+        "description": "Returned when Accept: text/event-stream. The connection streams standard SSE frames until the done event closes it.\n\nEvent types and payloads:\n- token: {\"text\":\"...\"} — append to UI response\n- thought: {\"text\":\"...\"} — internal ReAct reasoning (show in collapsible)\n- observation: {\"text\":\"...\"} — RAG search result summary\n- citation: {\"citation_number\":1,\"chunk_id\":\"uuid\",\"relevance_score\":0.91,\"cited_text\":\"...\",\"snippet_start_char\":120,\"snippet_end_char\":184} — the snippet offsets are UTF-16 indices into cited_text (end exclusive), or null when no passage matched\n- done: {\"message_id\":\"uuid\",\"prompt_tokens\":312,\"completion_tokens\":88,\"latency_ms\":1420}",
+        "example": "event: thought\ndata: {\"text\":\"I need to search the dataset.\"}\n\nevent: citation\ndata: {\"citation_number\":1,\"chunk_id\":\"...\",\"relevance_score\":0.91,\"cited_text\":\"...\",\"snippet_start_char\":120,\"snippet_end_char\":184}\n\nevent: token\ndata: {\"text\":\"Based on the document, \"}\n\nevent: done\ndata: {\"message_id\":\"...\",\"prompt_tokens\":312,\"completion_tokens\":88,\"latency_ms\":1420}"
       },
       "Session": {
         "type": "object",
