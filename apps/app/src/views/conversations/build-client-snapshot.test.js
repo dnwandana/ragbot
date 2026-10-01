@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { buildClientSnapshot } from "./build-client-snapshot.js"
+import { buildClientSnapshot, passageText } from "./build-client-snapshot.js"
 
 const chart = { type: "bar", data: { labels: ["APAC"], datasets: [{ data: [3] }] } }
 const conversation = {
@@ -99,4 +99,77 @@ describe("buildClientSnapshot", () => {
     expect(snap.workspace_name).toBe("")
     expect(snap.agent_name).toBe("")
   })
+})
+
+describe("passageText", () => {
+  const at = (text, passage) => ({
+    cited_text: text,
+    snippet_start_char: text.indexOf(passage),
+    snippet_end_char: text.indexOf(passage) + passage.length,
+  })
+
+  it("returns a table row as plain cells", () => {
+    const row = "| Japan | 2.05M | 2.32M | +13.2% | 61% |"
+    expect(passageText(at(`| Country | Q1 |\n${row}`, row))).toBe("Japan 2.05M 2.32M +13.2% 61%")
+  })
+
+  it("removes bold, emphasis, code, and link syntax", () => {
+    const s = "APAC revenue increased **12%** to `$4.1M`."
+    expect(passageText(at(`Intro. ${s}`, s))).toBe("APAC revenue increased 12% to $4.1M.")
+    const note = "*Note:* Japan grew, see [the export](https://x.io)."
+    expect(passageText(at(note, note))).toBe("Note: Japan grew, see the export.")
+  })
+
+  it("keeps underscores inside snake_case words", () => {
+    const s = "Use workspace_id and dataset_id."
+    expect(passageText(at(s, s))).toBe(s)
+    expect(passageText(at("a_b_c", "a_b_c"))).toBe("a_b_c")
+  })
+
+  it("keeps a single * that has a space on each side", () => {
+    expect(passageText(at("2 * 3 * 4", "2 * 3 * 4"))).toBe("2 * 3 * 4")
+  })
+
+  it("removes underscore emphasis and underscore bold", () => {
+    const s = "_Note_ and __bold__"
+    expect(passageText(at(s, s))).toBe("Note and bold")
+  })
+
+  it("falls back to the first 500 characters without valid offsets", () => {
+    const text = "A".repeat(600)
+    expect(
+      passageText({ cited_text: text, snippet_start_char: null, snippet_end_char: null }),
+    ).toBe("A".repeat(500))
+    expect(passageText({ cited_text: "Short.", snippet_start_char: 4, snippet_end_char: 99 })).toBe(
+      "Short.",
+    )
+  })
+
+  it("returns an empty string for a missing cited_text", () => {
+    expect(passageText({})).toBe("")
+  })
+})
+
+it("maps a citation with offsets to its passage", () => {
+  const text = "Intro text. Japan grew 13%."
+  const snap = buildClientSnapshot(
+    {
+      ...conversation,
+      citations: [
+        {
+          message_id: "m4",
+          citation_number: 6,
+          relevance_score: 0.8,
+          cited_text: text,
+          filename: "a.xlsx",
+          snippet_start_char: 12,
+          snippet_end_char: 27,
+        },
+      ],
+    },
+    opts,
+  )
+  expect(snap.messages[1].citations).toEqual([
+    { n: 6, filename: "a.xlsx", cited_text: "Japan grew 13%.", relevance_score: 0.8 },
+  ])
 })

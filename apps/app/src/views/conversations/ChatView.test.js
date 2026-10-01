@@ -108,7 +108,13 @@ import { getDataset } from "@/api/datasets"
 import ChatView from "@/views/conversations/ChatView.vue"
 import { groupThreadMessages } from "./chat-thread-grouping.js"
 
-const STUBS = { ChatThread: true, ChatComposer: true, MarkdownRenderer: true, ShareDialog: true }
+const STUBS = {
+  ChatThread: true,
+  ChatComposer: true,
+  MarkdownRenderer: true,
+  ShareDialog: true,
+  CitationExcerpt: true,
+}
 
 /**
  * Mount ChatView, let onMounted's async fetches settle, then clear all spy
@@ -388,5 +394,64 @@ describe("ChatView — share and export actions", () => {
       "noopener",
     )
     vi.unstubAllGlobals()
+  })
+})
+
+describe("ChatView — sources panel", () => {
+  // jsdom has no scrollIntoView. Each test gets a stub, so a test can run alone.
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn()
+  })
+  afterEach(() => {
+    delete Element.prototype.scrollIntoView
+  })
+
+  const citation = (n, extra = {}) => ({
+    message_id: "m1",
+    citation_number: n,
+    filename: "apac.xlsx",
+    relevance_score: 0.8,
+    cited_text: "Intro. Japan grew 13%.",
+    snippet_start_char: 7,
+    snippet_end_char: 22,
+    ...extra,
+  })
+
+  const openChat = async (citations) => {
+    route.name = "Chat"
+    route.params = { workspaceId: "ws1", conversationId: "c1" }
+    conversationsStore.currentConversation = { id: "c1", dataset_ids: [], messages: [], citations }
+    const wrapper = mount(ChatView, { global: { stubs: STUBS }, attachTo: document.body })
+    await flushPromises()
+    return wrapper
+  }
+
+  it("scrolls the cited card into view when a chip is clicked", async () => {
+    const scrollIntoView = vi.fn()
+    Element.prototype.scrollIntoView = scrollIntoView
+    const wrapper = await openChat([citation(1), citation(12)])
+
+    await wrapper.vm.onCite("m1", 12)
+    await flushPromises()
+
+    const card = wrapper.find('[data-citation="12"]')
+    expect(card.classes()).toContain("chat-view__source-card--highlight")
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" })
+    expect(scrollIntoView.mock.contexts[0]).toBe(card.element)
+    wrapper.unmount()
+  })
+
+  it("passes the text and the offsets to CitationExcerpt", async () => {
+    const wrapper = await openChat([
+      citation(1),
+      citation(2, { snippet_start_char: null, snippet_end_char: null }),
+    ])
+    await wrapper.vm.onCite("m1", 1)
+    await flushPromises()
+
+    const excerpts = wrapper.findAllComponents({ name: "CitationExcerpt" })
+    expect(excerpts[0].props()).toMatchObject({ text: "Intro. Japan grew 13%.", start: 7, end: 22 })
+    expect(excerpts[1].props()).toMatchObject({ start: null, end: null })
+    wrapper.unmount()
   })
 })
