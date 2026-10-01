@@ -7,6 +7,39 @@ description: What's new in RAGBot — new features and improvements by version.
 
 What's new in RAGBot. The newest release is listed first.
 
+## 1.8.0 — 1 October 2026
+
+Citations are now more precise. Each source in the sources panel highlights
+the passage that supports the answer, and the panel shows only the sources
+that the answer cites.
+
+### New
+
+**Highlighted passages**
+
+- Each source in the sources panel marks the passage that supports the
+  claim, with some text before and after it. Choose **Show full excerpt** to
+  read the full excerpt, and **Show less** to go back. See
+  [Read answers and their cited sources](/concepts/chatting#read-answers-and-their-cited-sources).
+- When you select a citation number in an answer, the sources panel now
+  scrolls to that source.
+
+### Improvements
+
+- The sources panel shows only the sources that the answer cites. Before, it
+  also showed passages that the agent found but did not use.
+- A shared link, a Markdown export, and a PDF export show only the cited
+  passage of each source, as plain text. Before, they showed the first 500
+  characters of the passage.
+- The agent now reads the full text of each search result. Before, it saw
+  only the first 200 characters.
+
+### Fixes
+
+- When the agent searches more than one time in one answer, each citation
+  number now points to the correct source. Before, a new search started again
+  at 1, so a number could point to a different source.
+
 ## 1.7.0 — 28 September 2026
 
 Datasets can now hold folders. Put your sources in folders and subfolders,
